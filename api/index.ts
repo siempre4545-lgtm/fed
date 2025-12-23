@@ -1,0 +1,1167 @@
+import express from "express";
+import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept } from "../src/h41.js";
+import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
+import { fetchEconomicNews } from "../src/news.js";
+
+const app = express();
+
+// API: JSON
+app.get("/api/h41", async (_req, res) => {
+  try {
+    const report = await fetchH41Report();
+    res.json(report);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// API: 텍스트(알림용)
+app.get("/api/h41.txt", async (_req, res) => {
+  try {
+    const report = await fetchH41Report();
+    res.setHeader("content-type", "text/plain; charset=utf-8");
+    res.send(toKoreanDigest(report));
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// UI: 개선된 대시보드
+app.get("/", async (req, res) => {
+  try {
+    // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    // 경제 지표 수집 및 진단
+    let economicStatus = null;
+    try {
+      const indicators = await fetchAllEconomicIndicators();
+      economicStatus = diagnoseEconomicStatus(indicators);
+    } catch (e) {
+      console.error("Failed to fetch economic indicators:", e);
+    }
+    
+    // 거시경제 뉴스 가져오기
+    let economicNews: Array<{ title: string; source: string; publishedAt: string }> = [];
+    try {
+      economicNews = await fetchEconomicNews();
+    } catch (e) {
+      console.error("Failed to fetch economic news:", e);
+    }
+    
+    const levelText = ["안정", "주의", "경계", "위험"][report.warningLevel];
+    const levelColors = ["#22c55e", "#f59e0b", "#f97316", "#ef4444"];
+    
+    // 신호등 색상 및 상태
+    const trafficLightColor = economicStatus 
+      ? (economicStatus.status === "green" ? "#22c55e" : economicStatus.status === "yellow" ? "#f59e0b" : "#ef4444")
+      : "#808080";
+    const trafficLightText = economicStatus
+      ? (economicStatus.status === "green" ? "양호" : economicStatus.status === "yellow" ? "주의" : "위험")
+      : "데이터 없음";
+
+    // 상단 고정 영역: 경고 레벨 + 가이드 + 청팀/백팀
+    const headerSection = `
+    <div class="warning-header" style="border-left: 4px solid ${levelColors[report.warningLevel]}">
+      <div class="warning-level">
+        <span class="level-badge" style="background: ${levelColors[report.warningLevel]}">LEVEL ${report.warningLevel}</span>
+        <span class="level-text">${levelText}</span>
+        <a href="/levels" class="level-info-link">ℹ️ 레벨 설명 보기</a>
+      </div>
+      <div class="asset-guidance">${escapeHtml(report.assetGuidance).replace(/\n/g, "<br/>")}</div>
+      <div class="team-signal">
+        <div class="signal-summary">${escapeHtml(report.teamSignal.summary)}</div>
+        <div class="signal-detail">
+          <span class="blue-team">청팀: ${escapeHtml(report.teamSignal.blueTeam)}</span>
+          <span class="white-team">백팀: ${escapeHtml(report.teamSignal.whiteTeam)}</span>
+        </div>
+      </div>
+    </div>`;
+
+    // 핵심 6개 카드 (클릭 시 확장)
+    const cardsHtml = report.coreCards.map((c, idx) => {
+      const chSign = c.change_okeusd > 0 ? "+" : c.change_okeusd < 0 ? "-" : "";
+      const chColor = c.change_okeusd > 0 ? "#ff6b6b" : c.change_okeusd < 0 ? "#51cf66" : "#adb5bd";
+      
+      return `
+      <div class="card" data-card-id="${idx}">
+        <div class="card-header" onclick="toggleCard(${idx})">
+          <div class="k">${c.key}</div>
+          <div class="t">${escapeHtml(c.title)}</div>
+          <div class="expand-icon">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="m">
+            <div><b>잔액</b> : <span class="highlight-number">$${c.balance_okeusd.toFixed(1)}억</span></div>
+            <div><b>변동</b> : <span style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</span></div>
+            <div class="tag">${escapeHtml(c.liquidityTag)}</div>
+            <div class="data-date">데이터 기준: ${escapeHtml(c.dataDate)}</div>
+          </div>
+          <div class="card-expanded" id="card-${idx}">
+            <div class="expanded-section">
+              <div class="expanded-label">지난주 대비</div>
+              <div class="expanded-value" style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</div>
+            </div>
+            <div class="i">
+              <div class="interpretation-label">해석</div>
+              <div class="interpretation-text">${(() => {
+                const parts = escapeHtml(c.interpretation).split("\n");
+                if (parts.length > 0) {
+                  // 첫 번째 줄은 머릿말 (볼드 처리)
+                  const headline = parts[0].trim();
+                  // 나머지는 본문 (전체 표시, 잘리지 않음)
+                  const body = parts.slice(1).filter(p => p.trim()).join("<br/>");
+                  return `<div class="interpretation-headline"><strong>${headline}</strong></div><div class="interpretation-body">${body}</div>`;
+                }
+                return escapeHtml(c.interpretation).replace(/\n/g, "<br/>");
+              })()}</div>
+            </div>
+          </div>
+        </div>
+        <div class="s">${escapeHtml(c.fedLabel)}</div>
+      </div>`;
+    }).join("\n");
+
+    // 종합 QT/QE 평가 계산
+    const securities = report.coreCards.find(c => c.fedLabel === "Securities held outright");
+    const reserves = report.coreCards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks");
+    const tga = report.coreCards.find(c => c.fedLabel === "U.S. Treasury, General Account");
+    const rrp = report.coreCards.find(c => c.fedLabel === "Reverse repurchase agreements");
+    const repo = report.coreCards.find(c => c.fedLabel === "Repurchase agreements");
+    const primaryCredit = report.coreCards.find(c => c.fedLabel === "Primary credit");
+
+    let qtScore = 0;
+    let qeScore = 0;
+
+    if (securities) {
+      if (securities.change_musd < -20000) qtScore += 2;
+      else if (securities.change_musd < -5000) qtScore += 1;
+      else if (securities.change_musd > 20000) qeScore += 2;
+      else if (securities.change_musd > 5000) qeScore += 1;
+    }
+
+    if (reserves) {
+      if (reserves.change_musd < -50000) qtScore += 1;
+      else if (reserves.change_musd > 50000) qeScore += 1;
+    }
+
+    if (tga && tga.change_musd > 50000) qtScore += 1;
+    if (rrp && rrp.change_musd > 30000) qtScore += 1;
+    if (repo && repo.change_musd > 10000) qeScore += 1;
+    if (primaryCredit && primaryCredit.change_musd > 5000) qeScore += 1;
+
+    let overallSignal: "QT" | "QE" | "중립" = "중립";
+    let signalColor = "#adb5bd";
+    let signalText = "중립";
+    
+    if (qtScore > qeScore && qtScore >= 2) {
+      overallSignal = "QT";
+      signalColor = "#ff6b6b";
+      signalText = "양적긴축(QT)";
+    } else if (qeScore > qtScore && qeScore >= 2) {
+      overallSignal = "QE";
+      signalColor = "#51cf66";
+      signalText = "양적완화(QE)";
+    }
+
+    // 종합 QT/QE 평가 상세 설명 생성
+    let qtQeAnalysis = "";
+    if (overallSignal === "QT") {
+      const securitiesChange = securities ? securities.change_okeusd : 0;
+      const reservesChange = reserves ? reserves.change_okeusd : 0;
+      qtQeAnalysis = `
+        <div class="qt-qe-analysis">
+          <p><strong>연준의 양적긴축(QT)이 진행 중입니다.</strong> 보유증권 총계가 ${securitiesChange > 0 ? "증가" : "감소"}(${Math.abs(securitiesChange).toFixed(1)}억 달러)하고 있으며, 지준금이 ${reservesChange > 0 ? "증가" : "감소"}(${Math.abs(reservesChange).toFixed(1)}억 달러)하고 있습니다. 연준의 대차대조표 축소는 시중 유동성을 흡수하여 자금 시장의 금리 상승 압력과 자산 가격 조정 압력으로 작용합니다.</p>
+          <p>연준은 FOMC 회의록과 연준 의장의 연설을 통해 QT 속도와 규모를 조절하고 있으며, 금융 시장의 스트레스 지표(SOFR, Libor-OIS 스프레드 등)를 모니터링하면서 QT 진행 속도를 조정할 수 있습니다. 현재 QT 진행 상황은 연준의 통화정책 정상화 과정의 일환으로, 인플레이션 관리와 금융 안정성 사이의 균형을 유지하기 위한 노력으로 해석됩니다.</p>
+        </div>`;
+    } else if (overallSignal === "QE") {
+      const securitiesChange = securities ? securities.change_okeusd : 0;
+      const reservesChange = reserves ? reserves.change_okeusd : 0;
+      qtQeAnalysis = `
+        <div class="qt-qe-analysis">
+          <p><strong>연준의 양적완화(QE) 신호가 관측되고 있습니다.</strong> 보유증권 총계가 ${securitiesChange > 0 ? "증가" : "감소"}(${Math.abs(securitiesChange).toFixed(1)}억 달러)하고 있으며, 지준금이 ${reservesChange > 0 ? "증가" : "감소"}(${Math.abs(reservesChange).toFixed(1)}억 달러)하고 있습니다. 연준의 대차대조표 확대는 시장 유동성 공급을 늘려 자금 시장의 금리 하락 압력과 자산 가격 상승 요인으로 작용할 수 있습니다.</p>
+          <p>연준이 QE를 재개하거나 QT를 중단하는 경우, 이는 금융 시장의 스트레스 완화나 경제 성장 지원을 위한 통화정책 전환 신호로 해석될 수 있습니다. 연준의 FOMC 성명과 연준 의장의 연설을 통해 정책 의도를 파악할 수 있으며, 대차대조표 변화 추세와 금융 시장 지표를 함께 모니터링하는 것이 중요합니다.</p>
+        </div>`;
+    } else {
+      const securitiesChange = securities ? securities.change_okeusd : 0;
+      const reservesChange = reserves ? reserves.change_okeusd : 0;
+      qtQeAnalysis = `
+        <div class="qt-qe-analysis">
+          <p><strong>현재 양적정책은 중립적 수준을 유지하고 있습니다.</strong> 보유증권 총계가 ${securitiesChange > 0 ? "증가" : securitiesChange < 0 ? "감소" : "변동없음"}(${Math.abs(securitiesChange).toFixed(1)}억 달러)하고 있으며, 지준금이 ${reservesChange > 0 ? "증가" : reservesChange < 0 ? "감소" : "변동없음"}(${Math.abs(reservesChange).toFixed(1)}억 달러)하고 있습니다. 연준의 대차대조표 변화가 제한적이어서 시장 유동성에 미치는 영향이 중립적입니다.</p>
+          <p>연준은 FOMC 회의록과 연준 의장의 연설을 통해 양적정책의 방향성을 제시하고 있으며, 현재는 QT 진행 속도를 조절하거나 일시적으로 정지하는 단계일 수 있습니다. 금융 시장의 스트레스 지표와 경제 지표를 모니터링하면서 향후 정책 방향을 결정할 것으로 예상됩니다.</p>
+        </div>`;
+    }
+
+    // 종합 QT/QE 평가 섹션
+    const qtQeSummarySection = `
+    <div class="qt-qe-summary">
+      <div class="qt-qe-header">
+        <h2>종합 QT/QE 평가 📊</h2>
+      </div>
+      <div class="qt-qe-content">
+        <div class="qt-qe-main" style="border-left: 4px solid ${signalColor}">
+          <div class="qt-qe-label">현재 유동성 정책 방향</div>
+          <div class="qt-qe-value" style="color: ${signalColor}">${signalText}</div>
+          <div class="qt-qe-detail">
+            ${overallSignal === "QT" ? "연준의 양적긴축(QT)이 진행 중이에요. 시장 유동성이 흡수되고 있어서, 자산 가격에 압박이 가해질 수 있습니다." : 
+              overallSignal === "QE" ? "연준의 양적완화(QE) 신호가 보여요. 시장 유동성 공급이 확대되고 있어서, 자산 가격 상승 여지가 생길 수 있습니다." : 
+              "현재 양적정책은 중립적 수준을 유지하고 있어요. 큰 변화 없이 안정적으로 흐르고 있습니다."}
+          </div>
+          ${qtQeAnalysis}
+        </div>
+      </div>
+    </div>`;
+
+    // 주간 리포트 주요 문구 추출
+    const summaryLines = report.weeklySummary.split("\n");
+    const mainPhrase = summaryLines.find(line => line.startsWith("**") && line.endsWith("**")) || "";
+    const mainPhraseClean = mainPhrase.replace(/\*\*/g, "");
+    const restOfSummary = summaryLines.filter(line => !line.startsWith("**") || !line.endsWith("**")).join("\n");
+
+    // 하단 주간 요약 리포트
+    const weeklyReportSection = `
+    <div class="weekly-report">
+      <div class="report-header" onclick="toggleReport()">
+        <h2>주간 요약 리포트 📄</h2>
+        <div class="expand-icon" id="report-icon">▼</div>
+      </div>
+      <div class="report-content" id="report-content">
+        ${mainPhraseClean ? `<div class="report-main-phrase">${escapeHtml(mainPhraseClean)}</div>` : ""}
+        <div class="report-text">${escapeHtml(restOfSummary).split("\n").map(line => {
+          if (line.trim() === "") return "<br/>";
+          if (line.startsWith("[") && line.endsWith("]")) {
+            return `<div class="report-section-title">${line}</div>`;
+          }
+          if (line.startsWith("•")) {
+            const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
+            return `<div class="report-bullet">${processed}</div>`;
+          }
+          if (line.startsWith("  →")) {
+            return `<div class="report-sub-bullet">${line}</div>`;
+          }
+          const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
+          return `<div class="report-paragraph">${processed}</div>`;
+        }).join("")}</div>
+      </div>
+    </div>`;
+
+    // Info 접힘 영역
+    const infoSection = `
+    <div class="info-section">
+      <div class="info-header" onclick="toggleInfo()">
+        <span class="info-icon">ℹ️</span>
+        <span>이 페이지는 무엇을 알려주는가?</span>
+        <div class="expand-icon" id="info-icon">▼</div>
+      </div>
+      <div class="info-content" id="info-content">
+        <p>이 페이지는 FED 대차대조표(H.4.1)를 통해 '유동성 환경'을 읽고 '자산군에 유리한 방향'을 해석하는 도구예요. 거대 자본가들이 어떻게 움직이는지, 그리고 당신의 포트폴리오를 어떻게 조정해야 하는지 알려드립니다.</p>
+        <p><strong>투자 유의:</strong> 특정 종목을 추천하는 게 아니라, 거시 환경을 해석하는 참고 자료예요. 이 정보를 바탕으로 스스로 판단하셔야 합니다.</p>
+      </div>
+    </div>`;
+
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FED H.4.1 유동성 대시보드</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100;display:flex;justify-content:space-between;align-items:flex-start}
+    .page-header-content{flex:1}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    
+    /* 날짜 선택기 */
+    .date-selector{margin-top:12px;display:flex;align-items:center;gap:8px}
+    .date-selector label{font-size:13px;color:#c0c0c0}
+    .date-selector input[type="date"]{padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer}
+    .date-selector input[type="date"]:hover{border-color:#3d3d3d}
+    .date-selector input[type="date"]:focus{outline:none;border-color:#4dabf7}
+    .date-selector button{padding:6px 16px;border:1px solid #4dabf7;border-radius:6px;background:#4dabf7;color:#ffffff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+    .date-selector button:hover{background:#74c0fc;border-color:#74c0fc}
+    .date-selector .reset-btn{padding:6px 12px;border:1px solid #2d2d2d;background:transparent;color:#808080}
+    .date-selector .reset-btn:hover{background:#2d2d2d;color:#c0c0c0}
+    
+    /* 신호등 UI */
+    .traffic-light-container{position:relative;margin-left:20px}
+    .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px}
+    .traffic-light-link:hover{background:#252525;border-color:#3d3d3d;transform:translateY(-2px)}
+    .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1)}
+    .traffic-light-label{font-size:12px;font-weight:600;color:#c0c0c0;text-align:center}
+    .traffic-light-score{font-size:10px;color:#808080;margin-top:4px}
+    
+    .warning-header{padding:24px;border-bottom:1px solid #2d2d2d;margin:0;background:#1a1a1a;margin-bottom:24px}
+    .warning-level{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .level-badge{padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;color:#ffffff}
+    .level-text{font-size:18px;font-weight:700;color:#ffffff}
+    .level-info-link{font-size:12px;color:#4dabf7;text-decoration:none;margin-left:auto;padding:4px 8px;border-radius:4px;transition:background 0.2s;font-weight:500}
+    .level-info-link:hover{background:#2d2d2d;text-decoration:none;color:#74c0fc}
+    .asset-guidance{font-size:14px;line-height:1.8;margin-bottom:16px;white-space:pre-line;color:#c0c0c0}
+    .team-signal{margin-top:16px;padding-top:16px;border-top:1px solid #2d2d2d}
+    .signal-summary{font-size:15px;font-weight:700;margin-bottom:10px;color:#ffffff}
+    .signal-detail{display:flex;gap:20px;font-size:13px;color:#c0c0c0}
+    .blue-team{color:#4dabf7;font-weight:600}
+    .white-team{color:#ffd43b;font-weight:600}
+    
+    /* 뉴스 섹션 */
+    .news-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:20px;margin:0 24px 24px 24px}
+    .news-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #2d2d2d}
+    .news-title{font-size:16px;font-weight:700;color:#ffffff}
+    .news-count{font-size:12px;color:#808080;background:#2d2d2d;padding:4px 10px;border-radius:6px}
+    .news-list{display:flex;flex-direction:column;gap:12px}
+    .news-item{padding:12px;background:#1a1a1a;border-radius:8px;border:1px solid #2d2d2d;transition:all 0.2s}
+    .news-item:hover{background:#252525;border-color:#3d3d3d}
+    .news-content{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .news-text{flex:1;font-size:14px;line-height:1.6;color:#c0c0c0}
+    .news-source{font-size:12px;color:#808080;white-space:nowrap;padding:4px 8px;background:#2d2d2d;border-radius:4px}
+    
+    .main-content{padding:24px;max-width:1400px;margin:0 auto}
+    
+    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:32px}
+    .card{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;transition:all 0.2s}
+    .card:hover{border-color:#3d3d3d}
+    .card-header{display:flex;align-items:flex-start;gap:12px;padding:20px;cursor:pointer;user-select:none}
+    .card-header:hover{background:#252525}
+    .expand-icon{font-size:12px;color:#808080;margin-left:auto;transition:transform 0.2s}
+    .card.expanded .expand-icon{transform:rotate(180deg);color:#4dabf7}
+    .card-body{padding:0 20px 20px}
+    .k{font-size:12px;color:#808080;font-weight:600}
+    .t{font-size:16px;font-weight:700;margin-top:6px;line-height:1.4;flex:1;color:#ffffff}
+    .m{margin-top:16px;font-size:14px;line-height:1.8;color:#c0c0c0}
+    .m div{margin-bottom:8px}
+    .m b{color:#ffffff;font-weight:700}
+    .highlight-number{color:#4dabf7;font-weight:700;font-size:15px}
+    .tag{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:6px;background:#2d2d2d;color:#c0c0c0;font-size:12px;font-weight:500}
+    .data-date{margin-top:12px;font-size:12px;color:#808080}
+    .card-expanded{display:none;margin-top:20px;padding-top:20px;border-top:1px solid #2d2d2d}
+    .card.expanded .card-expanded{display:block}
+    .expanded-section{margin-bottom:16px}
+    .expanded-label{font-size:12px;color:#808080;margin-bottom:6px;font-weight:500}
+    .expanded-value{font-size:16px;font-weight:700;color:#ffffff}
+    .i{margin-top:20px;padding-top:20px;border-top:1px solid #2d2d2d}
+    .interpretation-label{font-size:12px;font-weight:600;color:#808080;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+    .interpretation-text{font-size:14px;line-height:1.8;color:#c0c0c0}
+    .interpretation-headline{margin-bottom:12px;font-size:15px;font-weight:700;color:#ffffff}
+    .interpretation-headline strong{color:#ffffff;font-weight:700}
+    .interpretation-body{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:normal;word-wrap:break-word}
+    .s{margin-top:16px;padding-top:16px;border-top:1px solid #2d2d2d;font-size:12px;color:#808080}
+    
+    .footer-links{display:flex;gap:20px;justify-content:center;margin-top:40px;padding:20px;border-top:1px solid #2d2d2d}
+    .footer-link-item{font-size:13px}
+    .footer-link-item a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .footer-link-item a:hover{text-decoration:underline;color:#74c0fc}
+    
+    .qt-qe-summary{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;margin:32px 0;overflow:hidden}
+    .qt-qe-header{padding:20px;border-bottom:1px solid #2d2d2d}
+    .qt-qe-header h2{margin:0;font-size:18px;font-weight:700;color:#ffffff}
+    .qt-qe-content{padding:20px}
+    .qt-qe-main{padding:20px;background:#252525;border-radius:8px}
+    .qt-qe-label{font-size:12px;color:#808080;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .qt-qe-value{font-size:24px;font-weight:700;margin-bottom:12px}
+    .qt-qe-detail{font-size:14px;line-height:1.7;color:#c0c0c0;margin-bottom:16px}
+    .qt-qe-analysis{margin-top:20px;padding-top:20px;border-top:1px solid #2d2d2d}
+    .qt-qe-analysis p{font-size:14px;line-height:1.8;color:#c0c0c0;margin-bottom:12px}
+    .qt-qe-analysis p strong{color:#ffffff;font-weight:700}
+    
+    .weekly-report{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;margin:40px 0;overflow:hidden}
+    .report-header{display:flex;align-items:center;justify-content:space-between;padding:20px;cursor:pointer;user-select:none;border-bottom:1px solid #2d2d2d}
+    .report-header:hover{background:#252525}
+    .report-header h2{margin:0;font-size:18px;font-weight:700;color:#ffffff}
+    .report-content{display:none;padding:20px}
+    .weekly-report.expanded .report-content{display:block}
+    .weekly-report.expanded .expand-icon{transform:rotate(180deg);color:#4dabf7}
+    .report-main-phrase{font-size:20px;font-weight:700;color:#ffffff;margin-bottom:20px;padding:16px;background:#252525;border-radius:8px;border-left:4px solid #4dabf7;line-height:1.5}
+    .report-text{font-size:14px;line-height:1.9;white-space:pre-line}
+    .report-section-title{margin-top:20px;margin-bottom:12px;font-weight:700;font-size:16px;color:#ffffff}
+    .report-bullet{margin-bottom:8px;padding-left:8px;color:#c0c0c0;line-height:1.7}
+    .report-sub-bullet{margin-bottom:4px;padding-left:24px;color:#808080;font-size:13px;line-height:1.6}
+    .report-paragraph{margin-bottom:12px;color:#c0c0c0;line-height:1.8}
+    .report-text strong{color:#ffffff;font-weight:700}
+    
+    .info-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;margin:20px 0;overflow:hidden}
+    .info-header{display:flex;align-items:center;gap:10px;padding:16px 20px;cursor:pointer;user-select:none;font-size:14px;font-weight:500;color:#ffffff;border-bottom:1px solid #2d2d2d}
+    .info-header:hover{background:#252525}
+    .info-icon{font-size:18px}
+    .info-content{display:none;padding:20px;font-size:14px;line-height:1.8;color:#c0c0c0}
+    .info-content p{margin-bottom:12px}
+    .info-content strong{color:#ffffff;font-weight:700}
+    .info-section.expanded .info-content{display:block}
+    .info-section.expanded .expand-icon{transform:rotate(180deg);color:#4dabf7}
+    
+    @media (max-width: 768px) {
+      .cards-grid{grid-template-columns:1fr}
+      .signal-detail{flex-direction:column;gap:8px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div class="page-header-content">
+      <h1>FED H.4.1 유동성 대시보드 🎯</h1>
+      <div class="sub">
+        Release: ${escapeHtml(report.releaseDateText)} · Week ended: ${escapeHtml(report.asOfWeekEndedText)}<br/>
+        <a href="/concepts" style="font-weight:600">계정항목 알아보기 📋</a>
+      </div>
+      <div class="date-selector">
+        <label for="dateInput">날짜 선택:</label>
+        <input type="date" id="dateInput" value="${targetDate || ''}" max="${new Date().toISOString().split('T')[0]}" />
+        <button onclick="loadDate()">조회</button>
+        ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
+      </div>
+    </div>
+    <div class="traffic-light-container">
+      <a href="/economic-indicators" class="traffic-light-link" title="${economicStatus ? escapeHtml(economicStatus.summary) : "경제 지표 데이터를 불러오는 중..."}">
+        <div class="traffic-light-circle" style="background:${trafficLightColor}"></div>
+        <div class="traffic-light-label">경제 진단</div>
+        <div class="traffic-light-label" style="color:${trafficLightColor};font-weight:700">${trafficLightText}</div>
+        ${economicStatus ? `<div class="traffic-light-score">점수: ${economicStatus.score}/100</div>` : ""}
+      </a>
+    </div>
+  </div>
+  
+  ${headerSection}
+  
+  <div class="main-content">
+    <div class="cards-grid">
+      ${cardsHtml}
+    </div>
+    
+    ${qtQeSummarySection}
+    
+    ${weeklyReportSection}
+    
+    ${infoSection}
+    
+    <div class="footer-links">
+      <div class="footer-link-item">
+        <a href="/api/h41">API (JSON)</a>
+      </div>
+      <div class="footer-link-item">
+        <a href="/api/h41.txt">알림용 텍스트</a>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function loadDate() {
+      const dateInput = document.getElementById('dateInput');
+      const selectedDate = dateInput.value;
+      if (selectedDate) {
+        window.location.href = '/?date=' + selectedDate;
+      } else {
+        window.location.href = '/';
+      }
+    }
+    
+    function resetDate() {
+      window.location.href = '/';
+    }
+    
+    function toggleNews() {
+      const newsList = document.getElementById('newsList');
+      const newsToggle = document.getElementById('newsToggle');
+      if (newsList && newsToggle) {
+        newsList.classList.toggle('expanded');
+        newsToggle.textContent = newsList.classList.contains('expanded') ? '숨기기' : '더보기';
+      }
+    }
+    
+    function toggleCard(idx) {
+      const card = document.querySelector(\`[data-card-id="\${idx}"]\`);
+      card.classList.toggle('expanded');
+    }
+    
+    function toggleReport() {
+      const report = document.querySelector('.weekly-report');
+      report.classList.toggle('expanded');
+    }
+    
+    function toggleInfo() {
+      const info = document.querySelector('.info-section');
+      info.classList.toggle('expanded');
+    }
+  </script>
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// 레벨 설명 페이지
+app.get("/levels", async (_req, res) => {
+  try {
+      const levelDescriptions = {
+      0: {
+        title: "LEVEL 0 - 안정",
+        emoji: "✅",
+        description: "유동성 환경이 안정적인 국면이에요.",
+        details: [
+          "성장주, 기술주, 장기 테마 자산에 대한 비중을 늘릴 수 있는 구간이에요. 거대 자본가들도 이런 시점에 성장 자산의 비중을 늘립니다.",
+          "시장 유동성 공급이 흡수 요인을 상쇄하고 있어서, 자산 가격에 긍정적 영향을 줄 수 있는 환경이에요.",
+          "고변동성 자산의 상승 여력이 충분해요. 리스크 관리보다는 성장 포트폴리오를 확대하는 데 집중하는 게 좋을 것 같아요."
+        ]
+      },
+      1: {
+        title: "LEVEL 1 - 주의",
+        emoji: "⚠️",
+        description: "유동성 흡수 신호가 일부 보여요.",
+        details: [
+          "공격적 자산 비중은 유지하되, 변동성 확대에 대비해서 분산하는 게 좋아요. 거대 자본가들도 이런 시점을 '관찰 모드'로 보고 있어요.",
+          "일부 유동성 압박 신호가 보이지만, 전반적으로는 안정적인 수준을 유지하고 있어요.",
+          "성장 자산과 방어 자산의 균형을 유지하면서 점진적으로 포트폴리오를 조정하는 게 좋을 것 같아요."
+        ]
+      },
+      2: {
+        title: "LEVEL 2 - 경계",
+        emoji: "🔶",
+        description: "유동성 압박이 가시화되고 있어요.",
+        details: [
+          "방어적 자산과 현금성 비중을 점진적으로 높이는 게 좋아요. 거대 자본가들도 이런 환경에서 방어적으로 포지션을 조정합니다.",
+          "시장 유동성이 전주 대비 더 타이트해졌어요. 변동성 확대 가능성이 있으니 주의해야 합니다.",
+          "고변동성 자산의 리스크 관리가 필요한 시점이에요. 방어적 자산에 유리한 환경이 지속되고 있어요."
+        ]
+      },
+      3: {
+        title: "LEVEL 3 - 위험",
+        emoji: "🚨",
+        description: "유동성 급감과 긴축 가속이 동시에 진행 중이에요.",
+        details: [
+          "고위험 자산 비중을 줄이고 방어적 포지션을 유지하는 게 우선이에요. 거대 자본가들도 이런 시점에 방어 모드로 전환합니다.",
+          "유동성 흡수 요인의 증가와 공급 요인의 감소가 동시에 진행되어서, 시장 변동성이 크게 확대될 수 있어요.",
+          "현금성 자산과 방어적 섹터에 집중하고, 고위험 자산의 노출을 최소화하는 게 좋을 것 같아요."
+        ]
+      }
+    };
+
+    const levelsHtml = Object.entries(levelDescriptions).map(([level, info]) => {
+      const levelNum = Number(level);
+      const levelColors = ["#22c55e", "#f59e0b", "#f97316", "#ef4444"];
+      return `
+      <div class="level-item">
+        <div class="level-header">
+          <span class="level-badge" style="background: ${levelColors[levelNum]}">${info.emoji} ${info.title}</span>
+        </div>
+        <div class="level-description">
+          <p class="level-main-desc">${escapeHtml(info.description)}</p>
+          <ul class="level-details">
+            ${info.details.map(detail => `<li>${escapeHtml(detail)}</li>`).join("")}
+          </ul>
+        </div>
+      </div>`;
+    }).join("\n");
+
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>레벨 설명 - FED H.4.1</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    .main-content{padding:24px;max-width:1000px;margin:0 auto}
+    .level-item{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:20px}
+    .level-header{margin-bottom:16px}
+    .level-badge{padding:8px 16px;border-radius:6px;font-weight:700;font-size:16px;color:#ffffff;display:inline-block}
+    .level-description{color:#c0c0c0}
+    .level-main-desc{font-size:16px;font-weight:600;color:#ffffff;margin-bottom:12px}
+    .level-details{list-style:none;padding-left:0;margin-top:12px}
+    .level-details li{padding-left:20px;position:relative;margin-bottom:8px;line-height:1.7}
+    .level-details li:before{content:"•";position:absolute;left:0;color:#4dabf7;font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>레벨 설명</h1>
+    <div class="sub">
+      <a href="/">← 대시보드로 돌아가기</a>
+    </div>
+  </div>
+  <div class="main-content">
+    ${levelsHtml}
+  </div>
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// 계정 개념 페이지
+app.get("/concepts", async (_req, res) => {
+  try {
+    const coreItems = ITEM_DEFS.filter(item => item.isCore);
+    
+    const conceptsHtml = coreItems.map(item => {
+      const concept = getConcept(item.fedLabel, item.liquidityTag);
+      return `
+      <div class="concept-item">
+        <div class="concept-header">
+          <span class="concept-key">${item.key}</span>
+          <h3 class="concept-title">${escapeHtml(item.title)}</h3>
+        </div>
+        <div class="concept-content">${escapeHtml(concept)}</div>
+        <div class="concept-label">${escapeHtml(item.fedLabel)}</div>
+      </div>`;
+    }).join("\n");
+
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>계정항목 알아보기 - FED H.4.1</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    .main-content{padding:24px;max-width:1000px;margin:0 auto}
+    .concept-item{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:20px}
+    .concept-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+    .concept-key{font-size:14px;color:#808080;font-weight:600}
+    .concept-title{font-size:18px;font-weight:700;color:#ffffff;flex:1;margin:0}
+    .concept-content{font-size:14px;line-height:1.8;color:#c0c0c0;margin-bottom:12px}
+    .concept-label{font-size:12px;color:#808080;padding-top:12px;border-top:1px solid #2d2d2d}
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>계정항목 알아보기 📋</h1>
+    <div class="sub">
+      <a href="/">← 대시보드로 돌아가기</a>
+    </div>
+  </div>
+  <div class="main-content">
+    ${conceptsHtml}
+  </div>
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// 경제 지표 페이지
+app.get("/economic-indicators", async (_req, res) => {
+  try {
+    const indicators = await fetchAllEconomicIndicators();
+    const status = diagnoseEconomicStatus(indicators);
+    
+    const statusColors = {
+      green: "#22c55e",
+      yellow: "#f59e0b",
+      red: "#ef4444",
+    };
+    
+    const statusTexts = {
+      green: "양호",
+      yellow: "주의",
+      red: "위험",
+    };
+    
+    // 카테고리별로 그룹화
+    const indicatorsByCategory: Record<string, typeof indicators> = {};
+    indicators.forEach((ind) => {
+      if (!indicatorsByCategory[ind.category]) {
+        indicatorsByCategory[ind.category] = [];
+      }
+      indicatorsByCategory[ind.category].push(ind);
+    });
+    
+    const categorySections = Object.entries(indicatorsByCategory).map(([category, items]) => {
+      const itemsHtml = items.map((ind) => {
+        const changeColor = ind.changePercent !== null
+          ? (ind.changePercent > 0 ? "#ff6b6b" : ind.changePercent < 0 ? "#51cf66" : "#adb5bd")
+          : "#adb5bd";
+        const changeSign = ind.changePercent !== null && ind.changePercent > 0 ? "+" : "";
+        
+        const detailLink = ind.id ? `/economic-indicators/${ind.id}` : "#";
+        return `
+        <a href="${detailLink}" class="indicator-item-link" ${!ind.id ? 'onclick="return false;"' : ""}>
+        <div class="indicator-item">
+          <div class="indicator-header">
+            <div class="indicator-name">${escapeHtml(ind.name)}</div>
+            <div class="indicator-symbol">${escapeHtml(ind.symbol)}</div>
+          </div>
+          <div class="indicator-value">
+            ${ind.value !== null 
+              ? `<span class="value-main">${ind.value.toFixed(2)}</span><span class="value-unit">${escapeHtml(ind.unit)}</span>`
+              : "<span class=\"value-null\">데이터 없음</span>"}
+          </div>
+          ${ind.changePercent !== null 
+            ? `<div class="indicator-change" style="color:${changeColor}">
+                ${changeSign}${ind.changePercent.toFixed(2)}%
+                ${ind.change !== null ? `(${changeSign}${ind.change.toFixed(2)})` : ""}
+              </div>`
+            : ""}
+          <div class="indicator-meta">
+            <span class="indicator-source">${escapeHtml(ind.source)}</span>
+            <span class="indicator-updated">${new Date(ind.lastUpdated).toLocaleString("ko-KR")}</span>
+          </div>
+          ${ind.id ? '<div class="indicator-detail-link">상세 보기 →</div>' : ""}
+        </div>
+        </a>`;
+      }).join("");
+      
+      return `
+      <div class="category-section">
+        <h2 class="category-title">${escapeHtml(category)}</h2>
+        <div class="indicators-grid">
+          ${itemsHtml}
+        </div>
+      </div>`;
+    }).join("");
+    
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>경제 지표 - FED H.4.1</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    
+    .status-summary{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin:24px;max-width:1400px;margin-left:auto;margin-right:auto}
+    .status-header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+    .status-circle{width:48px;height:48px;border-radius:50%;background:${statusColors[status.status]};box-shadow:0 0 16px ${statusColors[status.status]}40}
+    .status-info h2{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .status-info .status-text{font-size:14px;color:#c0c0c0;margin-top:4px}
+    .status-score{margin-left:auto;text-align:right}
+    .status-score-value{font-size:32px;font-weight:700;color:${statusColors[status.status]}}
+    .status-score-label{font-size:12px;color:#808080;margin-top:4px}
+    .status-summary-text{font-size:14px;line-height:1.8;color:#c0c0c0;margin-top:16px;padding-top:16px;border-top:1px solid #2d2d2d}
+    
+    .main-content{padding:24px;max-width:1400px;margin:0 auto}
+    
+    .category-section{margin-bottom:40px}
+    .category-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #2d2d2d}
+    
+    .indicators-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    .indicator-item-link{text-decoration:none;color:inherit;display:block}
+    .indicator-item{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:20px;transition:all 0.2s;cursor:pointer}
+    .indicator-item:hover{border-color:#3d3d3d;transform:translateY(-2px)}
+    .indicator-detail-link{font-size:12px;color:#4dabf7;margin-top:12px;text-align:right;font-weight:500}
+    .indicator-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+    .indicator-name{font-size:15px;font-weight:600;color:#ffffff;flex:1}
+    .indicator-symbol{font-size:11px;color:#808080;background:#2d2d2d;padding:2px 8px;border-radius:4px;margin-left:8px}
+    .indicator-value{margin-bottom:8px}
+    .value-main{font-size:24px;font-weight:700;color:#ffffff}
+    .value-unit{font-size:14px;color:#808080;margin-left:4px}
+    .value-null{font-size:14px;color:#808080;font-style:italic}
+    .indicator-change{font-size:13px;font-weight:600;margin-bottom:8px}
+    .indicator-meta{display:flex;justify-content:space-between;font-size:11px;color:#808080;padding-top:8px;border-top:1px solid #2d2d2d}
+    
+    @media (max-width: 768px) {
+      .indicators-grid{grid-template-columns:1fr}
+      .status-header{flex-direction:column;align-items:flex-start}
+      .status-score{margin-left:0;margin-top:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>경제 지표 📈</h1>
+    <div class="sub">
+      <a href="/">← 대시보드로 돌아가기</a>
+    </div>
+  </div>
+  
+  <div class="status-summary">
+    <div class="status-header">
+      <div class="status-circle"></div>
+      <div class="status-info">
+        <h2>경제 상태: ${statusTexts[status.status]}</h2>
+        <div class="status-text">경제코치의 종합 진단 결과예요</div>
+      </div>
+      <div class="status-score">
+        <div class="status-score-value">${status.score}</div>
+        <div class="status-score-label">점수 / 100</div>
+      </div>
+    </div>
+    <div class="status-summary-text">${escapeHtml(status.summary)}</div>
+  </div>
+  
+  <div class="main-content">
+    ${categorySections}
+  </div>
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// 경제 지표 세부 페이지
+app.get("/economic-indicators/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const period = (req.query.period as '1D' | '1M' | '1Y' | '5Y' | 'MAX') || '1M';
+    const detail = await getIndicatorDetail(id, period);
+    
+    if (!detail.indicator) {
+      res.status(404).send("죄송해요, 해당 지표를 찾을 수 없어요.");
+      return;
+    }
+    
+    const ind = detail.indicator;
+    const changeColor = ind.changePercent !== null
+      ? (ind.changePercent > 0 ? "#ff6b6b" : ind.changePercent < 0 ? "#51cf66" : "#adb5bd")
+      : "#adb5bd";
+    const changeSign = ind.changePercent !== null && ind.changePercent > 0 ? "+" : "";
+    
+    // 차트 데이터 준비
+    const chartData = detail.history.map(h => ({
+      date: h.date,
+      value: h.value,
+    }));
+    const chartLabels = chartData.map(d => {
+      const date = new Date(d.date);
+      return date.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+    });
+    const chartValues = chartData.map(d => d.value);
+    const chartFullDates = chartData.map(d => {
+      const date = new Date(d.date);
+      return date.toLocaleDateString("ko-KR", { 
+        weekday: "long", 
+        year: "numeric", 
+        month: "long", 
+        day: "numeric" 
+      });
+    });
+    
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(ind.name)} - 경제 지표 상세</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    
+    .main-content{padding:24px;max-width:1400px;margin:0 auto}
+    
+    .indicator-summary{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .indicator-title{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:8px}
+    .indicator-symbol{font-size:14px;color:#808080;background:#2d2d2d;padding:4px 12px;border-radius:6px;display:inline-block;margin-bottom:16px}
+    .indicator-current{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+    .current-value{font-size:48px;font-weight:700;color:#ffffff}
+    .current-unit{font-size:20px;color:#808080}
+    .current-change{font-size:18px;font-weight:600;color:${changeColor}}
+    .indicator-meta{display:flex;gap:20px;font-size:13px;color:#808080;padding-top:16px;border-top:1px solid #2d2d2d}
+    
+    .chart-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .chart-title{font-size:18px;font-weight:700;color:#ffffff}
+    .chart-period-tabs{display:flex;gap:8px}
+    .period-tab{padding:6px 16px;border:1px solid #2d2d2d;border-radius:6px;background:#1a1a1a;color:#c0c0c0;text-decoration:none;font-size:13px;font-weight:600;transition:all 0.2s}
+    .period-tab:hover{background:#252525;border-color:#3d3d3d;color:#ffffff}
+    .period-tab.active{background:#4dabf7;border-color:#4dabf7;color:#ffffff}
+    .chart-container{position:relative;height:400px}
+    
+    .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
+    .analysis-text strong{color:#ffffff;font-weight:700}
+    
+    .news-section-detail{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .news-section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .news-list-detail{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+    .news-item-detail{padding:12px;background:#1a1a1a;border-radius:8px;border:1px solid #2d2d2d;transition:all 0.2s}
+    .news-item-detail:hover{background:#252525;border-color:#3d3d3d}
+    .news-content-detail{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .news-text-detail{flex:1;font-size:14px;line-height:1.6;color:#c0c0c0}
+    .news-meta-detail{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .news-source-detail{font-size:12px;color:#808080;white-space:nowrap;padding:4px 8px;background:#2d2d2d;border-radius:4px}
+    .news-date-detail{font-size:11px;color:#808080;white-space:nowrap}
+    .news-comment{margin-top:16px;padding-top:16px;border-top:1px solid #2d2d2d}
+    .news-comment-title{font-size:16px;font-weight:700;color:#ffffff;margin-bottom:12px}
+    .news-comment-text{font-size:14px;line-height:1.8;color:#c0c0c0}
+    
+    .history-table{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;overflow-x:auto}
+    .history-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px;text-align:left;border-bottom:1px solid #2d2d2d}
+    th{font-weight:600;color:#ffffff;font-size:13px}
+    td{color:#c0c0c0;font-size:14px}
+    tr:hover{background:#252525}
+    
+    @media (max-width: 768px) {
+      .current-value{font-size:36px}
+      .chart-container{height:300px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>${escapeHtml(ind.name)}</h1>
+    <div class="sub">
+      <a href="/economic-indicators">← 경제 지표로 돌아가기</a>
+    </div>
+  </div>
+  
+  <div class="main-content">
+    <div class="indicator-summary">
+      <div class="indicator-title">${escapeHtml(ind.name)}</div>
+      <div class="indicator-symbol">${escapeHtml(ind.symbol)}</div>
+      <div class="indicator-current">
+        <span class="current-value">${ind.value !== null ? ind.value.toFixed(2) : "N/A"}</span>
+        <span class="current-unit">${escapeHtml(ind.unit)}</span>
+        ${ind.changePercent !== null 
+          ? `<span class="current-change">${changeSign}${ind.changePercent.toFixed(2)}%</span>`
+          : ""}
+      </div>
+      <div class="indicator-meta">
+        <span>출처: ${escapeHtml(ind.source)}</span>
+        <span>업데이트: ${new Date(ind.lastUpdated).toLocaleString("ko-KR")}</span>
+      </div>
+    </div>
+    
+    ${chartData.length > 0 ? `
+    <div class="chart-section">
+      <div class="chart-header">
+        <div class="chart-title">변동 추이</div>
+        <div class="chart-period-tabs">
+          <a href="/economic-indicators/${id}?period=1D" class="period-tab ${period === '1D' ? 'active' : ''}">1D</a>
+          <a href="/economic-indicators/${id}?period=1M" class="period-tab ${period === '1M' ? 'active' : ''}">1M</a>
+          <a href="/economic-indicators/${id}?period=1Y" class="period-tab ${period === '1Y' ? 'active' : ''}">1Y</a>
+          <a href="/economic-indicators/${id}?period=5Y" class="period-tab ${period === '5Y' ? 'active' : ''}">5Y</a>
+          <a href="/economic-indicators/${id}?period=MAX" class="period-tab ${period === 'MAX' ? 'active' : ''}">MAX</a>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="indicatorChart"></canvas>
+      </div>
+    </div>
+    
+    <script>
+      const ctx = document.getElementById('indicatorChart').getContext('2d');
+      const chartLabels = ${JSON.stringify(chartLabels)};
+      const chartValues = ${JSON.stringify(chartValues)};
+      const chartFullDates = ${JSON.stringify(chartFullDates)};
+      const indicatorName = ${JSON.stringify(ind.name)};
+      const indicatorUnit = ${JSON.stringify(ind.unit)};
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: chartLabels,
+          datasets: [{
+            label: indicatorName,
+            data: chartValues,
+            borderColor: '#4dabf7',
+            backgroundColor: 'rgba(77, 171, 247, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index'
+          },
+          plugins: {
+            legend: {
+              display: true,
+              labels: {
+                color: '#c0c0c0'
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              titleColor: '#ffffff',
+              bodyColor: '#ffffff',
+              borderColor: '#4dabf7',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                title: function(context) {
+                  const index = context[0].dataIndex;
+                  return chartFullDates[index] || chartLabels[index];
+                },
+                label: function(context) {
+                  const value = context.parsed.y;
+                  const formattedValue = value.toFixed(2);
+                  return indicatorName + ': ' + formattedValue + indicatorUnit;
+                },
+                afterLabel: function(context) {
+                  const index = context.dataIndex;
+                  if (index > 0 && chartValues[index] !== undefined && chartValues[index - 1] !== undefined) {
+                    const current = chartValues[index];
+                    const previous = chartValues[index - 1];
+                    const change = current - previous;
+                    const changePercent = previous !== 0 ? ((change / previous) * 100) : 0;
+                    const changeSign = change >= 0 ? '+' : '';
+                    return '변동: ' + changeSign + change.toFixed(2) + indicatorUnit + ' (' + changeSign + changePercent.toFixed(2) + '%)';
+                  }
+                  return '';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#808080' },
+              grid: { color: '#2d2d2d' }
+            },
+            y: {
+              ticks: { 
+                color: '#808080',
+                callback: function(value) {
+                  return value.toFixed(2) + indicatorUnit;
+                }
+              },
+              grid: { color: '#2d2d2d' }
+            }
+          }
+        }
+      });
+    </script>
+    ` : ""}
+    
+    <div class="analysis-section">
+      <div class="analysis-title">경제코치 분석 💡</div>
+      <div class="analysis-text">${escapeHtml(detail.analysis)}</div>
+    </div>
+    
+    ${detail.relatedNews && detail.relatedNews.length > 0 ? `
+    <div class="news-section-detail">
+      <div class="news-section-title">최근 뉴스 항목</div>
+      <div class="news-list-detail">
+        ${detail.relatedNews.map((news: any, idx: number) => `
+          <div class="news-item-detail">
+            <div class="news-content-detail">
+              <div class="news-text-detail">${escapeHtml(news.title)}</div>
+              <div class="news-meta-detail">
+                <div class="news-source-detail">${escapeHtml(news.source)}</div>
+                ${news.publishedAt ? `<div class="news-date-detail">${escapeHtml(news.publishedAt)}</div>` : ""}
+              </div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      ${detail.newsComment && detail.newsComment !== "none" ? `
+      <div class="news-comment">
+        <div class="news-comment-title">경제코치 코멘트 💬</div>
+        <div class="news-comment-text">${escapeHtml(detail.newsComment)}</div>
+      </div>
+      ` : ""}
+    </div>
+    ` : ""}
+    
+    ${detail.history.length > 0 ? `
+    <div class="history-table">
+      <div class="history-title">일별 수치 (최근 ${Math.min(30, detail.history.length)}일)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>값</th>
+            <th>변동</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detail.history.slice(-30).reverse().map((h, idx, arr) => {
+            const prev = arr[idx + 1];
+            const change = prev ? h.value - prev.value : null;
+            const changePercent = prev && prev.value !== 0 ? ((change! / prev.value) * 100) : null;
+            return `
+            <tr>
+              <td>${new Date(h.date).toLocaleDateString("ko-KR")}</td>
+              <td>${h.value.toFixed(2)} ${escapeHtml(ind.unit)}</td>
+              <td style="color:${change !== null && change > 0 ? "#ff6b6b" : change !== null && change < 0 ? "#51cf66" : "#adb5bd"}">
+                ${change !== null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}` : "-"}
+                ${changePercent !== null ? `(${changePercent > 0 ? "+" : ""}${changePercent.toFixed(2)}%)` : ""}
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    ` : ""}
+  </div>
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
+// 경제 지표 API
+app.get("/api/economic-indicators", async (_req, res) => {
+  try {
+    const indicators = await fetchAllEconomicIndicators();
+    const status = diagnoseEconomicStatus(indicators);
+    res.json({
+      status,
+      indicators,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// 지표 세부 데이터 API
+app.get("/api/economic-indicators/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const detail = await getIndicatorDetail(id);
+    res.json(detail);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (m) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m] as string));
+}
+
+// Vercel serverless function export
+// @ts-ignore
+export default app;
+
