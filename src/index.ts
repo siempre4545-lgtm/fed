@@ -302,13 +302,17 @@ app.get("/", async (req, res) => {
     .date-selector .reset-btn:hover{background:#2d2d2d;color:#c0c0c0}
     
     /* 환율 표시 */
-    .exchange-rate-container{display:flex;align-items:center;gap:12px;padding:8px 16px;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:8px;margin-top:12px}
-    .exchange-rate-label{font-size:13px;color:#808080;font-weight:600}
-    .exchange-rate-value{font-size:18px;font-weight:700;color:#ffffff}
-    .exchange-rate-change{font-size:13px;font-weight:600}
+    .exchange-rate-container{display:flex;align-items:center;gap:12px;padding:10px 18px;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:8px;margin-top:12px}
+    .exchange-rate-label{font-size:14px;color:#c0c0c0;font-weight:700}
+    .exchange-rate-value{font-size:20px;font-weight:900;color:#ffffff;letter-spacing:0.5px}
+    .exchange-rate-change{font-size:14px;font-weight:700}
     .exchange-rate-up{color:#ff6b6b}
     .exchange-rate-down{color:#51cf66}
     .exchange-rate-neutral{color:#adb5bd}
+    .exchange-rate-refresh{background:#4dabf7;border:none;color:#ffffff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:4px}
+    .exchange-rate-refresh:hover{background:#74c0fc;transform:scale(1.05)}
+    .exchange-rate-refresh:active{transform:scale(0.95)}
+    .exchange-rate-refresh.loading{opacity:0.6;cursor:not-allowed}
     
     /* 신호등 UI */
     .traffic-light-container{position:relative;margin-left:20px}
@@ -437,11 +441,14 @@ app.get("/", async (req, res) => {
       </div>
       ${usdKrwRate ? `
       <div class="exchange-rate-container">
-        <span class="exchange-rate-label">USD/KRW:</span>
-        <span class="exchange-rate-value">${usdKrwRate.price.toFixed(2)}</span>
-        <span class="exchange-rate-change ${usdKrwRate.change > 0 ? 'exchange-rate-up' : usdKrwRate.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral'}">
-          ${usdKrwRate.change > 0 ? '+' : ''}${usdKrwRate.change.toFixed(2)} (${usdKrwRate.changePercent > 0 ? '+' : ''}${usdKrwRate.changePercent.toFixed(2)}%)
+        <span class="exchange-rate-label">💵 USD/KRW:</span>
+        <span class="exchange-rate-value" id="exchangeRateValue">${usdKrwRate.price.toFixed(2)}</span>
+        <span class="exchange-rate-change ${usdKrwRate.change > 0 ? 'exchange-rate-up' : usdKrwRate.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral'}" id="exchangeRateChange">
+          ${usdKrwRate.change > 0 ? '📈' : usdKrwRate.change < 0 ? '📉' : '➡️'} ${usdKrwRate.change > 0 ? '+' : ''}${usdKrwRate.change.toFixed(2)} (${usdKrwRate.changePercent > 0 ? '+' : ''}${usdKrwRate.changePercent.toFixed(2)}%)
         </span>
+        <button class="exchange-rate-refresh" id="exchangeRateRefresh" onclick="refreshExchangeRate()" title="환율 새로고침">
+          🔄
+        </button>
       </div>
       ` : ''}
       <div class="date-selector">
@@ -488,6 +495,38 @@ app.get("/", async (req, res) => {
     
     function resetDate() {
       window.location.href = '/';
+    }
+    
+    async function refreshExchangeRate() {
+      const refreshBtn = document.getElementById('exchangeRateRefresh');
+      const valueEl = document.getElementById('exchangeRateValue');
+      const changeEl = document.getElementById('exchangeRateChange');
+      
+      if (!refreshBtn || !valueEl || !changeEl) return;
+      
+      refreshBtn.classList.add('loading');
+      refreshBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/exchange-rate');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.price) {
+            valueEl.textContent = data.price.toFixed(2);
+            const changeSign = data.change > 0 ? '+' : '';
+            const changePercentSign = data.changePercent > 0 ? '+' : '';
+            const emoji = data.change > 0 ? '📈' : data.change < 0 ? '📉' : '➡️';
+            const changeClass = data.change > 0 ? 'exchange-rate-up' : data.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral';
+            changeEl.className = 'exchange-rate-change ' + changeClass;
+            changeEl.innerHTML = emoji + ' ' + changeSign + data.change.toFixed(2) + ' (' + changePercentSign + data.changePercent.toFixed(2) + '%)';
+          }
+        }
+      } catch (error) {
+        console.error('Failed to refresh exchange rate:', error);
+      } finally {
+        refreshBtn.classList.remove('loading');
+        refreshBtn.disabled = false;
+      }
     }
     
     function toggleNews() {
@@ -1536,6 +1575,44 @@ app.get("/api/economic-indicators/:id", async (req, res) => {
     const { id } = req.params;
     const detail = await getIndicatorDetail(id);
     res.json(detail);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// 환율 API (새로고침용)
+app.get("/api/exchange-rate", async (_req, res) => {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=2d`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const result = data.chart?.result?.[0];
+      if (result) {
+        const quote = result.indicators?.quote?.[0];
+        if (quote) {
+          const prices = quote.close.filter((p: number | null) => p !== null);
+          if (prices.length >= 2) {
+            const currentPrice = prices[prices.length - 1];
+            const previousPrice = prices[prices.length - 2];
+            const change = currentPrice - previousPrice;
+            const changePercent = (change / previousPrice) * 100;
+            res.json({
+              price: currentPrice,
+              change,
+              changePercent,
+            });
+            return;
+          }
+        }
+      }
+    }
+    res.status(500).json({ error: "Failed to fetch exchange rate" });
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
   }

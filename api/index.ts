@@ -447,11 +447,14 @@ app.get("/", async (req, res) => {
       </div>
       ${usdKrwRate ? `
       <div class="exchange-rate-container">
-        <span class="exchange-rate-label">USD/KRW:</span>
-        <span class="exchange-rate-value">${usdKrwRate.price.toFixed(2)}</span>
-        <span class="exchange-rate-change ${usdKrwRate.change > 0 ? 'exchange-rate-up' : usdKrwRate.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral'}">
-          ${usdKrwRate.change > 0 ? '+' : ''}${usdKrwRate.change.toFixed(2)} (${usdKrwRate.changePercent > 0 ? '+' : ''}${usdKrwRate.changePercent.toFixed(2)}%)
+        <span class="exchange-rate-label">💵 USD/KRW:</span>
+        <span class="exchange-rate-value" id="exchangeRateValue">${usdKrwRate.price.toFixed(2)}</span>
+        <span class="exchange-rate-change ${usdKrwRate.change > 0 ? 'exchange-rate-up' : usdKrwRate.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral'}" id="exchangeRateChange">
+          ${usdKrwRate.change > 0 ? '📈' : usdKrwRate.change < 0 ? '📉' : '➡️'} ${usdKrwRate.change > 0 ? '+' : ''}${usdKrwRate.change.toFixed(2)} (${usdKrwRate.changePercent > 0 ? '+' : ''}${usdKrwRate.changePercent.toFixed(2)}%)
         </span>
+        <button class="exchange-rate-refresh" id="exchangeRateRefresh" onclick="refreshExchangeRate()" title="환율 새로고침">
+          🔄
+        </button>
       </div>
       ` : ''}
       <div class="date-selector">
@@ -507,6 +510,38 @@ app.get("/", async (req, res) => {
     
     function resetDate() {
       window.location.href = '/';
+    }
+    
+    async function refreshExchangeRate() {
+      const refreshBtn = document.getElementById('exchangeRateRefresh');
+      const valueEl = document.getElementById('exchangeRateValue');
+      const changeEl = document.getElementById('exchangeRateChange');
+      
+      if (!refreshBtn || !valueEl || !changeEl) return;
+      
+      refreshBtn.classList.add('loading');
+      refreshBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/exchange-rate');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.price) {
+            valueEl.textContent = data.price.toFixed(2);
+            const changeSign = data.change > 0 ? '+' : '';
+            const changePercentSign = data.changePercent > 0 ? '+' : '';
+            const emoji = data.change > 0 ? '📈' : data.change < 0 ? '📉' : '➡️';
+            const changeClass = data.change > 0 ? 'exchange-rate-up' : data.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral';
+            changeEl.className = 'exchange-rate-change ' + changeClass;
+            changeEl.innerHTML = emoji + ' ' + changeSign + data.change.toFixed(2) + ' (' + changePercentSign + data.changePercent.toFixed(2) + '%)';
+          }
+        }
+      } catch (error) {
+        console.error('Failed to refresh exchange rate:', error);
+      } finally {
+        refreshBtn.classList.remove('loading');
+        refreshBtn.disabled = false;
+      }
     }
     
     function toggleNews() {
