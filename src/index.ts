@@ -895,34 +895,34 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
     
     .fng-container{display:flex;gap:32px;flex-wrap:wrap;margin-bottom:32px}
     
-    .gauge-section{flex:1;min-width:400px;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:32px;display:flex;flex-direction:column;align-items:center}
-    .fng-title{font-size:28px;font-weight:700;color:#ffffff;margin-bottom:8px;text-align:center}
-    .fng-question{font-size:16px;color:#c0c0c0;margin-bottom:16px;text-align:center}
-    .fng-link{color:#4dabf7;text-decoration:none;font-size:14px;margin-bottom:32px}
+    .gauge-section{flex:1;min-width:400px;background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;padding:32px;display:flex;flex-direction:column;align-items:center}
+    .fng-title{font-size:28px;font-weight:700;color:#000000;margin-bottom:8px;text-align:center}
+    .fng-question{font-size:16px;color:#666666;margin-bottom:16px;text-align:center}
+    .fng-link{color:#0066cc;text-decoration:none;font-size:14px;margin-bottom:32px}
     .fng-link:hover{text-decoration:underline}
     
     .gauge-wrapper{position:relative;width:100%;max-width:500px;margin:0 auto 32px}
     .gauge-svg{width:100%;height:auto}
-    .gauge-value{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:48px;font-weight:700;color:#ffffff;text-align:center}
+    .gauge-value{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:48px;font-weight:700;color:#000000;text-align:center}
     
-    .fng-updated{font-size:13px;color:#808080;text-align:center}
+    .fng-updated{font-size:13px;color:#666666;text-align:center}
     
-    .history-section{flex:0 0 320px;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px}
-    .history-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #2d2d2d;padding-bottom:12px}
-    .history-tab{padding:8px 16px;border:none;background:transparent;color:#808080;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
-    .history-tab:hover{color:#c0c0c0}
-    .history-tab.active{color:#4dabf7;border-bottom-color:#4dabf7}
-    .history-item{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #2d2d2d}
+    .history-section{flex:0 0 320px;background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;padding:24px}
+    .history-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #e0e0e0;padding-bottom:12px}
+    .history-tab{padding:8px 16px;border:none;background:transparent;color:#666666;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+    .history-tab:hover{color:#000000}
+    .history-tab.active{color:#0066cc;border-bottom-color:#0066cc}
+    .history-item{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e0e0e0}
     .history-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-    .history-label{font-size:13px;color:#808080;margin-bottom:8px}
+    .history-label{font-size:13px;color:#666666;margin-bottom:8px}
     .history-value-row{display:flex;align-items:center;gap:12px}
     .history-badge{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#ffffff}
-    .history-level{font-size:14px;color:#c0c0c0}
+    .history-level{font-size:14px;color:#333333}
     
-    .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
-    .analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
-    .analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
-    .analysis-text strong{color:#ffffff;font-weight:700}
+    .analysis-section{background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;padding:24px;margin-bottom:24px}
+    .analysis-title{font-size:18px;font-weight:700;color:#000000;margin-bottom:16px}
+    .analysis-text{font-size:15px;line-height:2.2;color:#333333;white-space:pre-line}
+    .analysis-text strong{color:#000000;font-weight:700}
     
     @media (max-width: 768px) {
       .fng-container{flex-direction:column}
@@ -950,40 +950,49 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
         <div class="gauge-wrapper">
           <svg class="gauge-svg" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
             <!-- 배경 원호 -->
-            <path d="M 50 200 A 150 150 0 0 1 350 200" fill="none" stroke="#2d2d2d" stroke-width="20" stroke-linecap="round"/>
+            <path d="M 50 200 A 150 150 0 0 1 350 200" fill="none" stroke="#e0e0e0" stroke-width="20" stroke-linecap="round"/>
             
-            <!-- 구간별 색상 -->
+            <!-- 구간별 색상 (0-100 범위) -->
+            <!-- EXTREME FEAR: 0-25 -->
             <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="round"/>
+            <!-- FEAR: 25-45 -->
             <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#f97316" stroke-width="20" stroke-linecap="round"/>
+            <!-- NEUTRAL: 45-55 -->
             <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#eab308" stroke-width="20" stroke-linecap="round"/>
+            <!-- GREED: 55-75 -->
             <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="round"/>
             
             <!-- 현재 값 강조 (활성 구간) -->
-            ${currentValue >= 55 && currentValue < 75 ? `
-            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#22c55e" stroke-width="24" stroke-linecap="round" opacity="0.8"/>
-            ` : currentValue >= 75 ? `
-            <path d="M 350 200 A 150 150 0 0 1 350 200" fill="none" stroke="#10b981" stroke-width="24" stroke-linecap="round" opacity="0.8"/>
+            ${currentValue >= 75 ? `
+            <!-- EXTREME GREED: 75-100 -->
+            <path d="M 350 200 A 150 150 0 0 1 350 200" fill="none" stroke="#10b981" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            ` : currentValue >= 55 && currentValue < 75 ? `
+            <!-- GREED: 55-75 -->
+            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#22c55e" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
             ` : currentValue >= 45 && currentValue < 55 ? `
-            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#eab308" stroke-width="24" stroke-linecap="round" opacity="0.8"/>
+            <!-- NEUTRAL: 45-55 -->
+            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#eab308" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
             ` : currentValue >= 25 && currentValue < 45 ? `
-            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#f97316" stroke-width="24" stroke-linecap="round" opacity="0.8"/>
+            <!-- FEAR: 25-45 -->
+            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#f97316" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
             ` : `
-            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#ef4444" stroke-width="24" stroke-linecap="round" opacity="0.8"/>
+            <!-- EXTREME FEAR: 0-25 -->
+            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#ef4444" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
             `}
             
             <!-- 눈금 -->
-            <line x1="50" y1="200" x2="50" y2="210" stroke="#808080" stroke-width="2"/>
-            <line x1="125" y1="50" x2="130" y2="45" stroke="#808080" stroke-width="2"/>
-            <line x1="200" y1="50" x2="200" y2="40" stroke="#808080" stroke-width="2"/>
-            <line x1="275" y1="50" x2="270" y2="45" stroke="#808080" stroke-width="2"/>
-            <line x1="350" y1="200" x2="350" y2="210" stroke="#808080" stroke-width="2"/>
+            <line x1="50" y1="200" x2="50" y2="210" stroke="#999999" stroke-width="2"/>
+            <line x1="125" y1="50" x2="130" y2="45" stroke="#999999" stroke-width="2"/>
+            <line x1="200" y1="50" x2="200" y2="40" stroke="#999999" stroke-width="2"/>
+            <line x1="275" y1="50" x2="270" y2="45" stroke="#999999" stroke-width="2"/>
+            <line x1="350" y1="200" x2="350" y2="210" stroke="#999999" stroke-width="2"/>
             
             <!-- 눈금 라벨 -->
-            <text x="50" y="225" fill="#808080" font-size="12" text-anchor="middle">0</text>
-            <text x="125" y="40" fill="#808080" font-size="12" text-anchor="middle">25</text>
-            <text x="200" y="30" fill="#808080" font-size="12" text-anchor="middle">50</text>
-            <text x="275" y="40" fill="#808080" font-size="12" text-anchor="middle">75</text>
-            <text x="350" y="225" fill="#808080" font-size="12" text-anchor="middle">100</text>
+            <text x="50" y="225" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">0</text>
+            <text x="125" y="40" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">25</text>
+            <text x="200" y="30" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">50</text>
+            <text x="275" y="40" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">75</text>
+            <text x="350" y="225" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">100</text>
             
             <!-- 구간 라벨 -->
             <text x="87.5" y="120" fill="#ef4444" font-size="11" font-weight="600" text-anchor="middle" transform="rotate(-45 87.5 120)">EXTREME FEAR</text>
@@ -1002,7 +1011,19 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
           <div class="gauge-value">${currentValue}</div>
         </div>
         
-        <div class="fng-updated">Last updated ${ind.lastUpdated ? new Date(ind.lastUpdated).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : new Date().toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} ET</div>
+        <div class="fng-updated">Last updated ${ind.lastUpdated ? new Date(ind.lastUpdated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" }) : new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })} ET</div>
+        
+        <!-- 점수별 의미 설명 -->
+        <div style="margin-top:24px;padding:16px;background:#f9f9f9;border-radius:8px;width:100%;max-width:500px">
+          <div style="font-size:13px;color:#666666;margin-bottom:8px;font-weight:600">점수별 의미:</div>
+          <div style="font-size:12px;color:#333333;line-height:1.8">
+            <div><span style="color:#ef4444;font-weight:600">0-24: Extreme Fear</span> - 극도의 공포 상태</div>
+            <div><span style="color:#f97316;font-weight:600">25-44: Fear</span> - 공포 상태</div>
+            <div><span style="color:#eab308;font-weight:600">45-54: Neutral</span> - 중립 상태</div>
+            <div><span style="color:#22c55e;font-weight:600">55-74: Greed</span> - 탐욕 상태</div>
+            <div><span style="color:#10b981;font-weight:600">75-100: Extreme Greed</span> - 극도의 탐욕 상태</div>
+          </div>
+        </div>
       </div>
       
       <div class="history-section">
@@ -1231,8 +1252,9 @@ app.get("/economic-indicators/:id", async (req, res) => {
       const chartFullDates = ${JSON.stringify(chartFullDates)};
       const indicatorName = ${JSON.stringify(ind.name)};
       const indicatorUnit = ${JSON.stringify(ind.unit)};
+      const isFearGreedIndex = ${ind.id === 'fear-greed-index' ? 'true' : 'false'};
       
-      new Chart(ctx, {
+      const chartConfig = {
         type: 'line',
         data: {
           labels: chartLabels,
@@ -1305,11 +1327,19 @@ app.get("/economic-indicators/:id", async (req, res) => {
                   return value.toFixed(2) + indicatorUnit;
                 }
               },
-              grid: { color: '#2d2d2d' }${ind.id === 'fear-greed-index' ? ',\n              min: 0,\n              max: 100' : ''}
+              grid: { color: '#2d2d2d' }
             }
           }
         }
-      });
+      };
+      
+      // Fear & Greed Index인 경우 Y축 최대값을 100으로 설정
+      if (isFearGreedIndex) {
+        chartConfig.options.scales.y.min = 0;
+        chartConfig.options.scales.y.max = 100;
+      }
+      
+      new Chart(ctx, chartConfig);
     </script>
     ` : ""}
     
@@ -1414,3 +1444,4 @@ function escapeHtml(s: string): string {
 app.listen(PORT, () => {
   console.log(`H.4.1 dashboard running: http://localhost:${PORT}`);
 });
+

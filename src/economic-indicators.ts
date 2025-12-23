@@ -269,126 +269,146 @@ async function fetchHighYieldSpread(): Promise<{ price: number; change: number; 
 }
 
 /**
- * Fear & Greed Index 가져오기 (Alternative.me API 우선, CNN API 대안)
+ * Fear & Greed Index 가져오기 (CNN API 우선 사용)
  */
 async function fetchFearGreedIndex(): Promise<{ value: number; change: number; history?: Array<{ date: string; value: number }>; lastUpdated?: string } | null> {
   try {
-    // Alternative.me API 우선 사용 (가장 신뢰할 수 있는 소스)
-    const response = await fetch("https://api.alternative.me/fng/?limit=2", {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.data && data.data.length > 0) {
-        const latest = data.data[0];
-        const previous = data.data[1] || latest;
-        
-        const currentValue = parseInt(latest.value, 10);
-        const previousValue = parseInt(previous.value, 10);
-        
-        if (!isNaN(currentValue)) {
-          // 히스토리 데이터 가져오기 (최근 365일)
-          let history: Array<{ date: string; value: number }> = [];
-          try {
-            const historyResponse = await fetch("https://api.alternative.me/fng/?limit=365");
-            if (historyResponse.ok) {
-              const historyData = await historyResponse.json();
-              if (historyData.data) {
-                history = historyData.data.map((item: any) => ({
-                  date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
-                  value: parseInt(item.value, 10),
-                })).reverse();
-              }
-            }
-          } catch (e) {
-            console.error("Failed to fetch history:", e);
-          }
-          
-          // lastUpdated는 최신 데이터의 타임스탬프 사용
-          const lastUpdated = latest.timestamp 
-            ? new Date(parseInt(latest.timestamp) * 1000).toISOString()
-            : new Date().toISOString();
-          
-          return {
-            value: currentValue,
-            change: currentValue - previousValue,
-            history: history.length > 0 ? history : undefined,
-            lastUpdated,
-          };
-        }
-      }
-    }
-    
-    // 대안: CNN API 시도
+    // CNN API 우선 시도 (https://edition.cnn.com/markets/fear-and-greed 참조)
     try {
       const cnnResponse = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
         headers: {
-          "User-Agent": "Mozilla/5.0",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json",
+          "Referer": "https://edition.cnn.com/",
         },
       });
+      
       if (cnnResponse.ok) {
         const cnnData = await cnnResponse.json();
+        console.log("CNN API Response:", JSON.stringify(cnnData).substring(0, 500));
+        
         // CNN API 응답 구조 확인 및 파싱
         let currentValue: number | null = null;
         let previousValue: number | null = null;
+        let history: Array<{ date: string; value: number }> = [];
+        let lastUpdated: string | null = null;
         
         // 다양한 가능한 응답 구조 확인
-        if (cnnData.fear_and_greed?.score !== undefined) {
-          currentValue = cnnData.fear_and_greed.score;
-        } else if (cnnData.fear_and_greed?.data?.[0]?.value !== undefined) {
-          currentValue = cnnData.fear_and_greed.data[0].value;
-        } else if (cnnData.fear_and_greed?.data?.[0]?.score !== undefined) {
-          currentValue = cnnData.fear_and_greed.data[0].score;
-        } else if (cnnData.score !== undefined) {
-          currentValue = cnnData.score;
-        } else if (cnnData.data?.[0]?.value !== undefined) {
-          currentValue = cnnData.data[0].value;
-        }
-        
-        if (currentValue !== null && currentValue !== undefined) {
-          // 이전 값 찾기
-          if (cnnData.fear_and_greed?.previous_close?.value !== undefined) {
-            previousValue = cnnData.fear_and_greed.previous_close.value;
-          } else if (cnnData.fear_and_greed?.data?.[1]?.value !== undefined) {
-            previousValue = cnnData.fear_and_greed.data[1].value;
-          } else if (cnnData.data?.[1]?.value !== undefined) {
-            previousValue = cnnData.data[1].value;
-          } else {
-            previousValue = currentValue;
+        if (cnnData.fear_and_greed) {
+          // 구조 1: fear_and_greed.score
+          if (cnnData.fear_and_greed.score !== undefined && cnnData.fear_and_greed.score !== null) {
+            currentValue = Number(cnnData.fear_and_greed.score);
           }
-          
-          // 히스토리 데이터 가져오기
-          let history: Array<{ date: string; value: number }> = [];
-          if (cnnData.fear_and_greed?.data) {
+          // 구조 2: fear_and_greed.data[0].value 또는 score
+          else if (cnnData.fear_and_greed.data && Array.isArray(cnnData.fear_and_greed.data) && cnnData.fear_and_greed.data.length > 0) {
+            const latestData = cnnData.fear_and_greed.data[0];
+            currentValue = Number(latestData.value || latestData.score || latestData.y || latestData.close);
+            
+            // 히스토리 데이터
             history = cnnData.fear_and_greed.data.map((item: any) => ({
               date: item.date || (item.timestamp ? new Date(item.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-              value: item.value || item.score || currentValue,
+              value: Number(item.value || item.score || item.y || item.close || currentValue),
             })).reverse();
-          } else if (cnnData.data) {
-            history = cnnData.data.map((item: any) => ({
-              date: item.date || (item.timestamp ? new Date(item.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-              value: item.value || item.score || currentValue,
-            })).reverse();
+            
+            // 이전 값
+            if (cnnData.fear_and_greed.data.length > 1) {
+              const prevData = cnnData.fear_and_greed.data[1];
+              previousValue = Number(prevData.value || prevData.score || prevData.y || prevData.close);
+            }
+          }
+          // 구조 3: fear_and_greed.previous_close
+          if (cnnData.fear_and_greed.previous_close?.value !== undefined) {
+            previousValue = Number(cnnData.fear_and_greed.previous_close.value);
           }
           
-          const lastUpdated = cnnData.fear_and_greed?.last_updated || 
-                             cnnData.last_updated ||
-                             cnnData.fear_and_greed?.data?.[0]?.date ||
-                             new Date().toISOString();
+          lastUpdated = cnnData.fear_and_greed.last_updated || 
+                       cnnData.fear_and_greed.data?.[0]?.date ||
+                       null;
+        }
+        // 구조 4: 최상위 레벨
+        else if (cnnData.score !== undefined) {
+          currentValue = Number(cnnData.score);
+          previousValue = Number(cnnData.previous_close?.value || cnnData.previous_score || currentValue);
+        }
+        else if (cnnData.data && Array.isArray(cnnData.data) && cnnData.data.length > 0) {
+          const latestData = cnnData.data[0];
+          currentValue = Number(latestData.value || latestData.score || latestData.y || latestData.close);
           
+          if (cnnData.data.length > 1) {
+            const prevData = cnnData.data[1];
+            previousValue = Number(prevData.value || prevData.score || prevData.y || prevData.close);
+          }
+          
+          history = cnnData.data.map((item: any) => ({
+            date: item.date || (item.timestamp ? new Date(item.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+            value: Number(item.value || item.score || item.y || item.close || currentValue),
+          })).reverse();
+        }
+        
+        if (currentValue !== null && !isNaN(currentValue) && currentValue >= 0 && currentValue <= 100) {
           return {
             value: Math.round(currentValue),
-            change: Math.round(currentValue) - Math.round(previousValue || currentValue),
+            change: previousValue !== null ? Math.round(currentValue) - Math.round(previousValue) : 0,
             history: history.length > 0 ? history : undefined,
-            lastUpdated,
+            lastUpdated: lastUpdated || new Date().toISOString(),
           };
         }
       }
     } catch (e) {
       console.error("CNN API failed:", e);
+    }
+    
+    // 대안: Alternative.me API 사용
+    try {
+      const response = await fetch("https://api.alternative.me/fng/?limit=2", {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          const latest = data.data[0];
+          const previous = data.data[1] || latest;
+          
+          const currentValue = parseInt(latest.value, 10);
+          const previousValue = parseInt(previous.value, 10);
+          
+          if (!isNaN(currentValue) && currentValue >= 0 && currentValue <= 100) {
+            // 히스토리 데이터 가져오기 (최근 365일)
+            let history: Array<{ date: string; value: number }> = [];
+            try {
+              const historyResponse = await fetch("https://api.alternative.me/fng/?limit=365");
+              if (historyResponse.ok) {
+                const historyData = await historyResponse.json();
+                if (historyData.data) {
+                  history = historyData.data.map((item: any) => ({
+                    date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
+                    value: parseInt(item.value, 10),
+                  })).reverse();
+                }
+              }
+            } catch (e) {
+              console.error("Failed to fetch history:", e);
+            }
+            
+            // lastUpdated는 최신 데이터의 타임스탬프 사용
+            const lastUpdated = latest.timestamp 
+              ? new Date(parseInt(latest.timestamp) * 1000).toISOString()
+              : new Date().toISOString();
+            
+            return {
+              value: currentValue,
+              change: currentValue - previousValue,
+              history: history.length > 0 ? history : undefined,
+              lastUpdated,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Alternative.me API failed:", e);
     }
     
     return null;
@@ -658,7 +678,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       changePercent: fearGreed.value !== 0 ? (fearGreed.change / fearGreed.value) * 100 : null,
       unit: "점",
       lastUpdated: fearGreed.lastUpdated || now,
-      source: "Alternative.me Fear & Greed Index",
+      source: "CNN Fear & Greed Index",
       history: fearGreed.history,
       id: "fear-greed-index",
     });
