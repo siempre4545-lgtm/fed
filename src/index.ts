@@ -802,7 +802,7 @@ app.get("/economic-indicators", async (_req, res) => {
   }
 });
 
-// Fear & Greed Index 전용 페이지
+// Fear & Greed Index 전용 페이지 (일반 세부 페이지보다 먼저 정의)
 app.get("/economic-indicators/fear-greed-index", async (req, res) => {
   try {
     const detail = await getIndicatorDetail("fear-greed-index", '1Y');
@@ -883,13 +883,13 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
   <title>Fear & Greed Index - 경제 지표 상세</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#f5f5f5;color:#333333;line-height:1.6}
     
-    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
-    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
-    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
-    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
-    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    .page-header{padding:20px 24px;border-bottom:1px solid #e0e0e0;position:sticky;top:0;background:#ffffff;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#000000}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#666666}
+    .page-header a{color:#0066cc;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#0052a3}
     
     .main-content{padding:24px;max-width:1400px;margin:0 auto}
     
@@ -923,6 +923,20 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
     .analysis-title{font-size:18px;font-weight:700;color:#000000;margin-bottom:16px}
     .analysis-text{font-size:15px;line-height:2.2;color:#333333;white-space:pre-line}
     .analysis-text strong{color:#000000;font-weight:700}
+    
+    .news-section-detail{background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;padding:24px;margin-bottom:24px}
+    .news-section-title{font-size:18px;font-weight:700;color:#000000;margin-bottom:16px}
+    .news-list-detail{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+    .news-item-detail{padding:12px;background:#f9f9f9;border-radius:8px;border:1px solid #e0e0e0;transition:all 0.2s}
+    .news-item-detail:hover{background:#f0f0f0;border-color:#d0d0d0}
+    .news-content-detail{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .news-text-detail{flex:1;font-size:14px;line-height:1.6;color:#333333}
+    .news-meta-detail{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .news-source-detail{font-size:12px;color:#666666;white-space:nowrap;padding:4px 8px;background:#e0e0e0;border-radius:4px}
+    .news-date-detail{font-size:11px;color:#999999;white-space:nowrap}
+    .news-comment{margin-top:16px;padding-top:16px;border-top:1px solid #e0e0e0}
+    .news-comment-title{font-size:16px;font-weight:700;color:#000000;margin-bottom:12px}
+    .news-comment-text{font-size:14px;line-height:1.8;color:#333333}
     
     @media (max-width: 768px) {
       .fng-container{flex-direction:column}
@@ -1078,6 +1092,31 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
       <div class="analysis-title">경제코치 분석 💡</div>
       <div class="analysis-text">${escapeHtml(detail.analysis)}</div>
     </div>
+    
+    ${detail.relatedNews && detail.relatedNews.length > 0 ? `
+    <div class="news-section-detail">
+      <div class="news-section-title">최근 뉴스 항목</div>
+      <div class="news-list-detail">
+        ${detail.relatedNews.map((news: any) => `
+          <div class="news-item-detail">
+            <div class="news-content-detail">
+              <div class="news-text-detail">${escapeHtml(news.title)}</div>
+              <div class="news-meta-detail">
+                <div class="news-source-detail">${escapeHtml(news.source)}</div>
+                ${news.publishedAt ? `<div class="news-date-detail">${escapeHtml(news.publishedAt)}</div>` : ""}
+              </div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      ${detail.newsComment && detail.newsComment !== "none" ? `
+      <div class="news-comment">
+        <div class="news-comment-title">경제코치 코멘트 💬</div>
+        <div class="news-comment-text">${escapeHtml(detail.newsComment)}</div>
+      </div>
+      ` : ""}
+    </div>
+    ` : ""}
   </div>
 </body>
 </html>`);
