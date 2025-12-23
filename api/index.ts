@@ -928,10 +928,6 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
     .fng-updated{font-size:13px;color:#666666;text-align:center}
     
     .history-section{flex:0 0 320px;background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;padding:24px}
-    .history-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #e0e0e0;padding-bottom:12px}
-    .history-tab{padding:8px 16px;border:none;background:transparent;color:#666666;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
-    .history-tab:hover{color:#000000}
-    .history-tab.active{color:#0066cc;border-bottom-color:#0066cc}
     .history-item{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e0e0e0}
     .history-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
     .history-label{font-size:13px;color:#666666;margin-bottom:8px}
@@ -983,57 +979,77 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
         
         <div class="gauge-wrapper">
           <svg class="gauge-svg" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
-            <!-- 배경 원호 -->
-            <path d="M 50 200 A 150 150 0 0 1 350 200" fill="none" stroke="#e0e0e0" stroke-width="20" stroke-linecap="round"/>
+            <!-- 배경 원호 (가독성 개선: 더 진한 배경) -->
+            <path d="M 50 200 A 150 150 0 0 1 350 200" fill="none" stroke="#d0d0d0" stroke-width="22" stroke-linecap="round"/>
             
-            <!-- 구간별 색상 (0-100 범위) -->
+            <!-- 구간별 색상 (0-100 범위, 가독성 개선: 더 두껍고 진한 색상) -->
             <!-- EXTREME FEAR: 0-25 -->
-            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#ef4444" stroke-width="20" stroke-linecap="round"/>
+            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#dc2626" stroke-width="22" stroke-linecap="round"/>
             <!-- FEAR: 25-45 -->
-            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#f97316" stroke-width="20" stroke-linecap="round"/>
+            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#ea580c" stroke-width="22" stroke-linecap="round"/>
             <!-- NEUTRAL: 45-55 -->
-            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#eab308" stroke-width="20" stroke-linecap="round"/>
+            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#ca8a04" stroke-width="22" stroke-linecap="round"/>
             <!-- GREED: 55-75 -->
-            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="round"/>
+            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#16a34a" stroke-width="22" stroke-linecap="round"/>
             
-            <!-- 현재 값 강조 (활성 구간) -->
+            <!-- 현재 값 강조 (활성 구간, 가독성 개선: 더 두껍고 진한 색상) -->
             ${currentValue >= 75 ? `
             <!-- EXTREME GREED: 75-100 -->
-            <path d="M 350 200 A 150 150 0 0 1 350 200" fill="none" stroke="#10b981" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 350 200 A 150 150 0 0 1 350 200" fill="none" stroke="#059669" stroke-width="26" stroke-linecap="round" opacity="1"/>
             ` : currentValue >= 55 && currentValue < 75 ? `
             <!-- GREED: 55-75 -->
-            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#22c55e" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 275 50 A 150 150 0 0 1 350 200" fill="none" stroke="#16a34a" stroke-width="26" stroke-linecap="round" opacity="1"/>
             ` : currentValue >= 45 && currentValue < 55 ? `
             <!-- NEUTRAL: 45-55 -->
-            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#eab308" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 200 50 A 150 150 0 0 1 275 50" fill="none" stroke="#ca8a04" stroke-width="26" stroke-linecap="round" opacity="1"/>
             ` : currentValue >= 25 && currentValue < 45 ? `
             <!-- FEAR: 25-45 -->
-            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#f97316" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 125 50 A 150 150 0 0 1 200 50" fill="none" stroke="#ea580c" stroke-width="26" stroke-linecap="round" opacity="1"/>
             ` : `
             <!-- EXTREME FEAR: 0-25 -->
-            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#ef4444" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 50 200 A 150 150 0 0 1 125 50" fill="none" stroke="#dc2626" stroke-width="26" stroke-linecap="round" opacity="1"/>
             `}
             
-            <!-- 눈금 -->
-            <line x1="50" y1="200" x2="50" y2="210" stroke="#999999" stroke-width="2"/>
-            <line x1="125" y1="50" x2="130" y2="45" stroke="#999999" stroke-width="2"/>
-            <line x1="200" y1="50" x2="200" y2="40" stroke="#999999" stroke-width="2"/>
-            <line x1="275" y1="50" x2="270" y2="45" stroke="#999999" stroke-width="2"/>
-            <line x1="350" y1="200" x2="350" y2="210" stroke="#999999" stroke-width="2"/>
+            <!-- 눈금 (가독성 개선: 더 두껍고 진한 색상) -->
+            <line x1="50" y1="200" x2="50" y2="210" stroke="#666666" stroke-width="3"/>
+            <line x1="125" y1="50" x2="130" y2="45" stroke="#666666" stroke-width="3"/>
+            <line x1="200" y1="50" x2="200" y2="40" stroke="#666666" stroke-width="3"/>
+            <line x1="275" y1="50" x2="270" y2="45" stroke="#666666" stroke-width="3"/>
+            <line x1="350" y1="200" x2="350" y2="210" stroke="#666666" stroke-width="3"/>
             
-            <!-- 눈금 라벨 -->
-            <text x="50" y="225" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">0</text>
-            <text x="125" y="40" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">25</text>
-            <text x="200" y="30" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">50</text>
-            <text x="275" y="40" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">75</text>
-            <text x="350" y="225" fill="#666666" font-size="12" text-anchor="middle" font-weight="600">100</text>
+            <!-- 눈금 라벨 (가독성 개선: 큰 글자, 진한 색상) -->
+            <text x="50" y="225" fill="#333333" font-size="14" text-anchor="middle" font-weight="700">0</text>
+            <text x="125" y="40" fill="#333333" font-size="14" text-anchor="middle" font-weight="700">25</text>
+            <text x="200" y="30" fill="#333333" font-size="14" text-anchor="middle" font-weight="700">50</text>
+            <text x="275" y="40" fill="#333333" font-size="14" text-anchor="middle" font-weight="700">75</text>
+            <text x="350" y="225" fill="#333333" font-size="14" text-anchor="middle" font-weight="700">100</text>
             
-            <!-- 구간 라벨 -->
-            <text x="87.5" y="120" fill="#ef4444" font-size="11" font-weight="600" text-anchor="middle" transform="rotate(-45 87.5 120)">EXTREME FEAR</text>
-            <text x="162.5" y="70" fill="#f97316" font-size="11" font-weight="600" text-anchor="middle">FEAR</text>
-            <text x="237.5" y="70" fill="#eab308" font-size="11" font-weight="600" text-anchor="middle">NEUTRAL</text>
-            <text x="312.5" y="120" fill="#22c55e" font-size="11" font-weight="600" text-anchor="middle" transform="rotate(45 312.5 120)">GREED</text>
-            <text x="350" y="180" fill="#10b981" font-size="11" font-weight="600" text-anchor="middle">EXTREME GREED</text>
+            <!-- 구간 라벨 (가독성 개선: 큰 글자, 배경 원, 그림자 효과) -->
+            <!-- EXTREME FEAR 배경 -->
+            <circle cx="87.5" cy="120" r="28" fill="rgba(255,255,255,0.9)" stroke="#ef4444" stroke-width="2"/>
+            <text x="87.5" y="115" fill="#dc2626" font-size="12" font-weight="700" text-anchor="middle" transform="rotate(-45 87.5 120)">
+              <tspan x="87.5" dy="0">EXTREME</tspan>
+              <tspan x="87.5" dy="13">FEAR</tspan>
+            </text>
+            
+            <!-- FEAR 배경 -->
+            <circle cx="162.5" cy="70" r="22" fill="rgba(255,255,255,0.9)" stroke="#ea580c" stroke-width="2"/>
+            <text x="162.5" y="70" fill="#ea580c" font-size="15" font-weight="700" text-anchor="middle">FEAR</text>
+            
+            <!-- NEUTRAL 배경 -->
+            <circle cx="237.5" cy="70" r="22" fill="rgba(255,255,255,0.9)" stroke="#ca8a04" stroke-width="2"/>
+            <text x="237.5" y="70" fill="#ca8a04" font-size="15" font-weight="700" text-anchor="middle">NEUTRAL</text>
+            
+            <!-- GREED 배경 -->
+            <circle cx="312.5" cy="120" r="22" fill="rgba(255,255,255,0.9)" stroke="#16a34a" stroke-width="2"/>
+            <text x="312.5" y="120" fill="#16a34a" font-size="15" font-weight="700" text-anchor="middle" transform="rotate(45 312.5 120)">GREED</text>
+            
+            <!-- EXTREME GREED 배경 -->
+            <circle cx="350" cy="180" r="28" fill="rgba(255,255,255,0.9)" stroke="#059669" stroke-width="2"/>
+            <text x="350" y="175" fill="#059669" font-size="12" font-weight="700" text-anchor="middle">
+              <tspan x="350" dy="0">EXTREME</tspan>
+              <tspan x="350" dy="13">GREED</tspan>
+            </text>
             
             <!-- 바늘 (현재 값) -->
             <g transform="translate(200, 200)">
@@ -1061,10 +1077,6 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
       </div>
       
       <div class="history-section">
-        <div class="history-tabs">
-          <button class="history-tab active">Overview</button>
-          <button class="history-tab">Timeline</button>
-        </div>
         
         ${previousClose ? `
         <div class="history-item">
