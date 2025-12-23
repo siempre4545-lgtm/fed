@@ -1305,7 +1305,7 @@ app.get("/economic-indicators/:id", async (req, res) => {
                   return value.toFixed(2) + indicatorUnit;
                 }
               },
-              grid: { color: '#2d2d2d' }
+              grid: { color: '#2d2d2d' }${ind.id === 'fear-greed-index' ? ',\n              min: 0,\n              max: 100' : ''}
             }
           }
         }
