@@ -50,6 +50,41 @@ app.get("/", async (req, res) => {
       console.error("Failed to fetch economic news:", e);
     }
     
+    // 원/달러 환율 가져오기 (Yahoo Finance API)
+    let usdKrwRate: { price: number; change: number; changePercent: number } | null = null;
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=2d`;
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const result = data.chart?.result?.[0];
+        if (result) {
+          const quote = result.indicators?.quote?.[0];
+          if (quote) {
+            const prices = quote.close.filter((p: number | null) => p !== null);
+            if (prices.length >= 2) {
+              const currentPrice = prices[prices.length - 1];
+              const previousPrice = prices[prices.length - 2];
+              const change = currentPrice - previousPrice;
+              const changePercent = (change / previousPrice) * 100;
+              usdKrwRate = {
+                price: currentPrice,
+                change,
+                changePercent,
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch USD/KRW rate:", e);
+    }
+    
     const levelText = ["안정", "주의", "경계", "위험"][report.warningLevel];
     const levelColors = ["#22c55e", "#f59e0b", "#f97316", "#ef4444"];
     
@@ -410,6 +445,15 @@ app.get("/", async (req, res) => {
         Release: ${escapeHtml(report.releaseDateText)} · Week ended: ${escapeHtml(report.asOfWeekEndedText)}<br/>
         <a href="/concepts" style="font-weight:600">계정항목 알아보기 📋</a>
       </div>
+      ${usdKrwRate ? `
+      <div class="exchange-rate-container">
+        <span class="exchange-rate-label">USD/KRW:</span>
+        <span class="exchange-rate-value">${usdKrwRate.price.toFixed(2)}</span>
+        <span class="exchange-rate-change ${usdKrwRate.change > 0 ? 'exchange-rate-up' : usdKrwRate.change < 0 ? 'exchange-rate-down' : 'exchange-rate-neutral'}">
+          ${usdKrwRate.change > 0 ? '+' : ''}${usdKrwRate.change.toFixed(2)} (${usdKrwRate.changePercent > 0 ? '+' : ''}${usdKrwRate.changePercent.toFixed(2)}%)
+        </span>
+      </div>
+      ` : ''}
       <div class="date-selector">
         <label for="dateInput">날짜 선택:</label>
         <input type="date" id="dateInput" value="${targetDate || ''}" max="${new Date().toISOString().split('T')[0]}" />

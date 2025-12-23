@@ -266,6 +266,15 @@ app.get("/", async (req, res) => {
     .date-selector .reset-btn{padding:6px 12px;border:1px solid #2d2d2d;background:transparent;color:#808080}
     .date-selector .reset-btn:hover{background:#2d2d2d;color:#c0c0c0}
     
+    /* 환율 표시 */
+    .exchange-rate-container{display:flex;align-items:center;gap:12px;padding:8px 16px;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:8px;margin-top:12px}
+    .exchange-rate-label{font-size:13px;color:#808080;font-weight:600}
+    .exchange-rate-value{font-size:18px;font-weight:700;color:#ffffff}
+    .exchange-rate-change{font-size:13px;font-weight:600}
+    .exchange-rate-up{color:#ff6b6b}
+    .exchange-rate-down{color:#51cf66}
+    .exchange-rate-neutral{color:#adb5bd}
+    
     /* 신호등 UI */
     .traffic-light-container{position:relative;margin-left:20px}
     .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px}
