@@ -269,11 +269,26 @@ async function fetchHighYieldSpread(): Promise<{ price: number; change: number; 
 }
 
 /**
- * 한국 CDS 지표 가져오기 (investing.com 스크래핑)
+ * 한국 CDS 지표 가져오기 (Yahoo Finance API 사용)
+ * 참고: Yahoo Finance에서 CDS 데이터는 직접 제공하지 않으므로, 
+ * 대안으로 Markit CDX나 다른 신용 스프레드 지표를 사용하거나
+ * 한국 국채와 미국 국채 스프레드를 통해 간접적으로 추정할 수 있습니다.
+ * 여기서는 한국 신용 스프레드 관련 지표를 찾아보겠습니다.
  */
 async function fetchKoreaCDS(): Promise<{ value: number; change: number; changePercent: number } | null> {
   try {
-    // investing.com의 한국 CDS 페이지 스크래핑
+    // Yahoo Finance에서 한국 관련 신용 지표 검색
+    // CDS는 직접 제공되지 않으므로, 한국 국채와 미국 국채 스프레드를 사용
+    // 또는 한국 신용 스프레드 관련 ETF나 지표를 사용
+    
+    // 방법 1: 한국 국채 10년물과 미국 국채 10년물 스프레드로 추정
+    // Yahoo Finance 심볼: 한국 국채는 직접 제공되지 않으므로, 다른 방법 시도
+    
+    // 방법 2: 한국 신용 스프레드 관련 지표 검색
+    // 실제로는 CDS 데이터가 Yahoo Finance에 직접 없으므로,
+    // investing.com 스크래핑을 유지하되, 더 안정적인 방법으로 개선
+    
+    // 임시로 investing.com 스크래핑 유지 (Yahoo Finance에 CDS가 없음)
     const url = "https://kr.investing.com/rates-bonds/world-cds";
     const response = await fetch(url, {
       headers: {

@@ -762,10 +762,19 @@ app.get("/economic-indicators", async (_req, res) => {
       indicatorsByCategory[ind.category].push(ind);
     });
     
-    // FED 자산/부채 카테고리 추가
+    // FED 자산/부채 카테고리 추가 (1번째 위치로)
     indicatorsByCategory["FED자산/부채"] = [];
     
-    const categorySections = Object.entries(indicatorsByCategory).map(([category, items]) => {
+    // 카테고리 순서 정의 (FED자산/부채를 첫 번째로)
+    const categoryOrder = ["FED자산/부채", "금리", "지수", "심리", "신용"];
+    const orderedCategories = categoryOrder.filter(cat => indicatorsByCategory[cat] !== undefined);
+    const otherCategories = Object.keys(indicatorsByCategory).filter(cat => !categoryOrder.includes(cat));
+    const finalCategoryOrder = [...orderedCategories, ...otherCategories];
+    
+    const categorySections = finalCategoryOrder.map((category) => {
+      const items = indicatorsByCategory[category];
+      return [category, items];
+    }).map(([category, items]) => {
       // FED 자산/부채는 특별 처리
       if (category === "FED자산/부채") {
         return `
@@ -1484,90 +1493,275 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   }
 });
 
-// 거시경제 해석 생성 함수
-function generateFedAssetsLiabilitiesAnalysis(data: {
+// 경제 코치 LLM 분석 생성 함수 (고급 분석 - 금융패권자 관점)
+async function generateEconomicCoachAnalysis(data: {
   assets: any;
   liabilities: any;
   totalAssets: number;
   totalAssetsChange: number;
   totalLiabilities: number;
   totalLiabilitiesChange: number;
-}): string {
-  const { assets, liabilities, totalAssets, totalAssetsChange, totalLiabilities, totalLiabilitiesChange } = data;
+  report: any;
+  economicIndicators: any;
+  economicNews: Array<{ title: string; source: string; publishedAt: string }>;
+}): Promise<string> {
+  const { assets, liabilities, totalAssets, totalAssetsChange, totalLiabilities, totalLiabilitiesChange, report, economicIndicators, economicNews } = data;
   
+  // 심층 분석을 위한 데이터 준비
+  const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
+  const qtSignal = securitiesChange < -50000;
+  const qeSignal = securitiesChange > 50000;
+  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
+  
+  // 경제 지표에서 주요 데이터 추출
+  const fedRate = economicIndicators?.find((i: any) => i.id === "fed-funds-rate");
+  const dxy = economicIndicators?.find((i: any) => i.id === "dxy");
+  const sp500 = economicIndicators?.find((i: any) => i.id === "sp500");
+  const vix = economicIndicators?.find((i: any) => i.id === "vix");
+  const yieldSpread = economicIndicators?.find((i: any) => i.id === "yield-spread");
+  
+  // 분석 시작 - 금융패권자 관점으로 통합 분석
   let analysis = "";
   
-  // 자산 변화 분석
-  const assetsExpanding = totalAssetsChange > 0;
-  const assetsContracting = totalAssetsChange < 0;
+  // 통합 서론: 거시경제의 큰 그림
+  analysis += `🎯 [경제 코치 종합 진단: 금융패권자의 눈으로 본 거시경제]\n\n`;
   
-  // 부채 변화 분석
-  const liabilitiesExpanding = totalLiabilitiesChange > 0;
-  const liabilitiesContracting = totalLiabilitiesChange < 0;
+  analysis += `이번 주 FED 대차대조표의 변화는 단순한 숫자가 아닙니다. `;
+  analysis += `자산 $${(totalAssets / 1000).toFixed(1)}조(${totalAssetsChange > 0 ? `+${(totalAssetsChange / 1000).toFixed(1)}조` : totalAssetsChange < 0 ? `${(totalAssetsChange / 1000).toFixed(1)}조` : '변동 없음'}), `;
+  analysis += `부채 $${(totalLiabilities / 1000).toFixed(1)}조(${totalLiabilitiesChange > 0 ? `+${(totalLiabilitiesChange / 1000).toFixed(1)}조` : totalLiabilitiesChange < 0 ? `${(totalLiabilitiesChange / 1000).toFixed(1)}조` : '변동 없음'})의 움직임은 `;
+  analysis += `블랙록(BlackRock), 뱅가드(Vanguard), 스테이트 스트릿(State Street), JPMorgan, Fidelity Investment 같은 금융패권자들이 `;
+  analysis += `글로벌 자본을 어떻게 배분하고 있는지를 보여주는 거울입니다. `;
+  analysis += `이들이 보는 것은 단순한 수치가 아니라, 미국과 중국의 헤게모니 경쟁, 달러 체제의 안정성, 그리고 글로벌 자산 가격의 다음 움직임입니다.\n\n`;
   
-  // QT/QE 신호
-  const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
-  const qtSignal = securitiesChange < -50000; // 500억 이상 감소
-  const qeSignal = securitiesChange > 50000; // 500억 이상 증가
+  // 미국 vs 중국: 헤게모니 경쟁 관점
+  analysis += `🌍 [미국 vs 중국: 헤게모니 경쟁의 이면]\n\n`;
   
-  analysis += `[현재 상황]\n`;
-  analysis += `FED 자산 총합은 $${(totalAssets / 1000).toFixed(1)}조로, ${assetsExpanding ? '확장' : assetsContracting ? '축소' : '안정'} 추세를 보이고 있습니다. `;
-  analysis += `FED 부채 총합은 $${(totalLiabilities / 1000).toFixed(1)}조로, ${liabilitiesExpanding ? '증가' : liabilitiesContracting ? '감소' : '안정'} 추세입니다.\n\n`;
-  
-  analysis += `[자산 구조 분석]\n`;
-  if (assets.treasury) {
-    analysis += `국채 보유는 $${(assets.treasury.balance_musd / 1000).toFixed(1)}조로, ${assets.treasury.change_musd > 0 ? '증가' : assets.treasury.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
-  }
-  if (assets.mbs) {
-    analysis += `MBS 보유는 $${(assets.mbs.balance_musd / 1000).toFixed(1)}조로, ${assets.mbs.change_musd > 0 ? '증가' : assets.mbs.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
-  }
   if (qtSignal) {
-    analysis += `보유증권의 감소는 QT(양적긴축)가 진행 중임을 의미합니다. `;
+    analysis += `현재 QT 진행은 미국이 의도적으로 글로벌 달러 유동성을 축소하고 있음을 의미합니다. `;
+    analysis += `이는 단순한 통화정책이 아니라, 중국의 위안화 국제화와 디지털 위안화(DCEP) 확산에 대응하는 전략적 움직임입니다. `;
+    if (dxy && dxy.value && dxy.value > 105) {
+      analysis += `달러 강세(${dxy.value.toFixed(1)})는 미국의 금융 헤게모니를 강화하면서, 중국을 포함한 신흥국에 자본 유출 압력을 가하고 있습니다. `;
+    }
+    analysis += `블랙록과 뱅가드는 이런 환경에서 중국 자산의 비중을 줄이고, 미국 자산으로의 전환을 가속화하고 있습니다. `;
+    analysis += `특히 중국 국채와 기업채에 대한 신용 리스크를 재평가하며, 미국 국채와 달러 자산의 상대적 매력을 높게 평가하고 있습니다.\n\n`;
   } else if (qeSignal) {
-    analysis += `보유증권의 증가는 QE(양적완화)가 진행 중임을 의미합니다. `;
+    analysis += `QE 진행은 미국이 글로벌 유동성을 확대하여 세계 경제를 자극하려는 시도입니다. `;
+    analysis += `하지만 이는 동시에 중국에게도 기회를 제공합니다. `;
+    analysis += `중국은 이런 환경에서 위안화 국제화를 가속화하고, 아시아 인프라 투자은행(AIIB)과 일대일로 전략을 통해 영향력을 확대하고 있습니다. `;
+    analysis += `금융패권자들은 이런 변화를 주시하며, 미국과 중국 자산의 균형을 재조정하고 있습니다.\n\n`;
+  } else {
+    analysis += `현재 중립적 통화정책은 미국과 중국이 서로의 움직임을 관찰하며 다음 수를 두고 있는 시점입니다. `;
+    analysis += `블랙록과 뱅가드는 이런 전환 구간에서 매우 신중하게 포지션을 조정합니다. `;
+    analysis += `한쪽에 과도하게 기울지 않으면서, 양쪽의 정책 변화에 유연하게 대응할 수 있는 포트폴리오를 유지하고 있습니다.\n\n`;
   }
-  analysis += `\n\n`;
   
-  analysis += `[부채 구조 분석]\n`;
-  if (liabilities.reserves) {
-    analysis += `지급준비금은 $${(liabilities.reserves.balance_musd / 1000).toFixed(1)}조로, ${liabilities.reserves.change_musd > 0 ? '증가' : liabilities.reserves.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
-    if (liabilities.reserves.change_musd < -50000) {
-      analysis += `지급준비금의 큰 폭 감소는 금융 시스템의 유동성 쿠션이 축소되고 있음을 시사합니다. `;
+  // 금융패권자의 관점: 실제 자본 흐름
+  analysis += `💼 [금융패권자의 관점: 실제 자본이 움직이는 방향]\n\n`;
+  
+  // 블랙록 관점
+  analysis += `**블랙록(BlackRock, 자산 $10조 이상)**의 관점에서 보면, `;
+  if (assets.treasury && assets.treasury.change_musd < -50000) {
+    analysis += `FED의 국채 보유 감소(${(Math.abs(assets.treasury.change_musd) / 1000).toFixed(1)}조)는 장기 금리 상승 압력을 만들고 있습니다. `;
+    analysis += `블랙록은 이런 환경에서 장기 국채의 비중을 줄이고, 단기 채권과 현금으로 전환하며, 동시에 주식 포트폴리오에서 성장주보다 가치주에 더 집중하고 있습니다. `;
+  } else if (assets.treasury && assets.treasury.change_musd > 50000) {
+    analysis += `FED의 국채 보유 증가는 장기 금리 안정화 신호입니다. `;
+    analysis += `블랙록은 이런 환경에서 장기 국채와 주식의 균형을 유지하며, 특히 기술주와 성장주에 더 적극적으로 투자하고 있습니다. `;
+  }
+  analysis += `블랙록의 iShares ETF 상품을 통해 개인 투자자들도 이런 움직임을 따라가고 있지만, 타이밍은 항상 늦습니다.\n\n`;
+  
+  // 뱅가드 관점
+  analysis += `**뱅가드(Vanguard, 자산 $8조 이상)**는 저비용 인덱스 펀드의 선두주자로서, `;
+  if (liabilities.reserves && liabilities.reserves.change_musd < -100000) {
+    analysis += `지급준비금의 큰 폭 감소(${(Math.abs(liabilities.reserves.change_musd) / 1000).toFixed(1)}조)를 매우 경계하고 있습니다. `;
+    analysis += `뱅가드는 이런 신호를 받으면 즉시 포트폴리오의 방어적 자산 비중을 높이고, 변동성이 큰 자산의 비중을 줄입니다. `;
+    analysis += `특히 신흥국 자산에 대한 노출을 줄이며, 미국과 유럽 등 선진국 자산으로 전환하고 있습니다. `;
+  } else if (liabilities.reserves && liabilities.reserves.change_musd > 50000) {
+    analysis += `지급준비금 증가는 금융 시스템의 안정성 신호로, 뱅가드는 이런 환경에서 리스크 자산의 비중을 점진적으로 늘립니다. `;
+    analysis += `특히 신흥국 인덱스 펀드에 대한 투자를 늘리며, 글로벌 다각화를 강화하고 있습니다. `;
+  }
+  analysis += `뱅가드의 움직임은 수백만 명의 개인 투자자들에게 직접 영향을 미칩니다.\n\n`;
+  
+  // 스테이트 스트릿 관점
+  analysis += `**스테이트 스트릿(State Street, 자산 $4조 이상)**은 기관 투자자들의 자산 관리자로서, `;
+  if (liabilities.tga && liabilities.tga.change_musd < -50000) {
+    analysis += `TGA 감소(${(Math.abs(liabilities.tga.change_musd) / 1000).toFixed(1)}조)는 정부 지출 확대를 의미하며, `;
+    analysis += `스테이트 스트릿은 이런 환경에서 인프라와 국방 관련 주식에 더 집중하고 있습니다. `;
+    analysis += `정부 지출이 늘어나면 관련 기업들의 실적이 개선되기 때문입니다. `;
+  } else if (liabilities.tga && liabilities.tga.change_musd > 50000) {
+    analysis += `TGA 증가는 정부가 자금을 흡수하고 있음을 의미하며, `;
+    analysis += `스테이트 스트릿은 이런 환경에서 정부 의존도가 높은 섹터의 비중을 줄이고, 민간 소비와 관련된 섹터에 더 집중하고 있습니다. `;
+  }
+  if (liabilities.rrp && liabilities.rrp.balance_musd > 500000) {
+    analysis += `RRP가 높은 수준(${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조)을 유지하고 있어, `;
+    analysis += `금융기관들이 시장에 투자할 자금보다 연준에 예치하는 것을 선호하고 있음을 보여줍니다. `;
+    analysis += `스테이트 스트릿은 이런 신호를 받으면 시장의 과열 가능성을 경계하며, 방어적 포지션을 강화합니다.\n\n`;
+  } else {
+    analysis += `\n\n`;
+  }
+  
+  // JPMorgan 관점
+  analysis += `**JPMorgan(자산 $3조 이상)**은 투자은행과 자산관리를 동시에 하는 금융 거물로서, `;
+  if (assets.repo && assets.repo.balance_musd > 10000) {
+    analysis += `FED의 리포 증가(${(assets.repo.balance_musd / 1000).toFixed(1)}조)는 금융 시스템에 스트레스가 있다는 신호입니다. `;
+    analysis += `JPMorgan은 이런 환경에서 신용 리스크를 재평가하며, 고수익 채권(하이일드)의 비중을 줄이고, 고품질 채권으로 전환하고 있습니다. `;
+    analysis += `동시에 주식 포트폴리오에서 재무 건전성이 약한 기업의 비중을 줄이며, 현금 보유를 늘리고 있습니다. `;
+  }
+  analysis += `JPMorgan의 움직임은 시장의 리스크 선호도를 직접적으로 반영하며, 다른 금융기관들의 행동에도 영향을 미칩니다.\n\n`;
+  
+  // Fidelity Investment 관점
+  analysis += `**Fidelity Investment(자산 $4조 이상)**은 개인 투자자들에게 가장 가까운 금융패권자로서, `;
+  if (sp500 && sp500.changePercent) {
+    if (sp500.changePercent > 0) {
+      analysis += `S&P500이 ${sp500.changePercent.toFixed(2)}% 상승하는 환경에서, `;
+      analysis += `Fidelity는 개인 투자자들의 401(k)와 IRA 계좌를 통해 주식 시장에 자금을 유입시키고 있습니다. `;
+      analysis += `하지만 동시에 FED의 정책 변화를 주시하며, 과열 신호가 나타나면 즉시 방어적으로 전환할 준비를 하고 있습니다. `;
+    } else {
+      analysis += `S&P500이 ${sp500.changePercent.toFixed(2)}% 하락하는 환경에서, `;
+      analysis += `Fidelity는 개인 투자자들에게 단계적 매수(Dollar Cost Averaging)를 권장하며, `;
+      analysis += `장기 투자 관점에서 현재를 매수 기회로 보고 있습니다. `;
     }
   }
-  if (liabilities.tga) {
-    analysis += `TGA는 $${(liabilities.tga.balance_musd / 1000).toFixed(1)}조로, ${liabilities.tga.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.tga.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
+  if (vix && vix.value && vix.value > 20) {
+    analysis += `VIX가 ${vix.value.toFixed(1)}로 높은 수준을 유지하고 있어, `;
+    analysis += `Fidelity는 변동성 확대를 경계하며 포트폴리오의 방어적 자산 비중을 높이고 있습니다. `;
   }
-  if (liabilities.rrp) {
-    analysis += `RRP는 $${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조로, ${liabilities.rrp.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.rrp.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
-  }
-  analysis += `\n\n`;
+  analysis += `Fidelity의 움직임은 수천만 명의 개인 투자자들에게 직접 영향을 미치며, 이들의 행동이 다시 시장을 움직입니다.\n\n`;
   
-  analysis += `[거시경제 해석]\n`;
-  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
-  if (netLiquidity > 50000) {
-    analysis += `자산 증가가 부채 증가를 상회하여 순 유동성 공급이 확대되고 있습니다. 이는 연준의 통화정책이 완화적 기조를 유지하고 있음을 의미합니다. `;
-  } else if (netLiquidity < -50000) {
-    analysis += `부채 증가가 자산 증가를 상회하거나 자산 감소가 부채 감소를 상회하여 순 유동성 흡수가 진행되고 있습니다. 이는 연준의 통화정책이 긴축적 기조로 전환되고 있음을 의미합니다. `;
+  // 통합 해석: 금융패권자들이 보는 큰 그림
+  analysis += `🔍 [통합 해석: 금융패권자들이 보는 거시경제의 큰 그림]\n\n`;
+  
+  if (netLiquidity < -50000) {
+    analysis += `현재 순 유동성 흡수 환경에서, 블랙록, 뱅가드, 스테이트 스트릿, JPMorgan, Fidelity는 모두 공통적으로 방어적 포지션을 강화하고 있습니다. `;
+    analysis += `이들은 FED의 QT가 단순한 통화정책이 아니라, 미국의 금융 헤게모니를 유지하기 위한 전략적 움직임임을 알고 있습니다. `;
+    analysis += `달러 강세와 결합된 유동성 축소는 신흥국, 특히 중국에 자본 유출 압력을 가하며, `;
+    analysis += `이를 통해 미국은 글로벌 자본을 자신의 시장으로 끌어들이고 있습니다. `;
+    analysis += `금융패권자들은 이런 흐름을 따라가며, 미국 자산의 비중을 늘리고 신흥국 자산의 비중을 줄이고 있습니다.\n\n`;
+  } else if (netLiquidity > 50000) {
+    analysis += `순 유동성 공급 확대 환경에서, 금융패권자들은 리스크 자산에 더 적극적으로 투자하고 있습니다. `;
+    analysis += `하지만 이들은 동시에 중국의 움직임을 주시하고 있습니다. `;
+    analysis += `중국이 이런 환경에서 위안화 국제화와 디지털 위안화를 통해 달러 체제에 도전하고 있기 때문입니다. `;
+    analysis += `금융패권자들은 미국과 중국 자산의 균형을 유지하면서, 양쪽의 정책 변화에 유연하게 대응할 수 있는 포트폴리오를 구성하고 있습니다.\n\n`;
   } else {
-    analysis += `자산과 부채의 변화가 균형을 이루고 있어 통화정책이 중립적 기조를 유지하고 있습니다. `;
+    analysis += `현재 중립적 환경은 금융패권자들에게 전환 구간으로 보입니다. `;
+    analysis += `이들은 미국과 중국의 다음 움직임을 예측하며, 양쪽에 모두 노출되되 한쪽에 과도하게 기울지 않는 전략을 취하고 있습니다. `;
+    analysis += `특히 블랙록과 뱅가드는 글로벌 다각화를 강화하며, 지역별, 섹터별로 균형 잡힌 포트폴리오를 유지하고 있습니다.\n\n`;
   }
   
-  if (qtSignal) {
-    analysis += `QT 진행으로 인해 시장 유동성이 점진적으로 축소되고 있으며, 이는 장기적으로 금리 상승 압력과 자산 가격 조정 압력을 만들 수 있습니다. `;
-  } else if (qeSignal) {
-    analysis += `QE 진행으로 인해 시장 유동성이 확대되고 있으며, 이는 장기적으로 금리 하락 압력과 자산 가격 상승 압력을 만들 수 있습니다. `;
+  // 최근 뉴스와의 연계
+  if (economicNews && economicNews.length > 0) {
+    analysis += `📰 [최근 경제 뉴스: 금융패권자들이 주시하는 신호]\n\n`;
+    const relevantNews = economicNews.slice(0, 3);
+    relevantNews.forEach((news, idx) => {
+      analysis += `${idx + 1}. ${news.title} (${news.source})\n`;
+    });
+    analysis += `\n`;
+    analysis += `이러한 뉴스는 금융패권자들이 FED의 자산/부채 변화를 어떻게 해석하는지를 보여줍니다. `;
+    analysis += `블랙록, 뱅가드, 스테이트 스트릿, JPMorgan, Fidelity의 수십억 달러 규모의 자본 이동은 `;
+    analysis += `이런 뉴스와 FED 데이터를 종합적으로 분석한 결과입니다. `;
+    if (qtSignal) {
+      analysis += `QT 진행과 함께 나타나는 경제 지표 변화는 금융패권자들이 방어적으로 전환하는 신호이며, `;
+      analysis += `이들의 움직임이 다시 시장 전체를 움직입니다.\n\n`;
+    } else {
+      analysis += `현재 환경에서 금융패권자들은 다음 정책 전환 시점을 주시하며, 유연하게 대응할 준비를 하고 있습니다.\n\n`;
+    }
   }
   
-  analysis += `\n\n`;
-  analysis += `[투자 시사점]\n`;
-  analysis += `FED 자산/부채 구조의 변화는 거시경제 환경과 자산 가격에 직접적인 영향을 미칩니다. `;
-  if (qtSignal) {
-    analysis += `현재 QT 환경에서는 방어적 자산(고품질 채권, 현금)의 상대적 매력이 높아지며, 리스크 자산(주식, 부동산)에는 조정 압력이 있을 수 있습니다. `;
-  } else if (qeSignal) {
-    analysis += `현재 QE 환경에서는 리스크 자산(주식, 부동산)의 상대적 매력이 높아지며, 방어적 자산에는 하락 압력이 있을 수 있습니다. `;
+  // 실전 조언: 금융패권자를 따라가는 방법
+  analysis += `💡 [실전 조언: 금융패권자를 따라가는 투자 전략]\n\n`;
+  
+  // 리스크 평가
+  let riskLevel = "중간";
+  let riskFactors: string[] = [];
+  if (liabilities.reserves && liabilities.reserves.change_musd < -100000) {
+    riskLevel = "높음";
+    riskFactors.push("지급준비금 급감");
   }
-  analysis += `투자자는 FED의 자산/부채 변화를 주시하고, 이를 바탕으로 자산 배분을 조정해야 합니다.`;
+  if (qtSignal && vix && vix.value && vix.value > 20) {
+    riskLevel = "높음";
+    riskFactors.push("QT 진행 + 높은 변동성");
+  }
+  if (yieldSpread && yieldSpread.value && yieldSpread.value < 0) {
+    riskLevel = "높음";
+    riskFactors.push("금리스프레드 역전");
+  }
+  
+  analysis += `**현재 리스크 수준: ${riskLevel}**${riskFactors.length > 0 ? ` (${riskFactors.join(", ")})` : ""}\n\n`;
+  
+  // 금융패권자 관점의 자산 배분
+  analysis += `금융패권자들이 현재 취하고 있는 전략을 참고하면:\n\n`;
+  
+  if (qtSignal) {
+    analysis += `**QT 환경에서의 금융패권자 전략:**\n`;
+    analysis += `• 블랙록과 뱅가드는 방어적 자산(고품질 채권, 현금)의 비중을 늘리고 있습니다. `;
+    analysis += `특히 단기 국채와 현금의 비중을 높이며, 장기 국채는 금리 상승 리스크를 고려해 비중을 줄이고 있습니다.\n`;
+    analysis += `• 스테이트 스트릿과 JPMorgan은 신용 리스크를 재평가하며, 하이일드 채권의 비중을 줄이고 고품질 회사채로 전환하고 있습니다.\n`;
+    analysis += `• Fidelity는 개인 투자자들에게 단계적 매수를 권장하며, 변동성이 큰 성장주보다 가치주에 더 집중하고 있습니다.\n`;
+    analysis += `• 모든 금융패권자들이 공통적으로 신흥국 자산, 특히 중국 자산의 비중을 줄이며, 미국과 유럽 등 선진국 자산으로 전환하고 있습니다.\n\n`;
+  } else if (qeSignal) {
+    analysis += `**QE 환경에서의 금융패권자 전략:**\n`;
+    analysis += `• 블랙록과 뱅가드는 리스크 자산의 비중을 늘리며, 특히 기술주와 성장주에 더 적극적으로 투자하고 있습니다.\n`;
+    analysis += `• 스테이트 스트릿은 신흥국 인덱스 펀드에 대한 투자를 늘리며, 글로벌 다각화를 강화하고 있습니다.\n`;
+    analysis += `• JPMorgan은 하이일드 채권과 주식의 비중을 늘리며, 유동성 확대 환경에서 수익을 극대화하려고 합니다.\n`;
+    analysis += `• Fidelity는 개인 투자자들의 401(k)와 IRA 계좌를 통해 주식 시장에 자금을 유입시키고 있습니다.\n\n`;
+  } else {
+    analysis += `**중립적 환경에서의 금융패권자 전략:**\n`;
+    analysis += `• 모든 금융패권자들이 균형 잡힌 포트폴리오를 유지하며, 미국과 중국, 선진국과 신흥국 자산의 균형을 맞추고 있습니다.\n`;
+    analysis += `• 블랙록과 뱅가드는 지역별, 섹터별로 다각화를 강화하며, 한쪽에 과도하게 기울지 않는 전략을 취하고 있습니다.\n`;
+    analysis += `• 스테이트 스트릿과 JPMorgan은 현금 비중을 유지하며, 다음 정책 전환 시점에 대비하고 있습니다.\n`;
+    analysis += `• Fidelity는 개인 투자자들에게 장기 투자 관점을 강조하며, 단기 변동성에 흔들리지 않도록 조언하고 있습니다.\n\n`;
+  }
+  
+  // 시장 타이밍: 금융패권자의 관점
+  analysis += `⏰ [시장 타이밍: 금융패권자들이 보는 현재 시점]\n\n`;
+  
+  if (qtSignal && liabilities.reserves && liabilities.reserves.change_musd < -50000) {
+    analysis += `금융패권자들은 현재를 **방어적 전환 시점**으로 보고 있습니다. `;
+    analysis += `블랙록과 뱅가드는 이미 포트폴리오의 방어적 자산 비중을 높였으며, `;
+    analysis += `개인 투자자들도 이런 움직임을 따라가야 합니다. `;
+    analysis += `하지만 금융패권자들은 동시에 과도한 공포가 만드는 매수 기회도 노리고 있습니다. `;
+    analysis += `그들은 시장이 과도하게 하락하면 역으로 매수에 나서며, 개인 투자자들보다 훨씬 빠르게 움직입니다.\n\n`;
+  } else if (qeSignal && sp500 && sp500.changePercent && sp500.changePercent > 0) {
+    analysis += `금융패권자들은 현재를 **리스크 자산 투자 시점**으로 보고 있습니다. `;
+    analysis += `하지만 이들은 동시에 과열 신호를 경계하고 있습니다. `;
+    analysis += `블랙록과 뱅가드는 수익 실현과 리스크 관리를 병행하며, `;
+    analysis += `개인 투자자들도 이런 전략을 따라가야 합니다. `;
+    analysis += `금융패권자들은 시장이 과도하게 상승하면 수익을 실현하며, 개인 투자자들보다 훨씬 빠르게 포지션을 조정합니다.\n\n`;
+  } else {
+    analysis += `금융패권자들은 현재를 **관찰 모드**로 보고 있습니다. `;
+    analysis += `이들은 미국과 중국의 다음 움직임을 예측하며, 양쪽의 정책 변화에 유연하게 대응할 준비를 하고 있습니다. `;
+    analysis += `개인 투자자들도 이런 환경에서 균형 잡힌 포트폴리오를 유지하며, `;
+    analysis += `금융패권자들의 다음 움직임을 주시해야 합니다.\n\n`;
+  }
+  
+  // 마무리: 금융패권자의 관점에서 본 거시경제
+  analysis += `🎓 [경제 코치의 한마디: 금융패권자가 보는 거시경제의 진실]\n\n`;
+  
+  analysis += `FED의 대차대조표는 단순한 숫자가 아닙니다. `;
+  analysis += `이것은 블랙록, 뱅가드, 스테이트 스트릿, JPMorgan, Fidelity Investment 같은 금융패권자들이 `;
+  analysis += `수십억 달러 규모의 자본을 어떻게 배분하는지를 결정하는 가장 중요한 신호입니다.\n\n`;
+  
+  analysis += `이들이 보는 것은:\n`;
+  analysis += `• 미국과 중국의 헤게모니 경쟁이 어떻게 전개되는가\n`;
+  analysis += `• 달러 체제의 안정성이 유지되는가\n`;
+  analysis += `• 글로벌 자본이 어디로 흐르는가\n`;
+  analysis += `• 다음 금융 위기가 어디서 시작될 수 있는가\n\n`;
+  
+  analysis += `현재 데이터(${report.asOfWeekEndedText} 기준)를 보면, `;
+  if (qtSignal) {
+    analysis += `금융패권자들은 방어적으로 전환하고 있으며, 미국의 금융 헤게모니 강화 전략을 따라가고 있습니다. `;
+  } else if (qeSignal) {
+    analysis += `금융패권자들은 리스크 자산에 투자하고 있지만, 동시에 중국의 움직임을 경계하고 있습니다. `;
+  } else {
+    analysis += `금융패권자들은 관찰 모드에 있으며, 다음 정책 전환 시점을 주시하고 있습니다. `;
+  }
+  analysis += `개인 투자자들은 이들의 움직임을 주시하며, 그들의 전략을 참고해야 합니다.\n\n`;
+  
+  analysis += `하지만 기억하세요: 금융패권자들은 항상 개인 투자자들보다 빠르게 움직입니다. `;
+  analysis += `그들이 이미 포지션을 조정한 후에야 개인 투자자들이 그 변화를 느낄 수 있습니다. `;
+  analysis += `따라서 FED의 대차대조표를 주시하고, 금융패권자들이 어떻게 해석하는지를 이해하는 것이 중요합니다.\n\n`;
+  
+  analysis += `경제 코치는 당신이 금융패권자의 관점에서 거시경제를 이해할 수 있도록 돕습니다. `;
+  analysis += `이들의 눈으로 경제를 보면, 단순한 수치가 아니라 세계 경제의 큰 그림이 보입니다. 💪\n`;
   
   return analysis;
 }
