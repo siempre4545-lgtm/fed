@@ -762,7 +762,34 @@ app.get("/economic-indicators", async (_req, res) => {
       indicatorsByCategory[ind.category].push(ind);
     });
     
+    // FED 자산/부채 카테고리 추가
+    indicatorsByCategory["FED자산/부채"] = [];
+    
     const categorySections = Object.entries(indicatorsByCategory).map(([category, items]) => {
+      // FED 자산/부채는 특별 처리
+      if (category === "FED자산/부채") {
+        return `
+        <div class="category-section">
+          <h2 class="category-title">${escapeHtml(category)}</h2>
+          <div class="indicators-grid">
+            <a href="/economic-indicators/fed-assets-liabilities" class="indicator-item-link">
+              <div class="indicator-item" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;border:none">
+                <div class="indicator-header">
+                  <div class="indicator-name" style="color:#ffffff">FED 자산/부채 분석</div>
+                  <div class="indicator-symbol" style="color:rgba(255,255,255,0.8)">자산과 부채 종합 분석</div>
+                </div>
+                <div class="indicator-value">
+                  <span class="value-main" style="color:#ffffff">자세히 보기</span>
+                </div>
+                <div class="indicator-meta" style="color:rgba(255,255,255,0.8)">
+                  <span>H.4.1 리포트 기반</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+        `;
+      }
       const itemsHtml = items.map((ind) => {
         const changeColor = ind.changePercent !== null
           ? (ind.changePercent > 0 ? "#ff6b6b" : ind.changePercent < 0 ? "#51cf66" : "#adb5bd")
@@ -1229,6 +1256,309 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
   }
 });
 
+// FED 자산/부채 페이지
+app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
+  try {
+    const report = await fetchH41Report();
+    
+    // FED 자산 항목 추출
+    const assets = {
+      treasury: report.cards.find(c => c.fedLabel === "U.S. Treasury securities"),
+      mbs: report.cards.find(c => c.fedLabel === "Mortgage-backed securities"),
+      repo: report.cards.find(c => c.fedLabel === "Repurchase agreements"),
+      loans: report.cards.find(c => c.fedLabel === "Primary credit"),
+    };
+    
+    // FED 부채 항목 추출
+    const liabilities = {
+      currency: report.cards.find(c => c.fedLabel === "Currency in circulation"),
+      rrp: report.cards.find(c => c.fedLabel === "Reverse repurchase agreements"),
+      tga: report.cards.find(c => c.fedLabel === "U.S. Treasury, General Account"),
+      reserves: report.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks"),
+    };
+    
+    // 자산 총합 계산
+    const totalAssets = (assets.treasury?.balance_musd || 0) + 
+                       (assets.mbs?.balance_musd || 0) + 
+                       (assets.repo?.balance_musd || 0) + 
+                       (assets.loans?.balance_musd || 0);
+    const totalAssetsChange = (assets.treasury?.change_musd || 0) + 
+                              (assets.mbs?.change_musd || 0) + 
+                              (assets.repo?.change_musd || 0) + 
+                              (assets.loans?.change_musd || 0);
+    
+    // 부채 총합 계산
+    const totalLiabilities = (liabilities.currency?.balance_musd || 0) + 
+                            (liabilities.rrp?.balance_musd || 0) + 
+                            (liabilities.tga?.balance_musd || 0) + 
+                            (liabilities.reserves?.balance_musd || 0);
+    const totalLiabilitiesChange = (liabilities.currency?.change_musd || 0) + 
+                                    (liabilities.rrp?.change_musd || 0) + 
+                                    (liabilities.tga?.change_musd || 0) + 
+                                    (liabilities.reserves?.change_musd || 0);
+    
+    // 거시경제 해석 생성
+    const analysis = generateFedAssetsLiabilitiesAnalysis({
+      assets,
+      liabilities,
+      totalAssets,
+      totalAssetsChange,
+      totalLiabilities,
+      totalLiabilitiesChange,
+    });
+    
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FED 자산/부채 분석</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#ffffff;color:#1a1a1a;line-height:1.6}
+    .page-header{padding:20px 24px;border-bottom:2px solid #e5e7eb;background:#ffffff;position:sticky;top:0;z-index:100}
+    .page-header h1{font-size:24px;font-weight:700;color:#1a1a1a;margin-bottom:8px}
+    .page-header .sub{font-size:14px;color:#6b7280}
+    .main-content{max-width:1200px;margin:0 auto;padding:24px}
+    .section{background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;margin-bottom:24px}
+    .section-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb}
+    .items-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+    .item-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px}
+    .item-name{font-size:14px;font-weight:600;color:#6b7280;margin-bottom:8px}
+    .item-value{font-size:24px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+    .item-change{font-size:14px;font-weight:600}
+    .item-change.positive{color:#dc2626}
+    .item-change.negative{color:#16a34a}
+    .item-change.neutral{color:#6b7280}
+    .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;border-radius:12px;padding:24px;margin-bottom:24px}
+    .summary-title{font-size:18px;font-weight:600;margin-bottom:16px;opacity:0.9}
+    .summary-value{font-size:36px;font-weight:700;margin-bottom:8px}
+    .summary-change{font-size:16px;font-weight:600;opacity:0.9}
+    .analysis-section{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:24px;margin-top:24px}
+    .analysis-title{font-size:18px;font-weight:700;color:#0369a1;margin-bottom:16px}
+    .analysis-content{font-size:15px;color:#0c4a6e;line-height:1.8;white-space:pre-wrap}
+    .back-link{display:inline-block;margin-top:16px;color:#3b82f6;text-decoration:none;font-weight:600}
+    .back-link:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>FED 자산/부채 분석 📊</h1>
+    <div class="sub">
+      Week ended: ${escapeHtml(report.asOfWeekEndedText)} · Release: ${escapeHtml(report.releaseDateText)}<br/>
+      <a href="/economic-indicators" class="back-link">← 경제 지표로 돌아가기</a>
+    </div>
+  </div>
+  
+  <div class="main-content">
+    <!-- 자산 총합 -->
+    <div class="summary-card" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">
+      <div class="summary-title">FED 자산 총합</div>
+      <div class="summary-value">$${(totalAssets / 1000).toFixed(1)}조</div>
+      <div class="summary-change ${totalAssetsChange > 0 ? 'positive' : totalAssetsChange < 0 ? 'negative' : 'neutral'}">
+        ${totalAssetsChange > 0 ? '+' : ''}${(totalAssetsChange / 1000).toFixed(1)}조 (${totalAssetsChange > 0 ? '+' : ''}${((totalAssetsChange / (totalAssets - totalAssetsChange)) * 100).toFixed(2)}%)
+      </div>
+    </div>
+    
+    <!-- FED 자산 -->
+    <div class="section">
+      <div class="section-title">FED 자산</div>
+      <div class="items-grid">
+        ${assets.treasury ? `
+        <div class="item-card">
+          <div class="item-name">국채 (U.S. Treasury securities)</div>
+          <div class="item-value">$${(assets.treasury.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${assets.treasury.change_musd > 0 ? 'positive' : assets.treasury.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${assets.treasury.change_musd > 0 ? '+' : ''}${(assets.treasury.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${assets.mbs ? `
+        <div class="item-card">
+          <div class="item-name">MBS (Mortgage-backed securities)</div>
+          <div class="item-value">$${(assets.mbs.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${assets.mbs.change_musd > 0 ? 'positive' : assets.mbs.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${assets.mbs.change_musd > 0 ? '+' : ''}${(assets.mbs.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${assets.repo ? `
+        <div class="item-card">
+          <div class="item-name">리포 (Repurchase agreements)</div>
+          <div class="item-value">$${(assets.repo.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${assets.repo.change_musd > 0 ? 'positive' : assets.repo.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${assets.repo.change_musd > 0 ? '+' : ''}${(assets.repo.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${assets.loans ? `
+        <div class="item-card">
+          <div class="item-name">대출 (Loans)</div>
+          <div class="item-value">$${(assets.loans.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${assets.loans.change_musd > 0 ? 'positive' : assets.loans.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${assets.loans.change_musd > 0 ? '+' : ''}${(assets.loans.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+    
+    <!-- 부채 총합 -->
+    <div class="summary-card" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)">
+      <div class="summary-title">FED 부채 총합</div>
+      <div class="summary-value">$${(totalLiabilities / 1000).toFixed(1)}조</div>
+      <div class="summary-change ${totalLiabilitiesChange > 0 ? 'positive' : totalLiabilitiesChange < 0 ? 'negative' : 'neutral'}">
+        ${totalLiabilitiesChange > 0 ? '+' : ''}${(totalLiabilitiesChange / 1000).toFixed(1)}조 (${totalLiabilitiesChange > 0 ? '+' : ''}${((totalLiabilitiesChange / (totalLiabilities - totalLiabilitiesChange)) * 100).toFixed(2)}%)
+      </div>
+    </div>
+    
+    <!-- FED 부채 -->
+    <div class="section">
+      <div class="section-title">FED 부채</div>
+      <div class="items-grid">
+        ${liabilities.currency ? `
+        <div class="item-card">
+          <div class="item-name">시중통화량 (Currency in circulation)</div>
+          <div class="item-value">$${(liabilities.currency.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${liabilities.currency.change_musd > 0 ? 'positive' : liabilities.currency.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${liabilities.currency.change_musd > 0 ? '+' : ''}${(liabilities.currency.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${liabilities.rrp ? `
+        <div class="item-card">
+          <div class="item-name">역리포 (Reverse Repurchase agreements)</div>
+          <div class="item-value">$${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${liabilities.rrp.change_musd > 0 ? 'positive' : liabilities.rrp.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${liabilities.rrp.change_musd > 0 ? '+' : ''}${(liabilities.rrp.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${liabilities.tga ? `
+        <div class="item-card">
+          <div class="item-name">TGA (U.S. Treasury General Account)</div>
+          <div class="item-value">$${(liabilities.tga.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${liabilities.tga.change_musd > 0 ? 'positive' : liabilities.tga.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${liabilities.tga.change_musd > 0 ? '+' : ''}${(liabilities.tga.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+        ${liabilities.reserves ? `
+        <div class="item-card">
+          <div class="item-name">지급준비금 (Reserve balances)</div>
+          <div class="item-value">$${(liabilities.reserves.balance_musd / 1000).toFixed(1)}조</div>
+          <div class="item-change ${liabilities.reserves.change_musd > 0 ? 'positive' : liabilities.reserves.change_musd < 0 ? 'negative' : 'neutral'}">
+            ${liabilities.reserves.change_musd > 0 ? '+' : ''}${(liabilities.reserves.change_musd / 1000).toFixed(1)}조
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+    
+    <!-- 거시경제 해석 -->
+    <div class="analysis-section">
+      <div class="analysis-title">거시경제 해석</div>
+      <div class="analysis-content">${escapeHtml(analysis)}</div>
+    </div>
+  </div>
+</body>
+</html>
+    `);
+  } catch (e: any) {
+    res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
+  }
+});
+
+// 거시경제 해석 생성 함수
+function generateFedAssetsLiabilitiesAnalysis(data: {
+  assets: any;
+  liabilities: any;
+  totalAssets: number;
+  totalAssetsChange: number;
+  totalLiabilities: number;
+  totalLiabilitiesChange: number;
+}): string {
+  const { assets, liabilities, totalAssets, totalAssetsChange, totalLiabilities, totalLiabilitiesChange } = data;
+  
+  let analysis = "";
+  
+  // 자산 변화 분석
+  const assetsExpanding = totalAssetsChange > 0;
+  const assetsContracting = totalAssetsChange < 0;
+  
+  // 부채 변화 분석
+  const liabilitiesExpanding = totalLiabilitiesChange > 0;
+  const liabilitiesContracting = totalLiabilitiesChange < 0;
+  
+  // QT/QE 신호
+  const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
+  const qtSignal = securitiesChange < -50000; // 500억 이상 감소
+  const qeSignal = securitiesChange > 50000; // 500억 이상 증가
+  
+  analysis += `[현재 상황]\n`;
+  analysis += `FED 자산 총합은 $${(totalAssets / 1000).toFixed(1)}조로, ${assetsExpanding ? '확장' : assetsContracting ? '축소' : '안정'} 추세를 보이고 있습니다. `;
+  analysis += `FED 부채 총합은 $${(totalLiabilities / 1000).toFixed(1)}조로, ${liabilitiesExpanding ? '증가' : liabilitiesContracting ? '감소' : '안정'} 추세입니다.\n\n`;
+  
+  analysis += `[자산 구조 분석]\n`;
+  if (assets.treasury) {
+    analysis += `국채 보유는 $${(assets.treasury.balance_musd / 1000).toFixed(1)}조로, ${assets.treasury.change_musd > 0 ? '증가' : assets.treasury.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
+  }
+  if (assets.mbs) {
+    analysis += `MBS 보유는 $${(assets.mbs.balance_musd / 1000).toFixed(1)}조로, ${assets.mbs.change_musd > 0 ? '증가' : assets.mbs.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
+  }
+  if (qtSignal) {
+    analysis += `보유증권의 감소는 QT(양적긴축)가 진행 중임을 의미합니다. `;
+  } else if (qeSignal) {
+    analysis += `보유증권의 증가는 QE(양적완화)가 진행 중임을 의미합니다. `;
+  }
+  analysis += `\n\n`;
+  
+  analysis += `[부채 구조 분석]\n`;
+  if (liabilities.reserves) {
+    analysis += `지급준비금은 $${(liabilities.reserves.balance_musd / 1000).toFixed(1)}조로, ${liabilities.reserves.change_musd > 0 ? '증가' : liabilities.reserves.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
+    if (liabilities.reserves.change_musd < -50000) {
+      analysis += `지급준비금의 큰 폭 감소는 금융 시스템의 유동성 쿠션이 축소되고 있음을 시사합니다. `;
+    }
+  }
+  if (liabilities.tga) {
+    analysis += `TGA는 $${(liabilities.tga.balance_musd / 1000).toFixed(1)}조로, ${liabilities.tga.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.tga.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
+  }
+  if (liabilities.rrp) {
+    analysis += `RRP는 $${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조로, ${liabilities.rrp.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.rrp.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
+  }
+  analysis += `\n\n`;
+  
+  analysis += `[거시경제 해석]\n`;
+  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
+  if (netLiquidity > 50000) {
+    analysis += `자산 증가가 부채 증가를 상회하여 순 유동성 공급이 확대되고 있습니다. 이는 연준의 통화정책이 완화적 기조를 유지하고 있음을 의미합니다. `;
+  } else if (netLiquidity < -50000) {
+    analysis += `부채 증가가 자산 증가를 상회하거나 자산 감소가 부채 감소를 상회하여 순 유동성 흡수가 진행되고 있습니다. 이는 연준의 통화정책이 긴축적 기조로 전환되고 있음을 의미합니다. `;
+  } else {
+    analysis += `자산과 부채의 변화가 균형을 이루고 있어 통화정책이 중립적 기조를 유지하고 있습니다. `;
+  }
+  
+  if (qtSignal) {
+    analysis += `QT 진행으로 인해 시장 유동성이 점진적으로 축소되고 있으며, 이는 장기적으로 금리 상승 압력과 자산 가격 조정 압력을 만들 수 있습니다. `;
+  } else if (qeSignal) {
+    analysis += `QE 진행으로 인해 시장 유동성이 확대되고 있으며, 이는 장기적으로 금리 하락 압력과 자산 가격 상승 압력을 만들 수 있습니다. `;
+  }
+  
+  analysis += `\n\n`;
+  analysis += `[투자 시사점]\n`;
+  analysis += `FED 자산/부채 구조의 변화는 거시경제 환경과 자산 가격에 직접적인 영향을 미칩니다. `;
+  if (qtSignal) {
+    analysis += `현재 QT 환경에서는 방어적 자산(고품질 채권, 현금)의 상대적 매력이 높아지며, 리스크 자산(주식, 부동산)에는 조정 압력이 있을 수 있습니다. `;
+  } else if (qeSignal) {
+    analysis += `현재 QE 환경에서는 리스크 자산(주식, 부동산)의 상대적 매력이 높아지며, 방어적 자산에는 하락 압력이 있을 수 있습니다. `;
+  }
+  analysis += `투자자는 FED의 자산/부채 변화를 주시하고, 이를 바탕으로 자산 배분을 조정해야 합니다.`;
+  
+  return analysis;
+}
+
 // 경제 지표 세부 페이지
 app.get("/economic-indicators/:id", async (req, res) => {
   try {
@@ -1237,6 +1567,12 @@ app.get("/economic-indicators/:id", async (req, res) => {
     // Fear & Greed Index는 전용 페이지로 리다이렉트
     if (id === "fear-greed-index") {
       res.redirect("/economic-indicators/fear-greed-index");
+      return;
+    }
+    
+    // FED 자산/부채는 전용 페이지로 리다이렉트
+    if (id === "fed-assets-liabilities") {
+      res.redirect("/economic-indicators/fed-assets-liabilities");
       return;
     }
     

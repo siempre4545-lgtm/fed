@@ -269,6 +269,111 @@ async function fetchHighYieldSpread(): Promise<{ price: number; change: number; 
 }
 
 /**
+ * 한국 CDS 지표 가져오기 (investing.com 스크래핑)
+ */
+async function fetchKoreaCDS(): Promise<{ value: number; change: number; changePercent: number } | null> {
+  try {
+    // investing.com의 한국 CDS 페이지 스크래핑
+    const url = "https://kr.investing.com/rates-bonds/world-cds";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch Korea CDS: ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    
+    // cheerio를 사용하여 HTML 파싱
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    // 한국 CDS 데이터 찾기 (테이블에서 "South Korea" 또는 "대한민국" 검색)
+    let koreaCDSValue: number | null = null;
+    let previousValue: number | null = null;
+    
+    // 테이블 행에서 한국 찾기
+    $("table tbody tr").each((_idx, row) => {
+      const $row = $(row);
+      const countryText = $row.find("td").first().text().trim().toLowerCase();
+      
+      if (countryText.includes("south korea") || 
+          countryText.includes("대한민국") || 
+          countryText.includes("korea") ||
+          countryText.includes("한국")) {
+        // CDS 값 추출 (보통 두 번째 또는 세 번째 컬럼)
+        const cells = $row.find("td");
+        if (cells.length >= 2) {
+          // 현재 값
+          const currentText = cells.eq(1).text().trim().replace(/[^\d.-]/g, "");
+          if (currentText) {
+            koreaCDSValue = parseFloat(currentText);
+          }
+          
+          // 이전 값 (변화량 계산용)
+          if (cells.length >= 3) {
+            const changeText = cells.eq(2).text().trim();
+            const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
+            if (changeMatch && koreaCDSValue !== null) {
+              previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+            }
+          }
+        }
+      }
+    });
+    
+    // 대안: JavaScript로 직접 파싱 (테이블 데이터가 JavaScript 변수에 있는 경우)
+    if (koreaCDSValue === null) {
+      const scriptMatches = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/);
+      if (scriptMatches) {
+        try {
+          const data = JSON.parse(scriptMatches[1]);
+          // 데이터 구조에 따라 한국 CDS 찾기
+          if (data.quotes) {
+            const koreaQuote = data.quotes.find((q: any) => 
+              q.name?.toLowerCase().includes("korea") || 
+              q.name?.toLowerCase().includes("south korea")
+            );
+            if (koreaQuote && koreaQuote.last) {
+              koreaCDSValue = parseFloat(koreaQuote.last);
+              if (koreaQuote.change) {
+                previousValue = koreaCDSValue - parseFloat(koreaQuote.change);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse JSON data:", e);
+        }
+      }
+    }
+    
+    if (koreaCDSValue !== null && !isNaN(koreaCDSValue)) {
+      const change = previousValue !== null ? koreaCDSValue - previousValue : 0;
+      const changePercent = previousValue !== null && previousValue !== 0 
+        ? (change / previousValue) * 100 
+        : 0;
+      
+      return {
+        value: koreaCDSValue,
+        change,
+        changePercent,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Korea CDS:", error);
+    return null;
+  }
+}
+
+/**
  * Fear & Greed Index 가져오기 (CNN API 우선 사용)
  */
 async function fetchFearGreedIndex(): Promise<{ value: number; change: number; history?: Array<{ date: string; value: number }>; lastUpdated?: string } | null> {
@@ -648,9 +753,10 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // 심리 지표
-  const [vix, fearGreed] = await Promise.all([
+  const [vix, fearGreed, koreaCDS] = await Promise.all([
     fetchYahooFinance("^VIX"),
     fetchFearGreedIndex(),
+    fetchKoreaCDS(),
   ]);
   
   if (vix) {
@@ -681,6 +787,21 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       source: "CNN Fear & Greed Index",
       history: fearGreed.history,
       id: "fear-greed-index",
+    });
+  }
+  
+  if (koreaCDS) {
+    indicators.push({
+      category: "심리",
+      name: "한국 CDS",
+      symbol: "KRW-CDS",
+      value: koreaCDS.value,
+      change: koreaCDS.change,
+      changePercent: koreaCDS.changePercent,
+      unit: "bp",
+      lastUpdated: now,
+      source: "Investing.com",
+      id: "korea-cds",
     });
   }
   
