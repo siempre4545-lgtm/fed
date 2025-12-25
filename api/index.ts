@@ -1304,14 +1304,27 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
                                     (liabilities.tga?.change_musd || 0) + 
                                     (liabilities.reserves?.change_musd || 0);
     
-    // 거시경제 해석 생성
-    const analysis = generateFedAssetsLiabilitiesAnalysis({
+    // 경제 지표 및 뉴스 가져오기
+    let economicIndicators = null;
+    let economicNews: Array<{ title: string; source: string; publishedAt: string }> = [];
+    try {
+      economicIndicators = await fetchAllEconomicIndicators();
+      economicNews = await fetchEconomicNews();
+    } catch (e) {
+      console.error("Failed to fetch economic indicators/news:", e);
+    }
+    
+    // 경제 코치 LLM 분석 생성
+    const analysis = await generateEconomicCoachAnalysis({
       assets,
       liabilities,
       totalAssets,
       totalAssetsChange,
       totalLiabilities,
       totalLiabilitiesChange,
+      report,
+      economicIndicators,
+      economicNews,
     });
     
     res.setHeader("content-type", "text/html; charset=utf-8");
