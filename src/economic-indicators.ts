@@ -269,32 +269,18 @@ async function fetchHighYieldSpread(): Promise<{ price: number; change: number; 
 }
 
 /**
- * 한국 CDS 지표 가져오기 (Yahoo Finance API 사용)
- * 참고: Yahoo Finance에서 CDS 데이터는 직접 제공하지 않으므로, 
- * 대안으로 Markit CDX나 다른 신용 스프레드 지표를 사용하거나
- * 한국 국채와 미국 국채 스프레드를 통해 간접적으로 추정할 수 있습니다.
- * 여기서는 한국 신용 스프레드 관련 지표를 찾아보겠습니다.
+ * 한국 CDS 지표 가져오기 (investing.com 스크래핑 - 개선된 버전)
+ * 무료 API가 없으므로 investing.com에서 스크래핑하여 데이터를 가져옵니다.
  */
 async function fetchKoreaCDS(): Promise<{ value: number; change: number; changePercent: number } | null> {
   try {
-    // Yahoo Finance에서 한국 관련 신용 지표 검색
-    // CDS는 직접 제공되지 않으므로, 한국 국채와 미국 국채 스프레드를 사용
-    // 또는 한국 신용 스프레드 관련 ETF나 지표를 사용
-    
-    // 방법 1: 한국 국채 10년물과 미국 국채 10년물 스프레드로 추정
-    // Yahoo Finance 심볼: 한국 국채는 직접 제공되지 않으므로, 다른 방법 시도
-    
-    // 방법 2: 한국 신용 스프레드 관련 지표 검색
-    // 실제로는 CDS 데이터가 Yahoo Finance에 직접 없으므로,
-    // investing.com 스크래핑을 유지하되, 더 안정적인 방법으로 개선
-    
-    // 임시로 investing.com 스크래핑 유지 (Yahoo Finance에 CDS가 없음)
     const url = "https://kr.investing.com/rates-bonds/world-cds";
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://kr.investing.com/",
       },
     });
     
@@ -309,63 +295,110 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
     const cheerio = await import("cheerio");
     const $ = cheerio.load(html);
     
-    // 한국 CDS 데이터 찾기 (테이블에서 "South Korea" 또는 "대한민국" 검색)
+    // 한국 CDS 데이터 찾기 (다양한 선택자 시도)
     let koreaCDSValue: number | null = null;
     let previousValue: number | null = null;
     
-    // 테이블 행에서 한국 찾기
-    $("table tbody tr").each((_idx, row) => {
+    // 방법 1: 테이블에서 직접 찾기
+    $("table tbody tr, .js-table-wrapper tbody tr, #curr_table tbody tr").each((_idx, row) => {
       const $row = $(row);
       const countryText = $row.find("td").first().text().trim().toLowerCase();
       
       if (countryText.includes("south korea") || 
           countryText.includes("대한민국") || 
           countryText.includes("korea") ||
-          countryText.includes("한국")) {
-        // CDS 값 추출 (보통 두 번째 또는 세 번째 컬럼)
+          countryText.includes("한국") ||
+          countryText.includes("south korean")) {
         const cells = $row.find("td");
-        if (cells.length >= 2) {
-          // 현재 값
-          const currentText = cells.eq(1).text().trim().replace(/[^\d.-]/g, "");
-          if (currentText) {
-            koreaCDSValue = parseFloat(currentText);
-          }
-          
-          // 이전 값 (변화량 계산용)
-          if (cells.length >= 3) {
-            const changeText = cells.eq(2).text().trim();
-            const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
-            if (changeMatch && koreaCDSValue !== null) {
-              previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+        
+        // 여러 컬럼에서 CDS 값 찾기
+        for (let i = 1; i < cells.length; i++) {
+          const cellText = cells.eq(i).text().trim();
+          const numericMatch = cellText.match(/(\d+\.?\d*)/);
+          if (numericMatch) {
+            const parsed = parseFloat(numericMatch[1]);
+            if (parsed > 0 && parsed < 10000) { // CDS는 보통 0-10000bp 범위
+              koreaCDSValue = parsed;
+              
+              // 변화량 찾기
+              const changeCell = cells.eq(i + 1);
+              if (changeCell.length > 0) {
+                const changeText = changeCell.text().trim();
+                const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
+                if (changeMatch) {
+                  previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+                }
+              }
+              break;
             }
           }
         }
       }
     });
     
-    // 대안: JavaScript로 직접 파싱 (테이블 데이터가 JavaScript 변수에 있는 경우)
+    // 방법 2: JavaScript 변수에서 찾기
     if (koreaCDSValue === null) {
-      const scriptMatches = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/);
-      if (scriptMatches) {
+      const scriptMatches = [
+        html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s),
+        html.match(/window\.__PRELOADED_STATE__\s*=\s*({.+?});/s),
+        html.match(/var\s+pairData\s*=\s*({.+?});/s),
+      ].filter(Boolean);
+      
+      for (const match of scriptMatches) {
+        if (!match) continue;
         try {
-          const data = JSON.parse(scriptMatches[1]);
-          // 데이터 구조에 따라 한국 CDS 찾기
-          if (data.quotes) {
-            const koreaQuote = data.quotes.find((q: any) => 
-              q.name?.toLowerCase().includes("korea") || 
-              q.name?.toLowerCase().includes("south korea")
-            );
-            if (koreaQuote && koreaQuote.last) {
-              koreaCDSValue = parseFloat(koreaQuote.last);
-              if (koreaQuote.change) {
-                previousValue = koreaCDSValue - parseFloat(koreaQuote.change);
+          const data = JSON.parse(match[1]);
+          // 다양한 데이터 구조 시도
+          const searchInData = (obj: any): any => {
+            if (Array.isArray(obj)) {
+              for (const item of obj) {
+                const found = searchInData(item);
+                if (found) return found;
+              }
+            } else if (obj && typeof obj === 'object') {
+              if (obj.name && (obj.name.toLowerCase().includes("korea") || obj.name.toLowerCase().includes("south korea"))) {
+                return obj;
+              }
+              for (const key in obj) {
+                const found = searchInData(obj[key]);
+                if (found) return found;
               }
             }
+            return null;
+          };
+          
+          const koreaQuote = searchInData(data);
+          if (koreaQuote && (koreaQuote.last || koreaQuote.value || koreaQuote.price)) {
+            koreaCDSValue = parseFloat(koreaQuote.last || koreaQuote.value || koreaQuote.price);
+            if (koreaQuote.change) {
+              previousValue = koreaCDSValue - parseFloat(koreaQuote.change);
+            }
+            break;
           }
         } catch (e) {
-          console.error("Failed to parse JSON data:", e);
+          // JSON 파싱 실패는 무시
         }
       }
+    }
+    
+    // 방법 3: data-pair-id 속성으로 찾기
+    if (koreaCDSValue === null) {
+      $("[data-pair-id]").each((_idx, elem) => {
+        const $elem = $(elem);
+        const pairId = $elem.attr("data-pair-id");
+        const text = $elem.text().toLowerCase();
+        
+        if (text.includes("korea") || text.includes("south korea") || text.includes("한국")) {
+          const valueText = $elem.find(".pid-price-last, .last-price, .text-right").first().text().trim();
+          const numericMatch = valueText.match(/(\d+\.?\d*)/);
+          if (numericMatch) {
+            const parsed = parseFloat(numericMatch[1]);
+            if (parsed > 0 && parsed < 10000) {
+              koreaCDSValue = parsed;
+            }
+          }
+        }
+      });
     }
     
     if (koreaCDSValue !== null && !isNaN(koreaCDSValue)) {
@@ -374,6 +407,7 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
         ? (change / previousValue) * 100 
         : 0;
       
+      console.log(`Korea CDS fetched: ${koreaCDSValue}bp (change: ${change}bp)`);
       return {
         value: koreaCDSValue,
         change,
@@ -381,6 +415,7 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
       };
     }
     
+    console.warn("Korea CDS value not found in HTML");
     return null;
   } catch (error) {
     console.error("Failed to fetch Korea CDS:", error);
