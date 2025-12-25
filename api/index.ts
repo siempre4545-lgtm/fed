@@ -1509,7 +1509,6 @@ async function generateEconomicCoachAnalysis(data: {
   const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
   const qtSignal = securitiesChange < -50000;
   const qeSignal = securitiesChange > 50000;
-  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
   
   // 경제 지표에서 주요 데이터 추출
   const fedRate = economicIndicators?.find((i: any) => i.id === "fed-funds-rate");
