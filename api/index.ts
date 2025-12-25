@@ -769,7 +769,34 @@ app.get("/economic-indicators", async (_req, res) => {
       indicatorsByCategory[ind.category].push(ind);
     });
     
+    // FED 자산/부채 카테고리 추가
+    indicatorsByCategory["FED자산/부채"] = [];
+    
     const categorySections = Object.entries(indicatorsByCategory).map(([category, items]) => {
+      // FED 자산/부채는 특별 처리
+      if (category === "FED자산/부채") {
+        return `
+        <div class="category-section">
+          <h2 class="category-title">${escapeHtml(category)}</h2>
+          <div class="indicators-grid">
+            <a href="/economic-indicators/fed-assets-liabilities" class="indicator-item-link">
+              <div class="indicator-item" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;border:none">
+                <div class="indicator-header">
+                  <div class="indicator-name" style="color:#ffffff">FED 자산/부채 분석</div>
+                  <div class="indicator-symbol" style="color:rgba(255,255,255,0.8)">자산과 부채 종합 분석</div>
+                </div>
+                <div class="indicator-value">
+                  <span class="value-main" style="color:#ffffff">자세히 보기</span>
+                </div>
+                <div class="indicator-meta" style="color:rgba(255,255,255,0.8)">
+                  <span>H.4.1 리포트 기반</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+        `;
+      }
       const itemsHtml = items.map((ind) => {
         const changeColor = ind.changePercent !== null
           ? (ind.changePercent > 0 ? "#ff6b6b" : ind.changePercent < 0 ? "#51cf66" : "#adb5bd")
