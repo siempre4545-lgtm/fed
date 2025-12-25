@@ -3,10 +3,6 @@ import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept } from "../src/h4
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (m) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m] as string));
-}
-
 const app = express();
 
 // API: JSON
