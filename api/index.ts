@@ -780,7 +780,7 @@ app.get("/economic-indicators", async (_req, res) => {
     
     const categorySections = finalCategoryOrder.map((category) => {
       const items = indicatorsByCategory[category];
-      return [category, items];
+      return [category, items] as [string, typeof indicators];
     }).map(([category, items]) => {
       // FED 자산/부채는 특별 처리
       if (category === "FED자산/부채") {
