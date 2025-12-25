@@ -1349,9 +1349,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .summary-title{font-size:18px;font-weight:600;margin-bottom:16px;opacity:0.9}
     .summary-value{font-size:36px;font-weight:700;margin-bottom:8px}
     .summary-change{font-size:16px;font-weight:600;opacity:0.9}
-    .analysis-section{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:24px;margin-top:24px}
-    .analysis-title{font-size:18px;font-weight:700;color:#0369a1;margin-bottom:16px}
-    .analysis-content{font-size:15px;color:#0c4a6e;line-height:1.8;white-space:pre-wrap}
+    .analysis-section{background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;padding:28px;margin-top:24px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
+    .analysis-title{font-size:22px;font-weight:800;color:#0369a1;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #bae6fd}
+    .analysis-content{font-size:15px;color:#0c4a6e;line-height:2.0;white-space:pre-wrap;font-weight:500}
     .back-link{display:inline-block;margin-top:16px;color:#3b82f6;text-decoration:none;font-weight:600}
     .back-link:hover{text-decoration:underline}
   </style>
@@ -1470,9 +1470,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       </div>
     </div>
     
-    <!-- 거시경제 해석 -->
+    <!-- 경제 코치 종합 진단 -->
     <div class="analysis-section">
-      <div class="analysis-title">거시경제 해석</div>
+      <div class="analysis-title">🎯 경제 코치 종합 진단</div>
       <div class="analysis-content">${escapeHtml(analysis)}</div>
     </div>
   </div>
