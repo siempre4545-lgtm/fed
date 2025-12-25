@@ -1491,90 +1491,218 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   }
 });
 
-// 거시경제 해석 생성 함수
-function generateFedAssetsLiabilitiesAnalysis(data: {
+// 경제 코치 LLM 분석 생성 함수 (고급 분석)
+async function generateEconomicCoachAnalysis(data: {
   assets: any;
   liabilities: any;
   totalAssets: number;
   totalAssetsChange: number;
   totalLiabilities: number;
   totalLiabilitiesChange: number;
-}): string {
-  const { assets, liabilities, totalAssets, totalAssetsChange, totalLiabilities, totalLiabilitiesChange } = data;
+  report: any;
+  economicIndicators: any;
+  economicNews: Array<{ title: string; source: string; publishedAt: string }>;
+}): Promise<string> {
+  const { assets, liabilities, totalAssets, totalAssetsChange, totalLiabilities, totalLiabilitiesChange, report, economicIndicators, economicNews } = data;
   
+  // 심층 분석을 위한 데이터 준비
+  const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
+  const qtSignal = securitiesChange < -50000;
+  const qeSignal = securitiesChange > 50000;
+  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
+  
+  // 경제 지표에서 주요 데이터 추출
+  const fedRate = economicIndicators?.find((i: any) => i.id === "fed-funds-rate");
+  const dxy = economicIndicators?.find((i: any) => i.id === "dxy");
+  const sp500 = economicIndicators?.find((i: any) => i.id === "sp500");
+  const vix = economicIndicators?.find((i: any) => i.id === "vix");
+  const yieldSpread = economicIndicators?.find((i: any) => i.id === "yield-spread");
+  
+  // 분석 시작
   let analysis = "";
   
-  // 자산 변화 분석
-  const assetsExpanding = totalAssetsChange > 0;
-  const assetsContracting = totalAssetsChange < 0;
+  // 1. 현재 상황 심층 분석
+  analysis += `🎯 [경제 코치 종합 진단]\n\n`;
   
-  // 부채 변화 분석
-  const liabilitiesExpanding = totalLiabilitiesChange > 0;
-  const liabilitiesContracting = totalLiabilitiesChange < 0;
+  analysis += `📊 [FED 대차대조표 핵심 변화]\n`;
+  analysis += `이번 주 FED 자산은 $${(totalAssets / 1000).toFixed(1)}조로 ${totalAssetsChange > 0 ? `+${(totalAssetsChange / 1000).toFixed(1)}조 증가` : totalAssetsChange < 0 ? `${(totalAssetsChange / 1000).toFixed(1)}조 감소` : '변동 없음'}했습니다. `;
+  analysis += `부채는 $${(totalLiabilities / 1000).toFixed(1)}조로 ${totalLiabilitiesChange > 0 ? `+${(totalLiabilitiesChange / 1000).toFixed(1)}조 증가` : totalLiabilitiesChange < 0 ? `${(totalLiabilitiesChange / 1000).toFixed(1)}조 감소` : '변동 없음'}했습니다.\n\n`;
   
-  // QT/QE 신호
-  const securitiesChange = (assets.treasury?.change_musd || 0) + (assets.mbs?.change_musd || 0);
-  const qtSignal = securitiesChange < -50000; // 500억 이상 감소
-  const qeSignal = securitiesChange > 50000; // 500억 이상 증가
+  // 2. QT/QE 신호 심층 해석
+  if (qtSignal) {
+    analysis += `🔻 [QT(양적긴축) 진행 중]\n`;
+    analysis += `보유증권이 ${(Math.abs(securitiesChange) / 1000).toFixed(1)}조 감소했습니다. 이는 연준이 시장에서 유동성을 체계적으로 흡수하고 있음을 의미합니다. `;
+    analysis += `역사적으로 QT는 금리 상승 압력, 달러 강세, 신흥국 자본 유출, 자산 가격 조정 압력을 동반합니다. `;
+    if (dxy && dxy.value && dxy.value > 105) {
+      analysis += `현재 달러 인덱스가 ${dxy.value.toFixed(1)}로 강세를 보이고 있어, QT와 결합되어 글로벌 유동성 압박이 가중되고 있습니다. `;
+    }
+    if (yieldSpread && yieldSpread.value && yieldSpread.value < 0) {
+      analysis += `금리스프레드 역전(${yieldSpread.value.toFixed(2)}%p)은 경기 둔화 우려를 시사하며, QT 환경에서 더욱 주의가 필요합니다. `;
+    }
+    analysis += `\n`;
+  } else if (qeSignal) {
+    analysis += `🔺 [QE(양적완화) 진행 중]\n`;
+    analysis += `보유증권이 ${(securitiesChange / 1000).toFixed(1)}조 증가했습니다. 이는 연준이 시장에 유동성을 공급하고 있음을 의미합니다. `;
+    analysis += `QE는 일반적으로 금리 하락 압력, 달러 약세, 자산 가격 상승, 신흥국 자본 유입을 동반합니다. `;
+    if (sp500 && sp500.changePercent && sp500.changePercent > 0) {
+      analysis += `현재 S&P500이 ${sp500.changePercent.toFixed(2)}% 상승하며 QE 효과가 자산 시장에 반영되고 있습니다. `;
+    }
+    analysis += `\n`;
+  } else {
+    analysis += `⚖️ [중립적 통화정책]\n`;
+    analysis += `보유증권 변화가 미미하여 연준이 현재 유동성 수준을 유지하고 있습니다. `;
+    analysis += `이는 연준이 경제 데이터를 관찰하며 정책 전환 시점을 모색하고 있음을 시사합니다. `;
+    analysis += `\n`;
+  }
   
-  analysis += `[현재 상황]\n`;
-  analysis += `FED 자산 총합은 $${(totalAssets / 1000).toFixed(1)}조로, ${assetsExpanding ? '확장' : assetsContracting ? '축소' : '안정'} 추세를 보이고 있습니다. `;
-  analysis += `FED 부채 총합은 $${(totalLiabilities / 1000).toFixed(1)}조로, ${liabilitiesExpanding ? '증가' : liabilitiesContracting ? '감소' : '안정'} 추세입니다.\n\n`;
-  
-  analysis += `[자산 구조 분석]\n`;
+  // 3. 자산 구조 심층 분석
+  analysis += `💼 [자산 구조의 전략적 의미]\n`;
   if (assets.treasury) {
-    analysis += `국채 보유는 $${(assets.treasury.balance_musd / 1000).toFixed(1)}조로, ${assets.treasury.change_musd > 0 ? '증가' : assets.treasury.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
+    const treasuryRatio = (assets.treasury.balance_musd / totalAssets) * 100;
+    analysis += `국채 보유($${(assets.treasury.balance_musd / 1000).toFixed(1)}조, ${treasuryRatio.toFixed(1)}%)는 FED 자산의 핵심입니다. `;
+    if (assets.treasury.change_musd > 50000) {
+      analysis += `국채 보유 증가는 연준이 장기 채권 수요를 지원하고 있음을 의미하며, 이는 장기 금리 안정화에 기여합니다. `;
+    } else if (assets.treasury.change_musd < -50000) {
+      analysis += `국채 보유 감소는 QT의 핵심이며, 장기 금리 상승 압력을 만들 수 있습니다. `;
+    }
   }
   if (assets.mbs) {
-    analysis += `MBS 보유는 $${(assets.mbs.balance_musd / 1000).toFixed(1)}조로, ${assets.mbs.change_musd > 0 ? '증가' : assets.mbs.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
+    const mbsRatio = (assets.mbs.balance_musd / totalAssets) * 100;
+    analysis += `MBS 보유($${(assets.mbs.balance_musd / 1000).toFixed(1)}조, ${mbsRatio.toFixed(1)}%)는 주택 시장 유동성을 직접적으로 지원합니다. `;
+    if (assets.mbs.change_musd < -30000) {
+      analysis += `MBS 감소는 주택 금융 시장의 유동성 축소를 의미하며, 모기지 금리 상승 압력을 만들 수 있습니다. `;
+    }
   }
-  if (qtSignal) {
-    analysis += `보유증권의 감소는 QT(양적긴축)가 진행 중임을 의미합니다. `;
-  } else if (qeSignal) {
-    analysis += `보유증권의 증가는 QE(양적완화)가 진행 중임을 의미합니다. `;
+  if (assets.repo && assets.repo.balance_musd > 10000) {
+    analysis += `리포($${(assets.repo.balance_musd / 1000).toFixed(1)}조) 증가는 단기 유동성 공급 확대를 의미하며, 금융 시스템의 스트레스 완화 신호입니다. `;
   }
-  analysis += `\n\n`;
+  analysis += `\n`;
   
-  analysis += `[부채 구조 분석]\n`;
+  // 4. 부채 구조 심층 분석
+  analysis += `📋 [부채 구조의 글로벌 영향]\n`;
   if (liabilities.reserves) {
-    analysis += `지급준비금은 $${(liabilities.reserves.balance_musd / 1000).toFixed(1)}조로, ${liabilities.reserves.change_musd > 0 ? '증가' : liabilities.reserves.change_musd < 0 ? '감소' : '유지'} 중입니다. `;
-    if (liabilities.reserves.change_musd < -50000) {
-      analysis += `지급준비금의 큰 폭 감소는 금융 시스템의 유동성 쿠션이 축소되고 있음을 시사합니다. `;
+    const reservesRatio = (liabilities.reserves.balance_musd / totalLiabilities) * 100;
+    analysis += `지급준비금($${(liabilities.reserves.balance_musd / 1000).toFixed(1)}조, ${reservesRatio.toFixed(1)}%)은 금융 시스템의 핵심 쿠션입니다. `;
+    if (liabilities.reserves.change_musd < -100000) {
+      analysis += `지급준비금의 큰 폭 감소(${(Math.abs(liabilities.reserves.change_musd) / 1000).toFixed(1)}조)는 금융 시스템의 유동성 여유가 축소되고 있음을 시사합니다. `;
+      analysis += `이는 금융 시장 변동성 확대, 신용 경색, 자산 가격 조정 압력으로 이어질 수 있습니다. `;
+    } else if (liabilities.reserves.change_musd > 50000) {
+      analysis += `지급준비금 증가는 금융 시스템의 안정성 신호이며, 시장 유동성 여유가 확대되고 있음을 의미합니다. `;
     }
   }
   if (liabilities.tga) {
-    analysis += `TGA는 $${(liabilities.tga.balance_musd / 1000).toFixed(1)}조로, ${liabilities.tga.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.tga.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
+    analysis += `TGA($${(liabilities.tga.balance_musd / 1000).toFixed(1)}조)는 정부의 현금 관리 계정입니다. `;
+    if (liabilities.tga.change_musd < -50000) {
+      analysis += `TGA 감소(${(Math.abs(liabilities.tga.change_musd) / 1000).toFixed(1)}조)는 정부 지출 확대로 시중 유동성이 공급되고 있음을 의미합니다. `;
+      analysis += `이는 재정 정책이 통화정책과 상호작용하여 경제에 영향을 미치고 있음을 보여줍니다. `;
+    } else if (liabilities.tga.change_musd > 50000) {
+      analysis += `TGA 증가는 정부가 자금을 흡수하여 시중 유동성을 축소하고 있음을 의미합니다. `;
+    }
   }
   if (liabilities.rrp) {
-    analysis += `RRP는 $${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조로, ${liabilities.rrp.change_musd > 0 ? '증가하여 유동성을 흡수' : liabilities.rrp.change_musd < 0 ? '감소하여 유동성을 공급' : '안정'}하고 있습니다. `;
+    analysis += `RRP($${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조)는 금융기관이 연준에 예치하는 초과 유동성입니다. `;
+    if (liabilities.rrp.balance_musd > 500000) {
+      analysis += `RRP가 높은 수준(${(liabilities.rrp.balance_musd / 1000).toFixed(1)}조)을 유지하고 있어, 시장에 과도한 유동성이 존재함을 의미합니다. `;
+    } else if (liabilities.rrp.change_musd < -50000) {
+      analysis += `RRP 감소는 금융기관이 유동성을 시장으로 되돌리고 있음을 의미하며, 이는 신용 확대와 자산 가격 상승 압력으로 이어질 수 있습니다. `;
+    }
   }
-  analysis += `\n\n`;
+  analysis += `\n`;
   
-  analysis += `[거시경제 해석]\n`;
-  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
+  // 5. 미국의 글로벌 헤게모니 관점
+  analysis += `🌍 [미국 헤게모니와 글로벌 영향]\n`;
   if (netLiquidity > 50000) {
-    analysis += `자산 증가가 부채 증가를 상회하여 순 유동성 공급이 확대되고 있습니다. 이는 연준의 통화정책이 완화적 기조를 유지하고 있음을 의미합니다. `;
+    analysis += `순 유동성 공급 확대는 달러 유동성 확산을 의미하며, 이는 글로벌 자산 가격 상승과 신흥국 자본 유입을 촉진합니다. `;
+    analysis += `미국의 통화정책이 글로벌 금융 환경을 주도하고 있으며, 이는 미국의 금융 헤게모니를 강화합니다. `;
   } else if (netLiquidity < -50000) {
-    analysis += `부채 증가가 자산 증가를 상회하거나 자산 감소가 부채 감소를 상회하여 순 유동성 흡수가 진행되고 있습니다. 이는 연준의 통화정책이 긴축적 기조로 전환되고 있음을 의미합니다. `;
+    analysis += `순 유동성 흡수는 달러 유동성 축소를 의미하며, 이는 글로벌 자산 가격 조정 압력과 신흥국 자본 유출을 초래할 수 있습니다. `;
+    analysis += `미국의 긴축 정책이 글로벌 금융 환경을 압박하고 있으며, 달러 강세와 결합되어 신흥국 통화와 자산에 부담을 줍니다. `;
+  }
+  if (dxy && dxy.value && dxy.value > 105) {
+    analysis += `달러 강세(${dxy.value.toFixed(1)})는 미국의 경제적 우위와 금리 차이를 반영하며, 글로벌 자본이 미국으로 유입되고 있음을 의미합니다. `;
+    analysis += `이는 미국의 금융 헤게모니를 강화하지만, 동시에 신흥국과 원자재 수출국에 부담을 줍니다. `;
+  }
+  analysis += `\n`;
+  
+  // 6. 최근 뉴스와의 연계 분석
+  if (economicNews && economicNews.length > 0) {
+    analysis += `📰 [최근 경제 뉴스와의 연계]\n`;
+    const relevantNews = economicNews.slice(0, 3);
+    relevantNews.forEach((news, idx) => {
+      analysis += `${idx + 1}. ${news.title} (${news.source})\n`;
+    });
+    analysis += `\n`;
+    analysis += `이러한 뉴스는 FED의 자산/부채 변화와 밀접하게 연관되어 있습니다. `;
+    if (qtSignal) {
+      analysis += `QT 진행과 함께 나타나는 경제 지표 변화는 연준의 정책 의도를 반영하고 있으며, 시장은 연준의 다음 행보를 주시하고 있습니다. `;
+    }
+    analysis += `\n`;
+  }
+  
+  // 7. 투자 시사점 (실전적 조언)
+  analysis += `💡 [경제 코치의 실전 조언]\n`;
+  
+  // 리스크 평가
+  let riskLevel = "중간";
+  let riskFactors: string[] = [];
+  if (liabilities.reserves && liabilities.reserves.change_musd < -100000) {
+    riskLevel = "높음";
+    riskFactors.push("지급준비금 급감");
+  }
+  if (qtSignal && vix && vix.value && vix.value > 20) {
+    riskLevel = "높음";
+    riskFactors.push("QT 진행 + 높은 변동성");
+  }
+  if (yieldSpread && yieldSpread.value && yieldSpread.value < 0) {
+    riskLevel = "높음";
+    riskFactors.push("금리스프레드 역전");
+  }
+  
+  analysis += `현재 리스크 수준: ${riskLevel}${riskFactors.length > 0 ? ` (${riskFactors.join(", ")})` : ""}\n\n`;
+  
+  // 자산 배분 조언
+  analysis += `📈 [자산 배분 전략]\n`;
+  if (qtSignal) {
+    analysis += `QT 환경에서는 방어적 자산 배분이 유리합니다:\n`;
+    analysis += `• 고품질 채권(국채, 회사채): 금리 상승으로 인한 가격 하락 리스크 있으나, 높은 수익률 제공\n`;
+    analysis += `• 현금/단기 채권: 유동성 확보 및 금리 상승 수혜\n`;
+    analysis += `• 리스크 자산(주식, 부동산): 조정 압력 있으나, 기업 실적이 좋으면 상대적 강세 가능\n`;
+    analysis += `• 달러 자산: 달러 강세 환경에서 상대적 유리\n`;
+  } else if (qeSignal) {
+    analysis += `QE 환경에서는 리스크 자산 배분이 유리합니다:\n`;
+    analysis += `• 주식: 유동성 확대로 인한 자산 가격 상승 수혜\n`;
+    analysis += `• 부동산: 낮은 금리와 유동성 확대로 인한 상승 압력\n`;
+    analysis += `• 신흥국 자산: 달러 약세와 자본 유입으로 인한 상승 가능\n`;
+    analysis += `• 채권: 금리 하락으로 인한 가격 상승 수혜\n`;
   } else {
-    analysis += `자산과 부채의 변화가 균형을 이루고 있어 통화정책이 중립적 기조를 유지하고 있습니다. `;
+    analysis += `중립적 환경에서는 균형 잡힌 자산 배분이 필요합니다:\n`;
+    analysis += `• 주식/채권 균형 배분: 경제 사이클에 따라 조정\n`;
+    analysis += `• 현금 비중 유지: 정책 전환 시점 대비\n`;
+    analysis += `• 다각화: 지역별, 섹터별 분산 투자\n`;
   }
+  analysis += `\n`;
   
-  if (qtSignal) {
-    analysis += `QT 진행으로 인해 시장 유동성이 점진적으로 축소되고 있으며, 이는 장기적으로 금리 상승 압력과 자산 가격 조정 압력을 만들 수 있습니다. `;
-  } else if (qeSignal) {
-    analysis += `QE 진행으로 인해 시장 유동성이 확대되고 있으며, 이는 장기적으로 금리 하락 압력과 자산 가격 상승 압력을 만들 수 있습니다. `;
+  // 시장 타이밍 조언
+  analysis += `⏰ [시장 타이밍]\n`;
+  if (qtSignal && liabilities.reserves && liabilities.reserves.change_musd < -50000) {
+    analysis += `현재는 유동성 축소 구간으로, 방어적 포지션이 유리합니다. `;
+    analysis += `하지만 과도한 공포는 매수 기회를 만들 수 있으므로, 단계적 매수 전략을 고려하세요. `;
+  } else if (qeSignal && sp500 && sp500.changePercent && sp500.changePercent > 0) {
+    analysis += `현재는 유동성 확대 구간으로, 리스크 자산에 유리합니다. `;
+    analysis += `하지만 과도한 탐욕은 조정 신호일 수 있으므로, 수익 실현과 리스크 관리에 주의하세요. `;
+  } else {
+    analysis += `현재는 전환 구간으로, 경제 데이터와 연준의 정책 발언을 주시하며 유연하게 대응하세요. `;
   }
+  analysis += `\n`;
   
-  analysis += `\n\n`;
-  analysis += `[투자 시사점]\n`;
-  analysis += `FED 자산/부채 구조의 변화는 거시경제 환경과 자산 가격에 직접적인 영향을 미칩니다. `;
-  if (qtSignal) {
-    analysis += `현재 QT 환경에서는 방어적 자산(고품질 채권, 현금)의 상대적 매력이 높아지며, 리스크 자산(주식, 부동산)에는 조정 압력이 있을 수 있습니다. `;
-  } else if (qeSignal) {
-    analysis += `현재 QE 환경에서는 리스크 자산(주식, 부동산)의 상대적 매력이 높아지며, 방어적 자산에는 하락 압력이 있을 수 있습니다. `;
-  }
-  analysis += `투자자는 FED의 자산/부채 변화를 주시하고, 이를 바탕으로 자산 배분을 조정해야 합니다.`;
+  // 마무리
+  analysis += `🎓 [경제 코치의 한마디]\n`;
+  analysis += `FED의 대차대조표는 거시경제의 심장박동과 같습니다. `;
+  analysis += `자산과 부채의 변화는 단순한 숫자가 아니라, 연준의 정책 의도, 금융 시스템의 건강성, 글로벌 유동성 환경을 종합적으로 보여주는 거울입니다. `;
+  analysis += `투자자는 이 거울을 통해 경제의 현재와 미래를 읽어야 합니다. `;
+  analysis += `현재 데이터는 ${report.asOfWeekEndedText} 기준이며, 매주 업데이트되는 이 지표를 통해 경제 환경의 변화를 실시간으로 파악할 수 있습니다. `;
+  analysis += `투자 결정은 이 데이터뿐만 아니라, 기업 실적, 지정학적 리스크, 기술 혁신 등 다양한 요인을 종합적으로 고려해야 합니다. `;
+  analysis += `경제 코치는 당신의 투자 여정을 함께합니다. 💪\n`;
   
   return analysis;
 }
