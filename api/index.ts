@@ -1362,8 +1362,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .item-change.negative{color:#16a34a}
     .item-change.neutral{color:#6b7280}
     .item-interpretation{margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb}
-    .item-interpretation .interpretation-label{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
-    .item-interpretation .interpretation-text{font-size:14px;line-height:1.8;color:#374151;white-space:pre-wrap}
+    .item-interpretation .interpretation-title{font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:12px;line-height:1.5}
+    .item-interpretation .interpretation-text{font-size:14px;line-height:1.9;color:#4b5563;white-space:pre-wrap;text-align:justify}
     .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;border-radius:12px;padding:24px;margin-bottom:24px}
     .summary-title{font-size:18px;font-weight:600;margin-bottom:16px;opacity:0.9}
     .summary-value{font-size:36px;font-weight:700;margin-bottom:8px}
@@ -1407,8 +1407,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${assets.treasury.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(assets.treasury.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(assets.treasury.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(assets.treasury.interpretation.split('\n').slice(1).join('\n') || assets.treasury.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1422,8 +1422,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${assets.mbs.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(assets.mbs.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(assets.mbs.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(assets.mbs.interpretation.split('\n').slice(1).join('\n') || assets.mbs.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1437,8 +1437,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${assets.repo.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(assets.repo.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(assets.repo.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(assets.repo.interpretation.split('\n').slice(1).join('\n') || assets.repo.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1452,8 +1452,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${assets.loans.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(assets.loans.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(assets.loans.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(assets.loans.interpretation.split('\n').slice(1).join('\n') || assets.loans.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1483,8 +1483,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${liabilities.currency.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(liabilities.currency.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(liabilities.currency.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.currency.interpretation.split('\n').slice(1).join('\n') || liabilities.currency.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1498,8 +1498,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${liabilities.rrp.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(liabilities.rrp.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(liabilities.rrp.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.rrp.interpretation.split('\n').slice(1).join('\n') || liabilities.rrp.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1513,8 +1513,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${liabilities.tga.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(liabilities.tga.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(liabilities.tga.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.tga.interpretation.split('\n').slice(1).join('\n') || liabilities.tga.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>
@@ -1528,8 +1528,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </div>
           ${liabilities.reserves.interpretation ? `
           <div class="item-interpretation">
-            <div class="interpretation-label">해석</div>
-            <div class="interpretation-text">${escapeHtml(liabilities.reserves.interpretation)}</div>
+            <div class="interpretation-title">${escapeHtml(liabilities.reserves.interpretation.split('\n')[0] || '해석')}</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.reserves.interpretation.split('\n').slice(1).join('\n') || liabilities.reserves.interpretation).replace(/\n/g, "<br/><br/>")}</div>
           </div>
           ` : ''}
         </div>

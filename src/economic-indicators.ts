@@ -910,20 +910,55 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // 심리 지표
-  const [vix, fearGreed, koreaCDS] = await Promise.all([
-    fetchYahooFinance("^VIX").catch(err => {
-      console.error("Error fetching VIX:", err);
-      return null;
-    }),
-    fetchFearGreedIndex().catch(err => {
-      console.error("Error fetching Fear & Greed Index:", err);
-      return null;
-    }),
-    fetchKoreaCDS().catch(err => {
-      console.error("Error fetching Korea CDS:", err);
-      return null;
-    }),
-  ]);
+  let vix = null;
+  let fearGreed = null;
+  let koreaCDS = null;
+  
+  try {
+    // VIX는 별도로 처리 (더 안정적인 방법)
+    vix = await fetchYahooFinance("^VIX");
+    if (!vix) {
+      // VIX 대체 방법: 직접 API 호출
+      try {
+        const vixUrl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d`;
+        const vixResponse = await fetch(vixUrl, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+        if (vixResponse.ok) {
+          const vixData = await vixResponse.json();
+          const vixResult = vixData.chart?.result?.[0];
+          if (vixResult) {
+            const vixMeta = vixResult.meta;
+            if (vixMeta && vixMeta.regularMarketPrice !== null && vixMeta.previousClose !== null) {
+              const vixPrice = vixMeta.regularMarketPrice;
+              const vixPrev = vixMeta.previousClose;
+              vix = {
+                price: vixPrice,
+                change: vixPrice - vixPrev,
+                changePercent: ((vixPrice - vixPrev) / vixPrev) * 100,
+              };
+            }
+          }
+        }
+      } catch (e) {
+        console.error("VIX fallback fetch failed:", e);
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching VIX:", err);
+  }
+  
+  try {
+    fearGreed = await fetchFearGreedIndex();
+  } catch (err) {
+    console.error("Error fetching Fear & Greed Index:", err);
+  }
+  
+  try {
+    koreaCDS = await fetchKoreaCDS();
+  } catch (err) {
+    console.error("Error fetching Korea CDS:", err);
+  }
   
   if (vix) {
     indicators.push({
@@ -939,7 +974,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       id: "vix",
     });
   } else {
-    console.warn("VIX data not available");
+    console.warn("VIX data not available - all methods failed");
   }
   
   if (fearGreed) {
