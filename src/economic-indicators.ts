@@ -913,14 +913,21 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   // VIX는 별도로 처리 (더 안정적인 방법)
   let vix = null;
   try {
-    vix = await fetchYahooFinance("^VIX");
-    if (!vix) {
-      // VIX 대체 방법: 직접 API 호출 (range를 늘려서)
+    // VIX 직접 API 호출 (여러 방법 시도)
+    const vixUrls = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d`,
+    ];
+    
+    for (const vixUrl of vixUrls) {
       try {
-        const vixUrl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d`;
         const vixResponse = await fetch(vixUrl, {
-          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+          headers: { 
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+          },
         });
+        
         if (vixResponse.ok) {
           const vixData = await vixResponse.json();
           const vixResult = vixData.chart?.result?.[0];
@@ -932,6 +939,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
             let vixPrice: number | null = null;
             let vixPrev: number | null = null;
             
+            // 1. meta에서 찾기
             if (vixMeta) {
               if (vixMeta.regularMarketPrice !== null && vixMeta.regularMarketPrice !== undefined) {
                 vixPrice = vixMeta.regularMarketPrice;
@@ -939,32 +947,49 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
               if (vixMeta.previousClose !== null && vixMeta.previousClose !== undefined) {
                 vixPrev = vixMeta.previousClose;
               }
-            }
-            
-            // quote에서 찾기
-            if (!vixPrice && vixQuote && vixQuote.close) {
-              const prices = vixQuote.close.filter((p: number | null) => p !== null);
-              if (prices.length >= 2) {
-                vixPrice = prices[prices.length - 1];
-                vixPrev = prices[prices.length - 2];
+              // chartPreviousClose도 시도
+              if (!vixPrev && vixMeta.chartPreviousClose !== null && vixMeta.chartPreviousClose !== undefined) {
+                vixPrev = vixMeta.chartPreviousClose;
               }
             }
             
-            if (vixPrice !== null && vixPrev !== null) {
+            // 2. quote에서 찾기
+            if ((!vixPrice || !vixPrev) && vixQuote && vixQuote.close) {
+              const prices = vixQuote.close.filter((p: number | null) => p !== null);
+              if (prices.length >= 2) {
+                if (!vixPrice) vixPrice = prices[prices.length - 1];
+                if (!vixPrev) vixPrev = prices[prices.length - 2];
+              } else if (prices.length === 1 && !vixPrice) {
+                vixPrice = prices[0];
+              }
+            }
+            
+            if (vixPrice !== null) {
+              // vixPrev가 없으면 vixPrice를 사용 (변화량 0)
+              if (vixPrev === null) vixPrev = vixPrice;
+              
               vix = {
                 price: vixPrice,
                 change: vixPrice - vixPrev,
-                changePercent: ((vixPrice - vixPrev) / vixPrev) * 100,
+                changePercent: vixPrev !== 0 ? ((vixPrice - vixPrev) / vixPrev) * 100 : 0,
               };
-              console.log(`VIX fetched via fallback: ${vixPrice}`);
+              console.log(`VIX fetched successfully: ${vixPrice} (prev: ${vixPrev})`);
+              break; // 성공하면 루프 종료
             }
           }
         }
       } catch (e) {
-        console.error("VIX fallback fetch failed:", e);
+        console.error(`VIX fetch failed for ${vixUrl}:`, e);
+        continue; // 다음 URL 시도
       }
-    } else {
-      console.log(`VIX fetched successfully: ${vix.price}`);
+    }
+    
+    // 여전히 실패하면 fetchYahooFinance 시도
+    if (!vix) {
+      vix = await fetchYahooFinance("^VIX");
+      if (vix) {
+        console.log(`VIX fetched via fetchYahooFinance: ${vix.price}`);
+      }
     }
   } catch (err) {
     console.error("Error fetching VIX:", err);
