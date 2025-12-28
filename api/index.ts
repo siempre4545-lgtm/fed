@@ -1537,9 +1537,55 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       </div>
     </div>
     
-    <!-- 거시경제 해석 -->
+    <!-- 자산-부채 상호 해석 -->
+    <div class="section" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:2px solid #f59e0b">
+      <div class="section-title" style="color:#92400e;border-bottom-color:#f59e0b">📊 자산-부채 상호 해석</div>
+      <div style="font-size:16px;line-height:1.9;color:#78350f;font-weight:600;padding:16px;background:#ffffff;border-radius:8px;margin-top:16px">
+        ${(() => {
+          // 자산과 부채의 변화를 종합적으로 분석
+          const netChange = totalAssetsChange - totalLiabilitiesChange;
+          const assetsTrend = totalAssetsChange > 0 ? "증가" : totalAssetsChange < 0 ? "감소" : "유지";
+          const liabilitiesTrend = totalLiabilitiesChange > 0 ? "증가" : totalLiabilitiesChange < 0 ? "감소" : "유지";
+          
+          let interpretation = "";
+          
+          // 자산과 부채가 모두 증가하는 경우
+          if (totalAssetsChange > 0 && totalLiabilitiesChange > 0) {
+            if (totalAssetsChange > totalLiabilitiesChange) {
+              interpretation = `현재 FED의 자산과 부채가 모두 증가하고 있지만, 자산 증가폭(${(totalAssetsChange / 1000).toFixed(1)}조)이 부채 증가폭(${(totalLiabilitiesChange / 1000).toFixed(1)}조)보다 큽니다. 이는 연준이 시장에 유동성을 공급하면서도 자산을 더 많이 보유하고 있다는 의미입니다. 거대 자본가들의 관점에서 보면, 이는 연준이 QT를 완화하거나 QE로 전환할 가능성을 시사합니다. 블랙록과 뱅가드는 이런 신호를 포착하여 방어적 포지션에서 공격적 포지션으로 전환을 준비할 수 있습니다.`;
+            } else {
+              interpretation = `현재 FED의 자산과 부채가 모두 증가하고 있으며, 부채 증가폭(${(totalLiabilitiesChange / 1000).toFixed(1)}조)이 자산 증가폭(${(totalAssetsChange / 1000).toFixed(1)}조)보다 큽니다. 이는 연준이 시장에 유동성을 공급하지만, 그만큼 부채도 늘어나고 있다는 의미입니다. 거대 자본가들은 이런 상황을 '유동성 공급이 부채 증가로 이어지고 있다'고 해석합니다. 이는 인플레이션 압력으로 이어질 수 있어, 블랙록과 뱅가드는 인플레이션 헤지 자산(금, 부동산, TIPS 등)의 비중을 늘리는 전략을 고려할 수 있습니다.`;
+            }
+          }
+          // 자산 증가, 부채 감소
+          else if (totalAssetsChange > 0 && totalLiabilitiesChange < 0) {
+            interpretation = `현재 FED의 자산은 증가(${(totalAssetsChange / 1000).toFixed(1)}조)하고 있지만 부채는 감소(${Math.abs(totalLiabilitiesChange / 1000).toFixed(1)}조)하고 있습니다. 이는 연준이 자산을 늘리면서도 부채를 줄이고 있다는 의미로, 매우 강력한 유동성 공급 신호입니다. 거대 자본가들의 관점에서 보면, 이는 연준이 적극적으로 시장을 지원하고 있다는 명확한 신호입니다. 블랙록과 뱅가드는 이런 환경에서 리스크 자산(주식, 부동산, 신흥국 자산)의 비중을 늘리는 전략을 취할 수 있습니다.`;
+          }
+          // 자산 감소, 부채 증가
+          else if (totalAssetsChange < 0 && totalLiabilitiesChange > 0) {
+            interpretation = `현재 FED의 자산은 감소(${Math.abs(totalAssetsChange / 1000).toFixed(1)}조)하고 있지만 부채는 증가(${(totalLiabilitiesChange / 1000).toFixed(1)}조)하고 있습니다. 이는 연준이 자산을 줄이면서도 부채는 늘어나고 있다는 의미로, QT가 진행 중이지만 부채 구조는 복잡한 상황입니다. 거대 자본가들은 이런 상황을 'QT가 진행되지만 부채 압력은 여전히 존재한다'고 해석합니다. 블랙록과 뱅가드는 이런 환경에서 방어적 포지션을 유지하면서, 다음 정책 전환 시점을 주시합니다.`;
+          }
+          // 자산과 부채가 모두 감소하는 경우
+          else if (totalAssetsChange < 0 && totalLiabilitiesChange < 0) {
+            if (Math.abs(totalAssetsChange) > Math.abs(totalLiabilitiesChange)) {
+              interpretation = `현재 FED의 자산과 부채가 모두 감소하고 있지만, 자산 감소폭(${Math.abs(totalAssetsChange / 1000).toFixed(1)}조)이 부채 감소폭(${Math.abs(totalLiabilitiesChange / 1000).toFixed(1)}조)보다 큽니다. 이는 연준이 적극적으로 QT를 진행하고 있다는 의미입니다. 거대 자본가들의 관점에서 보면, 이는 유동성 축소가 가속화되고 있다는 신호입니다. 블랙록과 뱅가드는 이런 환경에서 현금 비중을 늘리고, 방어적 자산(국채, 달러)의 비중을 높이는 전략을 취합니다.`;
+            } else {
+              interpretation = `현재 FED의 자산과 부채가 모두 감소하고 있으며, 부채 감소폭(${Math.abs(totalLiabilitiesChange / 1000).toFixed(1)}조)이 자산 감소폭(${Math.abs(totalAssetsChange / 1000).toFixed(1)}조)보다 큽니다. 이는 연준이 부채를 더 적극적으로 줄이고 있다는 의미입니다. 거대 자본가들은 이런 상황을 '부채 구조 개선이 자산 축소보다 우선순위가 높다'고 해석합니다. 블랙록과 뱅가드는 이런 환경에서 중립적 포지션을 유지하면서, 다음 정책 전환 시점을 주시합니다.`;
+            }
+          }
+          // 자산과 부채가 모두 유지되는 경우
+          else {
+            interpretation = `현재 FED의 자산과 부채가 모두 안정적으로 유지되고 있습니다. 이는 연준이 현재 수준을 유지하면서 시장 반응을 지켜보고 있다는 의미입니다. 거대 자본가들의 관점에서 보면, 이는 '관찰 모드'에 진입했다는 신호입니다. 블랙록과 뱅가드는 이런 환경에서 균형 잡힌 포트폴리오를 유지하면서, 다음 정책 전환 시점에 대비합니다.`;
+          }
+          
+          return escapeHtml(interpretation);
+        })()}
+      </div>
+    </div>
+    
+    <!-- 경제 코치 종합 진단 -->
     <div class="analysis-section">
-      <div class="analysis-title">거시경제 해석</div>
+      <div class="analysis-title">🎯 경제 코치 종합 진단</div>
       <div class="analysis-content">${escapeHtml(analysis)}</div>
     </div>
   </div>
