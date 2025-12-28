@@ -1361,6 +1361,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .item-change.positive{color:#dc2626}
     .item-change.negative{color:#16a34a}
     .item-change.neutral{color:#6b7280}
+    .item-interpretation{margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb}
+    .item-interpretation .interpretation-label{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
+    .item-interpretation .interpretation-text{font-size:14px;line-height:1.8;color:#374151;white-space:pre-wrap}
     .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;border-radius:12px;padding:24px;margin-bottom:24px}
     .summary-title{font-size:18px;font-weight:600;margin-bottom:16px;opacity:0.9}
     .summary-value{font-size:36px;font-weight:700;margin-bottom:8px}
@@ -1402,6 +1405,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${assets.treasury.change_musd > 0 ? 'positive' : assets.treasury.change_musd < 0 ? 'negative' : 'neutral'}">
             ${assets.treasury.change_musd > 0 ? '+' : ''}${(assets.treasury.change_musd / 1000).toFixed(1)}조
           </div>
+          ${assets.treasury.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(assets.treasury.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${assets.mbs ? `
@@ -1411,6 +1420,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${assets.mbs.change_musd > 0 ? 'positive' : assets.mbs.change_musd < 0 ? 'negative' : 'neutral'}">
             ${assets.mbs.change_musd > 0 ? '+' : ''}${(assets.mbs.change_musd / 1000).toFixed(1)}조
           </div>
+          ${assets.mbs.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(assets.mbs.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${assets.repo ? `
@@ -1420,6 +1435,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${assets.repo.change_musd > 0 ? 'positive' : assets.repo.change_musd < 0 ? 'negative' : 'neutral'}">
             ${assets.repo.change_musd > 0 ? '+' : ''}${(assets.repo.change_musd / 1000).toFixed(1)}조
           </div>
+          ${assets.repo.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(assets.repo.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${assets.loans ? `
@@ -1429,6 +1450,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${assets.loans.change_musd > 0 ? 'positive' : assets.loans.change_musd < 0 ? 'negative' : 'neutral'}">
             ${assets.loans.change_musd > 0 ? '+' : ''}${(assets.loans.change_musd / 1000).toFixed(1)}조
           </div>
+          ${assets.loans.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(assets.loans.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
       </div>
@@ -1454,6 +1481,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${liabilities.currency.change_musd > 0 ? 'positive' : liabilities.currency.change_musd < 0 ? 'negative' : 'neutral'}">
             ${liabilities.currency.change_musd > 0 ? '+' : ''}${(liabilities.currency.change_musd / 1000).toFixed(1)}조
           </div>
+          ${liabilities.currency.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.currency.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${liabilities.rrp ? `
@@ -1463,6 +1496,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${liabilities.rrp.change_musd > 0 ? 'positive' : liabilities.rrp.change_musd < 0 ? 'negative' : 'neutral'}">
             ${liabilities.rrp.change_musd > 0 ? '+' : ''}${(liabilities.rrp.change_musd / 1000).toFixed(1)}조
           </div>
+          ${liabilities.rrp.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.rrp.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${liabilities.tga ? `
@@ -1472,6 +1511,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${liabilities.tga.change_musd > 0 ? 'positive' : liabilities.tga.change_musd < 0 ? 'negative' : 'neutral'}">
             ${liabilities.tga.change_musd > 0 ? '+' : ''}${(liabilities.tga.change_musd / 1000).toFixed(1)}조
           </div>
+          ${liabilities.tga.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.tga.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
         ${liabilities.reserves ? `
@@ -1481,6 +1526,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${liabilities.reserves.change_musd > 0 ? 'positive' : liabilities.reserves.change_musd < 0 ? 'negative' : 'neutral'}">
             ${liabilities.reserves.change_musd > 0 ? '+' : ''}${(liabilities.reserves.change_musd / 1000).toFixed(1)}조
           </div>
+          ${liabilities.reserves.interpretation ? `
+          <div class="item-interpretation">
+            <div class="interpretation-label">해석</div>
+            <div class="interpretation-text">${escapeHtml(liabilities.reserves.interpretation)}</div>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
       </div>
