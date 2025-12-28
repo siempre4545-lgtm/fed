@@ -323,32 +323,48 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
       let koreaCDSValue: number | null = null;
       let previousValue: number | null = null;
       
-      // 테이블에서 "한국" 또는 "Korea" 검색
-      $("table tbody tr").each((_idx, row) => {
+      // 테이블에서 "한국" 또는 "Korea" 검색 (더 포괄적인 검색)
+      $("table tbody tr, tbody tr, tr").each((_idx, row) => {
         const $row = $(row);
-        const countryText = $row.find("td").first().text().trim().toLowerCase();
+        const allText = $row.text().toLowerCase();
+        const firstCell = $row.find("td").first().text().trim().toLowerCase();
         
-        if (countryText.includes("한국") || 
-            countryText.includes("korea") ||
-            countryText.includes("south korea")) {
+        // 더 포괄적인 검색 조건
+        if (allText.includes("한국") || 
+            allText.includes("korea") ||
+            allText.includes("south korea") ||
+            firstCell.includes("한국") ||
+            firstCell.includes("korea") ||
+            firstCell.includes("south korea") ||
+            firstCell.includes("kr") ||
+            firstCell.includes("대한민국")) {
           const cells = $row.find("td");
           
-          // CDS 값 찾기 (보통 값 컬럼)
-          for (let i = 1; i < cells.length; i++) {
+          // 모든 셀에서 숫자 찾기
+          for (let i = 0; i < cells.length; i++) {
             const cellText = cells.eq(i).text().trim();
-            const numericMatch = cellText.match(/(\d+\.?\d*)/);
+            // 더 포괄적인 숫자 패턴 (소수점 포함, bp 포함 등)
+            const numericMatch = cellText.match(/(\d+\.?\d*)\s*(bp|BP|basis|points?)?/i);
             if (numericMatch) {
               const parsed = parseFloat(numericMatch[1]);
-              if (parsed > 0 && parsed < 10000) { // CDS는 보통 0-10000bp 범위
+              // CDS는 보통 0-10000bp 범위이지만, 더 넓은 범위도 허용
+              if (parsed > 0 && parsed < 50000) {
                 koreaCDSValue = parsed;
                 
-                // 변화량 찾기
+                // 변화량 찾기 (다음 셀 또는 같은 셀 내)
                 const changeCell = cells.eq(i + 1);
                 if (changeCell.length > 0) {
                   const changeText = changeCell.text().trim();
                   const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
                   if (changeMatch) {
                     previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+                  }
+                }
+                // 같은 셀에서 변화량 찾기
+                if (previousValue === null) {
+                  const changeInCell = cellText.match(/([+-]\d+\.?\d*)/);
+                  if (changeInCell) {
+                    previousValue = koreaCDSValue - parseFloat(changeInCell[1]);
                   }
                 }
                 break;
@@ -406,34 +422,50 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
     let koreaCDSValue: number | null = null;
     let previousValue: number | null = null;
     
-    // 방법 1: 테이블에서 직접 찾기
-    $("table tbody tr, .js-table-wrapper tbody tr, #curr_table tbody tr").each((_idx, row) => {
+    // 방법 1: 테이블에서 직접 찾기 (더 포괄적인 검색)
+    $("table tbody tr, .js-table-wrapper tbody tr, #curr_table tbody tr, tbody tr, tr").each((_idx, row) => {
       const $row = $(row);
-      const countryText = $row.find("td").first().text().trim().toLowerCase();
+      const allText = $row.text().toLowerCase();
+      const firstCell = $row.find("td").first().text().trim().toLowerCase();
       
-      if (countryText.includes("south korea") || 
-          countryText.includes("대한민국") || 
-          countryText.includes("korea") ||
-          countryText.includes("한국") ||
-          countryText.includes("south korean")) {
+      // 더 포괄적인 검색 조건
+      if (allText.includes("south korea") || 
+          allText.includes("대한민국") || 
+          allText.includes("korea") ||
+          allText.includes("한국") ||
+          allText.includes("south korean") ||
+          firstCell.includes("south korea") ||
+          firstCell.includes("대한민국") ||
+          firstCell.includes("korea") ||
+          firstCell.includes("한국") ||
+          firstCell.includes("kr")) {
         const cells = $row.find("td");
         
-        // 여러 컬럼에서 CDS 값 찾기
-        for (let i = 1; i < cells.length; i++) {
+        // 모든 셀에서 숫자 찾기
+        for (let i = 0; i < cells.length; i++) {
           const cellText = cells.eq(i).text().trim();
-          const numericMatch = cellText.match(/(\d+\.?\d*)/);
+          // 더 포괄적인 숫자 패턴
+          const numericMatch = cellText.match(/(\d+\.?\d*)\s*(bp|BP|basis|points?)?/i);
           if (numericMatch) {
             const parsed = parseFloat(numericMatch[1]);
-            if (parsed > 0 && parsed < 10000) { // CDS는 보통 0-10000bp 범위
+            // CDS는 보통 0-10000bp 범위이지만, 더 넓은 범위도 허용
+            if (parsed > 0 && parsed < 50000) {
               koreaCDSValue = parsed;
               
-              // 변화량 찾기
+              // 변화량 찾기 (다음 셀 또는 같은 셀 내)
               const changeCell = cells.eq(i + 1);
               if (changeCell.length > 0) {
                 const changeText = changeCell.text().trim();
                 const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
                 if (changeMatch) {
                   previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+                }
+              }
+              // 같은 셀에서 변화량 찾기
+              if (previousValue === null) {
+                const changeInCell = cellText.match(/([+-]\d+\.?\d*)/);
+                if (changeInCell) {
+                  previousValue = koreaCDSValue - parseFloat(changeInCell[1]);
                 }
               }
               break;

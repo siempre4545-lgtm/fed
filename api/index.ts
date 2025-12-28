@@ -1973,11 +1973,11 @@ app.get("/economic-indicators/:id", async (req, res) => {
       <div class="chart-header">
         <div class="chart-title">변동 추이</div>
         <div class="chart-period-tabs">
-          <a href="/economic-indicators/${id}?period=1D" class="period-tab ${period === '1D' ? 'active' : ''}">1D</a>
-          <a href="/economic-indicators/${id}?period=1M" class="period-tab ${period === '1M' ? 'active' : ''}">1M</a>
-          <a href="/economic-indicators/${id}?period=1Y" class="period-tab ${period === '1Y' ? 'active' : ''}">1Y</a>
-          <a href="/economic-indicators/${id}?period=5Y" class="period-tab ${period === '5Y' ? 'active' : ''}">5Y</a>
-          <a href="/economic-indicators/${id}?period=MAX" class="period-tab ${period === 'MAX' ? 'active' : ''}">MAX</a>
+          <a href="/economic-indicators/${id}?period=1D" class="period-tab ${period === '1D' ? 'active' : ''}">일간</a>
+          <a href="/economic-indicators/${id}?period=1M" class="period-tab ${period === '1M' ? 'active' : ''}">주간</a>
+          <a href="/economic-indicators/${id}?period=1Y" class="period-tab ${period === '1Y' ? 'active' : ''}">연간</a>
+          <a href="/economic-indicators/${id}?period=5Y" class="period-tab ${period === '5Y' ? 'active' : ''}">5년</a>
+          <a href="/economic-indicators/${id}?period=MAX" class="period-tab ${period === 'MAX' ? 'active' : ''}">전체</a>
         </div>
       </div>
       <div class="chart-container">
