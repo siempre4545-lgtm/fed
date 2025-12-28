@@ -1006,12 +1006,14 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   try {
     koreaCDS = await fetchKoreaCDS();
     if (koreaCDS) {
-      console.log(`Korea CDS fetched successfully: ${koreaCDS.value}bp`);
+      console.log(`Korea CDS fetched successfully: ${koreaCDS.value}bp (change: ${koreaCDS.change}bp)`);
     } else {
-      console.warn("Korea CDS fetch returned null");
+      console.warn("Korea CDS fetch returned null - all methods failed");
+      // 한국 CDS가 없어도 계속 진행 (다른 지표에 영향 없음)
     }
   } catch (err) {
     console.error("Error fetching Korea CDS:", err);
+    // 에러가 발생해도 계속 진행
   }
   
   if (vix) {
