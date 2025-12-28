@@ -910,52 +910,81 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // 심리 지표
+  // VIX는 별도로 처리 (더 안정적인 방법)
   let vix = null;
-  let fearGreed = null;
-  let koreaCDS = null;
-  
   try {
-    // VIX는 별도로 처리 (더 안정적인 방법)
     vix = await fetchYahooFinance("^VIX");
     if (!vix) {
-      // VIX 대체 방법: 직접 API 호출
+      // VIX 대체 방법: 직접 API 호출 (range를 늘려서)
       try {
         const vixUrl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d`;
         const vixResponse = await fetch(vixUrl, {
-          headers: { "User-Agent": "Mozilla/5.0" },
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
         });
         if (vixResponse.ok) {
           const vixData = await vixResponse.json();
           const vixResult = vixData.chart?.result?.[0];
           if (vixResult) {
             const vixMeta = vixResult.meta;
-            if (vixMeta && vixMeta.regularMarketPrice !== null && vixMeta.previousClose !== null) {
-              const vixPrice = vixMeta.regularMarketPrice;
-              const vixPrev = vixMeta.previousClose;
+            const vixQuote = vixResult.indicators?.quote?.[0];
+            
+            // 여러 방법으로 VIX 값 찾기
+            let vixPrice: number | null = null;
+            let vixPrev: number | null = null;
+            
+            if (vixMeta) {
+              if (vixMeta.regularMarketPrice !== null && vixMeta.regularMarketPrice !== undefined) {
+                vixPrice = vixMeta.regularMarketPrice;
+              }
+              if (vixMeta.previousClose !== null && vixMeta.previousClose !== undefined) {
+                vixPrev = vixMeta.previousClose;
+              }
+            }
+            
+            // quote에서 찾기
+            if (!vixPrice && vixQuote && vixQuote.close) {
+              const prices = vixQuote.close.filter((p: number | null) => p !== null);
+              if (prices.length >= 2) {
+                vixPrice = prices[prices.length - 1];
+                vixPrev = prices[prices.length - 2];
+              }
+            }
+            
+            if (vixPrice !== null && vixPrev !== null) {
               vix = {
                 price: vixPrice,
                 change: vixPrice - vixPrev,
                 changePercent: ((vixPrice - vixPrev) / vixPrev) * 100,
               };
+              console.log(`VIX fetched via fallback: ${vixPrice}`);
             }
           }
         }
       } catch (e) {
         console.error("VIX fallback fetch failed:", e);
       }
+    } else {
+      console.log(`VIX fetched successfully: ${vix.price}`);
     }
   } catch (err) {
     console.error("Error fetching VIX:", err);
   }
   
+  let fearGreed = null;
   try {
     fearGreed = await fetchFearGreedIndex();
   } catch (err) {
     console.error("Error fetching Fear & Greed Index:", err);
   }
   
+  let koreaCDS = null;
   try {
     koreaCDS = await fetchKoreaCDS();
+    if (koreaCDS) {
+      console.log(`Korea CDS fetched successfully: ${koreaCDS.value}bp`);
+    } else {
+      console.warn("Korea CDS fetch returned null");
+    }
   } catch (err) {
     console.error("Error fetching Korea CDS:", err);
   }
@@ -973,6 +1002,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       source: "Yahoo Finance",
       id: "vix",
     });
+    console.log("VIX indicator added to list");
   } else {
     console.warn("VIX data not available - all methods failed");
   }
