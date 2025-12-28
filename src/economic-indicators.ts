@@ -269,10 +269,88 @@ async function fetchHighYieldSpread(): Promise<{ price: number; change: number; 
 }
 
 /**
- * 한국 CDS 지표 가져오기 (investing.com 스크래핑 - 개선된 버전)
- * 무료 API가 없으므로 investing.com에서 스크래핑하여 데이터를 가져옵니다.
+ * 한국 CDS 지표 가져오기 (KCIF 국제금융센터 우선, 폴백: investing.com)
+ * 참고: https://www.kcif.or.kr/chart/intrList
  */
 async function fetchKoreaCDS(): Promise<{ value: number; change: number; changePercent: number } | null> {
+  try {
+    // KCIF 사이트에서 한국 CDS 데이터 가져오기 시도
+    const kcifUrl = "https://www.kcif.or.kr/chart/intrList";
+    const kcifResponse = await fetch(kcifUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://www.kcif.or.kr/",
+      },
+    });
+    
+    if (kcifResponse.ok) {
+      const html = await kcifResponse.text();
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(html);
+      
+      // KCIF 페이지에서 한국 CDS 데이터 찾기
+      let koreaCDSValue: number | null = null;
+      let previousValue: number | null = null;
+      
+      // 테이블에서 "한국" 또는 "Korea" 검색
+      $("table tbody tr").each((_idx, row) => {
+        const $row = $(row);
+        const countryText = $row.find("td").first().text().trim().toLowerCase();
+        
+        if (countryText.includes("한국") || 
+            countryText.includes("korea") ||
+            countryText.includes("south korea")) {
+          const cells = $row.find("td");
+          
+          // CDS 값 찾기 (보통 값 컬럼)
+          for (let i = 1; i < cells.length; i++) {
+            const cellText = cells.eq(i).text().trim();
+            const numericMatch = cellText.match(/(\d+\.?\d*)/);
+            if (numericMatch) {
+              const parsed = parseFloat(numericMatch[1]);
+              if (parsed > 0 && parsed < 10000) { // CDS는 보통 0-10000bp 범위
+                koreaCDSValue = parsed;
+                
+                // 변화량 찾기
+                const changeCell = cells.eq(i + 1);
+                if (changeCell.length > 0) {
+                  const changeText = changeCell.text().trim();
+                  const changeMatch = changeText.match(/([+-]?\d+\.?\d*)/);
+                  if (changeMatch) {
+                    previousValue = koreaCDSValue - parseFloat(changeMatch[1]);
+                  }
+                }
+                break;
+              }
+            }
+          }
+        }
+      });
+      
+      if (koreaCDSValue !== null && !isNaN(koreaCDSValue)) {
+        const change = previousValue !== null ? koreaCDSValue - previousValue : 0;
+        const changePercent = previousValue !== null && previousValue !== 0 
+          ? (change / previousValue) * 100 
+          : 0;
+        
+        console.log(`Korea CDS fetched from KCIF: ${koreaCDSValue}bp (change: ${change}bp)`);
+        return {
+          value: koreaCDSValue,
+          change,
+          changePercent,
+        };
+      }
+    }
+    
+    // KCIF에서 못 찾으면 investing.com으로 폴백
+    console.warn("Korea CDS value not found in KCIF, trying investing.com");
+  } catch (error) {
+    console.error("Failed to fetch Korea CDS from KCIF:", error);
+  }
+  
+  // 폴백: investing.com 스크래핑
   try {
     const url = "https://kr.investing.com/rates-bonds/world-cds";
     const response = await fetch(url, {
@@ -840,23 +918,24 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
+  // 신용 지표
+  const highYieldSpread = await fetchHighYieldSpread();
+  
+  // 한국 CDS를 신용 카테고리에 추가
   if (koreaCDS) {
     indicators.push({
-      category: "심리",
-      name: "한국 CDS",
+      category: "신용",
+      name: "한국 CDS 프리미엄",
       symbol: "KRW-CDS",
       value: koreaCDS.value,
       change: koreaCDS.change,
       changePercent: koreaCDS.changePercent,
       unit: "bp",
       lastUpdated: now,
-      source: "Investing.com",
+      source: "KCIF",
       id: "korea-cds",
     });
   }
-  
-  // 신용 지표
-  const highYieldSpread = await fetchHighYieldSpread();
   if (highYieldSpread) {
     indicators.push({
       category: "신용",
