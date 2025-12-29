@@ -119,6 +119,58 @@ app.get("/", async (req, res) => {
       const chSign = c.change_okeusd > 0 ? "+" : c.change_okeusd < 0 ? "-" : "";
       const chColor = c.change_okeusd > 0 ? "#ff6b6b" : c.change_okeusd < 0 ? "#51cf66" : "#adb5bd";
       
+      // 유동성 효과를 동적으로 계산
+      let liquidityEffect = "";
+      if (c.fedLabel === "U.S. Treasury, General Account") {
+        // TGA: 증가 → 유동성 흡수, 감소 → 유동성 공급
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "유동성 흡수 (정부 자금 모집)";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "유동성 공급 (정부 지출 확대)";
+        } else {
+          liquidityEffect = "유동성 중립";
+        }
+      } else if (c.fedLabel === "Reverse repurchase agreements") {
+        // RRP: 증가 → 유동성 흡수, 감소 → 유동성 공급
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "유동성 흡수 (기관 자금 연준 예치)";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "유동성 공급 (기관 자금 시장 복귀)";
+        } else {
+          liquidityEffect = "유동성 중립";
+        }
+      } else if (c.fedLabel === "Repurchase agreements") {
+        // Repo: 증가 → 유동성 공급, 감소 → 유동성 흡수
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "유동성 공급 (연준 자금 시장 공급)";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "유동성 흡수 (연준 자금 회수)";
+        } else {
+          liquidityEffect = "유동성 중립";
+        }
+      } else if (c.fedLabel === "Primary credit") {
+        // Primary Credit: 증가 → 유동성 공급, 감소 → 유동성 흡수
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "유동성 공급 (연준 융자 확대)";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "유동성 흡수 (연준 융자 축소)";
+        } else {
+          liquidityEffect = "유동성 중립";
+        }
+      } else if (c.fedLabel === "Securities held outright") {
+        // 보유증권: 감소 → QT (유동성 흡수), 증가 → QE (유동성 공급)
+        if (c.change_okeusd < 0) {
+          liquidityEffect = "QT 진행 (유동성 흡수)";
+        } else if (c.change_okeusd > 0) {
+          liquidityEffect = "QE 신호 (유동성 공급)";
+        } else {
+          liquidityEffect = "중립";
+        }
+      } else {
+        // 기본값: 기존 liquidityTag 사용
+        liquidityEffect = c.liquidityTag;
+      }
+      
       return `
       <div class="card" data-card-id="${idx}">
         <div class="card-header" onclick="toggleCard(${idx})">
@@ -130,7 +182,7 @@ app.get("/", async (req, res) => {
           <div class="m">
             <div><b>잔액</b> : <span class="highlight-number">$${c.balance_okeusd.toFixed(1)}억</span></div>
             <div><b>변동</b> : <span style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</span></div>
-            <div class="tag">${escapeHtml(c.liquidityTag)}</div>
+            <div class="tag">${escapeHtml(liquidityEffect)}</div>
             <div class="data-date">데이터 기준: ${escapeHtml(c.dataDate)}</div>
           </div>
           <div class="card-expanded" id="card-${idx}">

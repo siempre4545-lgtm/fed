@@ -367,23 +367,23 @@ export const ITEM_DEFS: Array<{
   liquidityTag: H41Card["liquidityTag"];
   isCore?: boolean; // 핵심 6개 항목 표시
 }> = [
-  { key: "ⓐ", title: "재무부 일반계정 (TGA) / 유동성 흡수 (약재)", fedLabel: "U.S. Treasury, General Account", liquidityTag: "흡수(약재)", isCore: true },
-  { key: "ⓑ", title: "역리포 (RRP) / 유동성 흡수 (약재)", fedLabel: "Reverse repurchase agreements", liquidityTag: "흡수(약재)", isCore: true },
-  { key: "ⓒ", title: "통화발행(현금) / 유동성 흡수 (약재)", fedLabel: "Currency in circulation", liquidityTag: "흡수(약재)" },
-  { key: "ⓓ", title: "기타 부채·자본 / 복합(대체로 흡수)", fedLabel: "Other liabilities and capital", liquidityTag: "흡수(약재)" },
+  { key: "ⓐ", title: "재무부 일반계정 (TGA)", fedLabel: "U.S. Treasury, General Account", liquidityTag: "흡수(약재)", isCore: true },
+  { key: "ⓑ", title: "역리포 (RRP)", fedLabel: "Reverse repurchase agreements", liquidityTag: "흡수(약재)", isCore: true },
+  { key: "ⓒ", title: "통화발행 (현금)", fedLabel: "Currency in circulation", liquidityTag: "흡수(약재)" },
+  { key: "ⓓ", title: "기타 부채·자본", fedLabel: "Other liabilities and capital", liquidityTag: "흡수(약재)" },
 
-  { key: "ⓔ", title: "리포 (Repo) / 유동성 공급 (해열)", fedLabel: "Repurchase agreements", liquidityTag: "공급(해열)", isCore: true },
-  { key: "ⓕ", title: "Primary Credit / 유동성 공급 (해열)", fedLabel: "Primary credit", liquidityTag: "공급(해열)", isCore: true },
-  { key: "ⓖ", title: "달러 스왑(중앙은행) / 유동성 공급 (해열)", fedLabel: "Central bank liquidity swaps", liquidityTag: "공급(해열)" },
+  { key: "ⓔ", title: "리포 (Repo)", fedLabel: "Repurchase agreements", liquidityTag: "공급(해열)", isCore: true },
+  { key: "ⓕ", title: "Primary Credit", fedLabel: "Primary credit", liquidityTag: "공급(해열)", isCore: true },
+  { key: "ⓖ", title: "달러 스왑 (중앙은행)", fedLabel: "Central bank liquidity swaps", liquidityTag: "공급(해열)" },
 
-  { key: "ⓗ", title: "보유증권 총계 (Securities held outright) / QT·자산", fedLabel: "Securities held outright", liquidityTag: "QT/자산", isCore: true },
-  { key: "ⓘ", title: "미국 국채 보유 (UST) / QT·자산", fedLabel: "U.S. Treasury securities", liquidityTag: "QT/자산" },
-  { key: "ⓙ", title: "MBS 보유 / QT·자산", fedLabel: "Mortgage-backed securities", liquidityTag: "QT/자산" },
+  { key: "ⓗ", title: "보유증권 총계", fedLabel: "Securities held outright", liquidityTag: "QT/자산", isCore: true },
+  { key: "ⓘ", title: "미국 국채 보유 (UST)", fedLabel: "U.S. Treasury securities", liquidityTag: "QT/자산" },
+  { key: "ⓙ", title: "MBS 보유", fedLabel: "Mortgage-backed securities", liquidityTag: "QT/자산" },
 
-  { key: "ⓚ", title: "지준금 (Reserve balances) / 시스템 상태", fedLabel: "Reserve balances with Federal Reserve Banks", liquidityTag: "상태", isCore: true },
-  { key: "ⓛ", title: "Fed 자산 총규모 성격 (Reserve Bank credit) / 시스템 상태", fedLabel: "Reserve Bank credit", liquidityTag: "상태" },
-  { key: "ⓜ", title: "기타 예치금(지준금 제외) / 보조", fedLabel: "Deposits with F.R. Banks, other than reserve balances", liquidityTag: "상태" },
-  { key: "ⓝ", title: "흡수 총합(지준금 제외) / 요약", fedLabel: "Total factors, other than reserve balances,", liquidityTag: "상태" }
+  { key: "ⓚ", title: "지준금 (Reserve balances)", fedLabel: "Reserve balances with Federal Reserve Banks", liquidityTag: "상태", isCore: true },
+  { key: "ⓛ", title: "Fed 자산 총규모 (Reserve Bank credit)", fedLabel: "Reserve Bank credit", liquidityTag: "상태" },
+  { key: "ⓜ", title: "기타 예치금 (지준금 제외)", fedLabel: "Deposits with F.R. Banks, other than reserve balances", liquidityTag: "상태" },
+  { key: "ⓝ", title: "흡수 총합 (지준금 제외)", fedLabel: "Total factors, other than reserve balances,", liquidityTag: "상태" }
 ];
 
 // 핵심 6개 항목의 fedLabel 목록
