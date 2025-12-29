@@ -166,9 +166,33 @@ app.get("/", async (req, res) => {
         } else {
           liquidityEffect = "중립";
         }
+      } else if (c.fedLabel === "Currency in circulation") {
+        // 통화발행: 증가 → 유동성 흡수 (현금이 시장에서 빠져나감), 감소 → 유동성 공급
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "유동성 흡수 (현금 발행 증가)";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "유동성 공급 (현금 회수)";
+        } else {
+          liquidityEffect = "유동성 중립";
+        }
+      } else if (c.fedLabel === "Reserve balances with Federal Reserve Banks") {
+        // 지준금: 시스템 상태 표시
+        if (c.change_okeusd > 0) {
+          liquidityEffect = "은행 유동성 여유 증가";
+        } else if (c.change_okeusd < 0) {
+          liquidityEffect = "은행 유동성 여유 감소";
+        } else {
+          liquidityEffect = "은행 유동성 안정";
+        }
       } else {
-        // 기본값: 기존 liquidityTag 사용
-        liquidityEffect = c.liquidityTag;
+        // 기본값: 기존 liquidityTag 사용하되 더 명확하게
+        if (c.liquidityTag === "흡수(약재)") {
+          liquidityEffect = c.change_okeusd > 0 ? "유동성 흡수" : c.change_okeusd < 0 ? "유동성 공급" : "유동성 중립";
+        } else if (c.liquidityTag === "공급(해열)") {
+          liquidityEffect = c.change_okeusd > 0 ? "유동성 공급" : c.change_okeusd < 0 ? "유동성 흡수" : "유동성 중립";
+        } else {
+          liquidityEffect = c.liquidityTag;
+        }
       }
       
       return `
