@@ -1592,14 +1592,39 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
+    // releaseDates가 비어있으면 fallback 사용
+    if (releaseDates.length === 0) {
+      console.warn(`[Assets/Liabilities] No release dates available, using fallback`);
+      // fallback: 현재 날짜 기준으로 최근 52주 목요일 계산
+      const dates: string[] = [];
+      const now = new Date();
+      const today = new Date();
+      const isThursday = today.getDay() === 4;
+      const isAfterRelease = today.getHours() >= 16 || (today.getHours() === 16 && today.getMinutes() >= 30);
+      let startDate = new Date(now);
+      if (!isThursday || !isAfterRelease) {
+        const dayOfWeek = now.getDay();
+        const daysToSubtract = dayOfWeek <= 4 ? (dayOfWeek + 3) : (dayOfWeek - 4);
+        startDate.setDate(now.getDate() - daysToSubtract);
+      }
+      for (let i = 0; i < 52; i++) {
+        const thursday = new Date(startDate);
+        thursday.setDate(startDate.getDate() - (i * 7));
+        const year = thursday.getFullYear();
+        const month = String(thursday.getMonth() + 1).padStart(2, '0');
+        const day = String(thursday.getDate()).padStart(2, '0');
+        dates.push(`${year}-${month}-${day}`);
+      }
+      releaseDates = dates;
+    }
+    
+    console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
+    
     // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
     // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-    const datesToFetch = releaseDates.length > 0 ? releaseDates.slice(0, Math.min(10, releaseDates.length)) : [];
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
     
-    if (releaseDates.length === 0) {
-      console.warn(`[Assets/Liabilities] No release dates available!`);
-    } else {
+    if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
       // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
