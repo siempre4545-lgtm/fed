@@ -1484,42 +1484,66 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] No release dates available!`);
-    }
-    
-    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
-    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
-    console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
-    
-    for (const dateStr of datesToFetch) {
-      try {
-        // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
-        const histReport = await fetchH41Report(dateStr, releaseDates);
-        const histAssets = {
-          treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
-          mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
-          repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
-          loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
-        };
-        const histLiabilities = {
-          currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
-          rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
-          tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
-          reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
-        };
-        historicalData.push({
-          date: dateStr,
-          assets: histAssets,
-          liabilities: histLiabilities,
-        });
-        console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
-      } catch (e) {
-        console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e);
-        // 실패해도 계속 진행 (다음 날짜 시도)
+    } else {
+      // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
+      // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
+      const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+      console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
+      
+      // 병렬로 처리하되, 실패한 것도 추적
+      const fetchPromises = datesToFetch.map(async (dateStr) => {
+        try {
+          // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+          const histReport = await fetchH41Report(dateStr, releaseDates);
+          
+          // 데이터 유효성 검사
+          if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+            console.warn(`[Assets/Liabilities] No cards found in report for ${dateStr}`);
+            return null;
+          }
+          
+          const histAssets = {
+            treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+            mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+            repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+            loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+          };
+          const histLiabilities = {
+            currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+            rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+            tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+            reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+          };
+          
+          // 데이터가 모두 0이면 유효하지 않은 것으로 간주
+          const hasValidData = histAssets.treasury > 0 || histAssets.mbs > 0 || histLiabilities.currency > 0 || histLiabilities.reserves > 0;
+          if (!hasValidData) {
+            console.warn(`[Assets/Liabilities] All values are zero for ${dateStr}, skipping`);
+            return null;
+          }
+          
+          console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
+          return {
+            date: dateStr,
+            assets: histAssets,
+            liabilities: histLiabilities,
+          };
+        } catch (e) {
+          console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e instanceof Error ? e.message : String(e));
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(fetchPromises);
+      // null이 아닌 결과만 추가
+      for (const result of results) {
+        if (result !== null) {
+          historicalData.push(result);
+        }
       }
+      
+      console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records out of ${datesToFetch.length} attempts`);
     }
-    
-    console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records`);
     
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
     // getFedReleaseDates()가 이미 정렬되어 있지만, fetch 실패로 인한 순서 변경을 방지하기 위해 재정렬
@@ -1676,7 +1700,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   <div class="main-content">
     <!-- 자산 총합 -->
     <div class="summary-card" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">
-      <div class="summary-title">FED 자산 총합</div>
+      <div class="summary-title">FED 자산 총합${targetDate ? ` <span style="font-size:14px;opacity:0.9">(Date: ${targetDate})</span>` : ''}</div>
       <div class="summary-value">$${(totalAssets / 1000).toFixed(1)}조</div>
       <div class="summary-change ${totalAssetsChange > 0 ? 'positive' : totalAssetsChange < 0 ? 'negative' : 'neutral'}">
         ${totalAssetsChange > 0 ? '+' : ''}${(totalAssetsChange / 1000).toFixed(1)}조 (${totalAssetsChange > 0 ? '+' : ''}${((totalAssetsChange / (totalAssets - totalAssetsChange)) * 100).toFixed(2)}%)
@@ -1752,7 +1776,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     <!-- 부채 총합 -->
     <div class="summary-card" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)">
-      <div class="summary-title">FED 부채 총합</div>
+      <div class="summary-title">FED 부채 총합${targetDate ? ` <span style="font-size:14px;opacity:0.9">(Date: ${targetDate})</span>` : ''}</div>
       <div class="summary-value">$${(totalLiabilities / 1000).toFixed(1)}조</div>
       <div class="summary-change ${totalLiabilitiesChange > 0 ? 'positive' : totalLiabilitiesChange < 0 ? 'negative' : 'neutral'}">
         ${totalLiabilitiesChange > 0 ? '+' : ''}${(totalLiabilitiesChange / 1000).toFixed(1)}조 (${totalLiabilitiesChange > 0 ? '+' : ''}${((totalLiabilitiesChange / (totalLiabilities - totalLiabilitiesChange)) * 100).toFixed(2)}%)
