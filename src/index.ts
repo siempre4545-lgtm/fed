@@ -239,7 +239,7 @@ app.get("/", async (req, res) => {
       
       return `
       <div class="card" data-card-id="${idx}">
-        <div class="card-header" onclick="toggleCard(${idx})">
+        <div class="card-header" onclick="toggleCard('${idx}')">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
           <div class="expand-icon">▼</div>
@@ -656,17 +656,27 @@ app.get("/", async (req, res) => {
     function toggleCard(idx) {
       const card = document.querySelector('[data-card-id="' + idx + '"]');
       if (card) {
+        const isExpanded = card.classList.contains('expanded');
         card.classList.toggle('expanded');
         const expandIcon = card.querySelector('.expand-icon');
         if (expandIcon) {
-          expandIcon.textContent = card.classList.contains('expanded') ? '▲' : '▼';
+          expandIcon.textContent = !isExpanded ? '▲' : '▼';
         }
+        console.log('Card toggled:', idx, 'Expanded:', !isExpanded);
+      } else {
+        console.error('Card not found:', idx);
       }
     }
     
     function toggleReport() {
       const report = document.querySelector('.weekly-report');
-      report.classList.toggle('expanded');
+      if (report) {
+        report.classList.toggle('expanded');
+        const expandIcon = document.getElementById('report-icon');
+        if (expandIcon) {
+          expandIcon.textContent = report.classList.contains('expanded') ? '▲' : '▼';
+        }
+      }
     }
     
     function toggleInfo() {

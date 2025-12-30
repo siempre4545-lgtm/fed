@@ -835,9 +835,11 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       
-      // H.4.1 아카이브 URL 형식: https://www.federalreserve.gov/releases/h41/YYYYMMDD/
-      // 실제 FED 사이트에서는 YYYYMMDD 형식의 디렉토리로 접근
-      const archiveUrl = `${ARCHIVE_BASE_URL}${year}${month}${day}/`;
+      // H.4.1 아카이브 URL 형식 시도:
+      // 1. https://www.federalreserve.gov/releases/h41/YYYYMMDD/ (디렉토리)
+      // 2. https://www.federalreserve.gov/releases/h41/YYYYMMDD/default.htm (HTML 파일)
+      // 3. https://www.federalreserve.gov/releases/h41/YYYYMMDD/h41.txt (텍스트 파일)
+      const archiveUrl = `${ARCHIVE_BASE_URL}${year}${month}${day}/default.htm`;
       url = archiveUrl;
       console.log(`[H.4.1] Fetching archive for date: ${targetDate} (Thursday: ${thursdayDate}), URL: ${archiveUrl}`);
     } catch (e) {

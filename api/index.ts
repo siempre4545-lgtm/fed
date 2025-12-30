@@ -237,7 +237,7 @@ app.get("/", async (req, res) => {
       
       return `
       <div class="card" data-card-id="${idx}">
-        <div class="card-header" onclick="toggleCard(${idx})">
+        <div class="card-header" onclick="toggleCard('${idx}')">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
           <div class="expand-icon">▼</div>
@@ -682,7 +682,13 @@ app.get("/", async (req, res) => {
     
     function toggleReport() {
       const report = document.querySelector('.weekly-report');
-      report.classList.toggle('expanded');
+      if (report) {
+        report.classList.toggle('expanded');
+        const expandIcon = document.getElementById('report-icon');
+        if (expandIcon) {
+          expandIcon.textContent = report.classList.contains('expanded') ? '▲' : '▼';
+        }
+      }
     }
     
     function toggleInfo() {
