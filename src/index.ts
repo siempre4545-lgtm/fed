@@ -7,9 +7,17 @@ const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 8787;
 
 // API: JSON
-app.get("/api/h41", async (_req, res) => {
+app.get("/api/h41", async (req, res) => {
   try {
-    const report = await fetchH41Report();
+    // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    // 캐싱 방지 헤더 추가
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     res.json(report);
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
@@ -239,10 +247,10 @@ app.get("/", async (req, res) => {
       
       return `
       <div class="card" data-card-id="${idx}">
-        <div class="card-header" onclick="toggleCard('${idx}')">
+        <div class="card-header" onclick="event.stopPropagation(); toggleCard(${idx});">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
-          <div class="expand-icon">▼</div>
+          <div class="expand-icon" id="expand-icon-${idx}">▼</div>
         </div>
         <div class="card-body">
           <div class="m">
@@ -251,7 +259,7 @@ app.get("/", async (req, res) => {
             <div class="tag">${escapeHtml(liquidityEffect)}</div>
             <div class="data-date">데이터 기준: ${escapeHtml(c.dataDate)}</div>
           </div>
-          <div class="card-expanded" id="card-${idx}">
+          <div class="card-expanded" id="card-expanded-${idx}">
             <div class="expanded-section">
               <div class="expanded-label">지난주 대비</div>
               <div class="expanded-value" style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</div>
@@ -492,8 +500,8 @@ app.get("/", async (req, res) => {
     .highlight-number{color:#4dabf7;font-weight:700;font-size:15px}
     .tag{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:6px;background:#2d2d2d;color:#c0c0c0;font-size:12px;font-weight:500}
     .data-date{margin-top:12px;font-size:12px;color:#808080}
-    .card-expanded{display:none;margin-top:20px;padding-top:20px;border-top:1px solid #2d2d2d}
-    .card.expanded .card-expanded{display:block}
+    .card-expanded{display:none !important;margin-top:20px;padding-top:20px;border-top:1px solid #2d2d2d}
+    .card.expanded .card-expanded{display:block !important}
     .expanded-section{margin-bottom:16px}
     .expanded-label{font-size:12px;color:#808080;margin-bottom:6px;font-weight:500}
     .expanded-value{font-size:16px;font-weight:700;color:#ffffff}
@@ -654,17 +662,30 @@ app.get("/", async (req, res) => {
     }
     
     function toggleCard(idx) {
-      const card = document.querySelector('[data-card-id="' + idx + '"]');
-      if (card) {
+      try {
+        const card = document.querySelector('[data-card-id="' + idx + '"]');
+        if (!card) {
+          console.error('Card not found for idx:', idx);
+          return;
+        }
+        
         const isExpanded = card.classList.contains('expanded');
         card.classList.toggle('expanded');
-        const expandIcon = card.querySelector('.expand-icon');
+        
+        const expandIcon = document.getElementById('expand-icon-' + idx);
+        const expandedContent = document.getElementById('card-expanded-' + idx);
+        
         if (expandIcon) {
           expandIcon.textContent = !isExpanded ? '▲' : '▼';
         }
-        console.log('Card toggled:', idx, 'Expanded:', !isExpanded);
-      } else {
-        console.error('Card not found:', idx);
+        
+        if (expandedContent) {
+          expandedContent.style.display = !isExpanded ? 'block' : 'none';
+        }
+        
+        console.log('Card toggled:', idx, 'Expanded:', !isExpanded, 'Card element:', card);
+      } catch (error) {
+        console.error('Error in toggleCard:', error, 'idx:', idx);
       }
     }
     

@@ -6,9 +6,17 @@ import { fetchEconomicNews } from "../src/news.js";
 const app = express();
 
 // API: JSON
-app.get("/api/h41", async (_req, res) => {
+app.get("/api/h41", async (req, res) => {
   try {
-    const report = await fetchH41Report();
+    // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    // 캐싱 방지 헤더 추가
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     res.json(report);
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
@@ -237,10 +245,10 @@ app.get("/", async (req, res) => {
       
       return `
       <div class="card" data-card-id="${idx}">
-        <div class="card-header" onclick="toggleCard('${idx}')">
+        <div class="card-header" onclick="event.stopPropagation(); toggleCard(${idx});">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
-          <div class="expand-icon">▼</div>
+          <div class="expand-icon" id="expand-icon-${idx}">▼</div>
         </div>
         <div class="card-body">
           <div class="m">
@@ -249,7 +257,7 @@ app.get("/", async (req, res) => {
             <div class="tag">${escapeHtml(liquidityEffect)}</div>
             <div class="data-date">데이터 기준: ${escapeHtml(c.dataDate)}</div>
           </div>
-          <div class="card-expanded" id="card-${idx}">
+          <div class="card-expanded" id="card-expanded-${idx}">
             <div class="expanded-section">
               <div class="expanded-label">지난주 대비</div>
               <div class="expanded-value" style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</div>
@@ -670,17 +678,30 @@ app.get("/", async (req, res) => {
     }
     
     function toggleCard(idx) {
-      const card = document.querySelector('[data-card-id="' + idx + '"]');
-      if (card) {
+      try {
+        const card = document.querySelector('[data-card-id="' + idx + '"]');
+        if (!card) {
+          console.error('Card not found for idx:', idx);
+          return;
+        }
+        
         const isExpanded = card.classList.contains('expanded');
         card.classList.toggle('expanded');
-        const expandIcon = card.querySelector('.expand-icon');
+        
+        const expandIcon = document.getElementById('expand-icon-' + idx);
+        const expandedContent = document.getElementById('card-expanded-' + idx);
+        
         if (expandIcon) {
           expandIcon.textContent = !isExpanded ? '▲' : '▼';
         }
-        console.log('Card toggled:', idx, 'Expanded:', !isExpanded);
-      } else {
-        console.error('Card not found:', idx);
+        
+        if (expandedContent) {
+          expandedContent.style.display = !isExpanded ? 'block' : 'none';
+        }
+        
+        console.log('Card toggled:', idx, 'Expanded:', !isExpanded, 'Card element:', card);
+      } catch (error) {
+        console.error('Error in toggleCard:', error, 'idx:', idx);
       }
     }
     
