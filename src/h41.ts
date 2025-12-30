@@ -771,6 +771,42 @@ function findNearestThursday(targetDate: string): string {
 }
 
 /**
+ * FED H.4.1 발표 날짜 목록 생성 (최근 52주 목요일)
+ */
+export function getFedReleaseDates(): string[] {
+  const dates: string[] = [];
+  const now = new Date();
+  
+  // 오늘이 목요일이고 오후 4시 30분 이후면 이번 주 목요일 포함, 아니면 제외
+  const today = new Date();
+  const isThursday = today.getDay() === 4;
+  const isAfterRelease = today.getHours() >= 16 || (today.getHours() === 16 && today.getMinutes() >= 30);
+  
+  // 시작 날짜: 오늘이 목요일이고 발행 시간 이후면 오늘, 아니면 가장 최근 과거 목요일
+  let startDate = new Date(now);
+  if (!isThursday || !isAfterRelease) {
+    // 가장 최근 과거 목요일 찾기
+    const dayOfWeek = now.getDay();
+    const daysToSubtract = dayOfWeek <= 4 ? (dayOfWeek + 3) : (dayOfWeek - 4);
+    startDate.setDate(now.getDate() - daysToSubtract);
+  }
+  
+  // 최근 52주 목요일 생성
+  for (let i = 0; i < 52; i++) {
+    const thursday = new Date(startDate);
+    thursday.setDate(startDate.getDate() - (i * 7));
+    
+    const year = thursday.getFullYear();
+    const month = String(thursday.getMonth() + 1).padStart(2, '0');
+    const day = String(thursday.getDate()).padStart(2, '0');
+    
+    dates.push(`${year}-${month}-${day}`);
+  }
+  
+  return dates;
+}
+
+/**
  * 특정 날짜의 H.4.1 리포트 가져오기
  * @param targetDate 선택적 날짜 (YYYY-MM-DD 형식), 없으면 최신 데이터
  * 선택한 날짜에서 가장 가까운 목요일의 데이터를 가져옵니다.

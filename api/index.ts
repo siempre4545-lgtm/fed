@@ -1,5 +1,5 @@
 import express from "express";
-import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept } from "../src/h41.js";
+import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
 
@@ -32,6 +32,9 @@ app.get("/", async (req, res) => {
     // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
     const targetDate = req.query.date as string | undefined;
     const report = await fetchH41Report(targetDate);
+    
+    // FED 발표 날짜 목록 가져오기
+    const releaseDates = getFedReleaseDates();
     
     // 경제 지표 수집 및 진단
     let economicStatus = null;
@@ -534,9 +537,16 @@ app.get("/", async (req, res) => {
       </div>
       ` : ''}
       <div class="date-selector">
-        <label for="dateInput">날짜 선택:</label>
-        <input type="date" id="dateInput" value="${targetDate || ''}" max="${new Date().toISOString().split('T')[0]}" />
-        <button onclick="loadDate()">조회</button>
+        <label for="dateSelect">FED 발표 날짜 선택:</label>
+        <select id="dateSelect" onchange="loadDate()" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer">
+          <option value="">최신 데이터</option>
+          ${releaseDates.map(date => {
+            const dateObj = new Date(date);
+            const formattedDate = dateObj.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+            const isSelected = targetDate === date ? 'selected' : '';
+            return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
+          }).join('')}
+        </select>
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
     </div>
@@ -575,8 +585,8 @@ app.get("/", async (req, res) => {
   
   <script>
     function loadDate() {
-      const dateInput = document.getElementById('dateInput');
-      const selectedDate = dateInput.value;
+      const dateSelect = document.getElementById('dateSelect');
+      const selectedDate = (dateSelect as HTMLSelectElement)?.value;
       if (selectedDate) {
         window.location.href = '/?date=' + selectedDate;
       } else {
@@ -1351,7 +1361,44 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
 // FED 자산/부채 페이지
 app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   try {
-    const report = await fetchH41Report();
+    // 날짜 파라미터 확인
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    // FED 발표 날짜 목록 가져오기
+    const releaseDates = getFedReleaseDates();
+    
+    // 최근 10회분 데이터 가져오기
+    const historicalData: Array<{
+      date: string;
+      assets: { treasury: number; mbs: number; repo: number; loans: number };
+      liabilities: { currency: number; rrp: number; tga: number; reserves: number };
+    }> = [];
+    
+    for (let i = 0; i < 10 && i < releaseDates.length; i++) {
+      try {
+        const histReport = await fetchH41Report(releaseDates[i]);
+        const histAssets = {
+          treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+          mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+          repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+          loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+        };
+        const histLiabilities = {
+          currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+          rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+          tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+          reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+        };
+        historicalData.push({
+          date: releaseDates[i],
+          assets: histAssets,
+          liabilities: histLiabilities,
+        });
+      } catch (e) {
+        console.error(`Failed to fetch historical data for ${releaseDates[i]}:`, e);
+      }
+    }
     
     // FED 자산 항목 추출
     const assets = {
@@ -1449,6 +1496,29 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .analysis-content{font-size:15px;color:#0c4a6e;line-height:2.0;white-space:pre-wrap;font-weight:500}
     .back-link{display:inline-block;margin-top:16px;color:#3b82f6;text-decoration:none;font-weight:600}
     .back-link:hover{text-decoration:underline}
+    .date-selector{margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .date-selector label{font-size:13px;color:#6b7280;font-weight:600}
+    .date-selector select{padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer;min-width:200px}
+    .date-selector select:hover{border-color:#9ca3af}
+    .date-selector select:focus{outline:none;border-color:#3b82f6}
+    .date-selector button{padding:6px 16px;border:1px solid #3b82f6;border-radius:6px;background:#3b82f6;color:#ffffff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+    .date-selector button:hover{background:#2563eb;border-color:#2563eb}
+    .date-selector .reset-btn{padding:6px 12px;border:1px solid #d1d5db;background:transparent;color:#6b7280}
+    .date-selector .reset-btn:hover{background:#f3f4f6;color:#1a1a1a}
+    .history-table-section{margin-top:40px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px}
+    .history-table-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb}
+    .history-table-wrapper{overflow-x:auto;overflow-y:visible}
+    .history-table{width:100%;border-collapse:collapse;min-width:800px}
+    .history-table th{background:#f9fafb;padding:12px;text-align:left;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;position:sticky;left:0;z-index:10}
+    .history-table th:first-child{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:120px}
+    .history-table td{padding:12px;text-align:left;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;position:relative}
+    .history-table td:first-child{background:#ffffff;position:sticky;left:0;z-index:5;font-weight:600;color:#3b82f6;min-width:120px}
+    .history-table tr:hover td{background:#f9fafb}
+    .history-table tr:hover td:first-child{background:#f9fafb}
+    @media (max-width: 768px) {
+      .history-table-wrapper{overflow-x:scroll;overflow-y:visible;-webkit-overflow-scrolling:touch}
+      .history-table th:first-child,.history-table td:first-child{position:sticky;left:0;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
+    }
   </style>
 </head>
 <body>
@@ -1456,6 +1526,19 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     <h1>FED 자산/부채 분석 📊</h1>
     <div class="sub">
       Week ended: ${escapeHtml(report.asOfWeekEndedText)} · Release: ${escapeHtml(report.releaseDateText)}<br/>
+      <div class="date-selector">
+        <label for="dateSelect">FED 발표 날짜 선택:</label>
+        <select id="dateSelect" onchange="loadDate()">
+          <option value="">최신 데이터</option>
+          ${releaseDates.map(date => {
+            const dateObj = new Date(date);
+            const formattedDate = dateObj.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+            const isSelected = targetDate === date ? 'selected' : '';
+            return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
+          }).join('')}
+        </select>
+        ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
+      </div>
       <a href="/economic-indicators" class="back-link">← 경제 지표로 돌아가기</a>
     </div>
   </div>
@@ -1664,7 +1747,66 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       <div class="analysis-title">🎯 경제 코치 종합 진단</div>
       <div class="analysis-content">${escapeHtml(analysis)}</div>
     </div>
+    
+    <!-- 최근 10회분 추이 테이블 -->
+    ${historicalData.length > 0 ? `
+    <div class="history-table-section">
+      <div class="history-table-title">최근 10회분 추이 📈</div>
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>발표일</th>
+              <th>국채 (조)</th>
+              <th>MBS (조)</th>
+              <th>리포 (조)</th>
+              <th>대출 (조)</th>
+              <th>통화발행 (조)</th>
+              <th>역리포 (조)</th>
+              <th>TGA (조)</th>
+              <th>지준금 (조)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historicalData.map((item, idx) => {
+              const dateObj = new Date(item.date);
+              const formattedDate = dateObj.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+              return `
+              <tr>
+                <td>${formattedDate}</td>
+                <td>$${(item.assets.treasury / 1000).toFixed(1)}</td>
+                <td>$${(item.assets.mbs / 1000).toFixed(1)}</td>
+                <td>$${(item.assets.repo / 1000).toFixed(1)}</td>
+                <td>$${(item.assets.loans / 1000).toFixed(1)}</td>
+                <td>$${(item.liabilities.currency / 1000).toFixed(1)}</td>
+                <td>$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
+                <td>$${(item.liabilities.tga / 1000).toFixed(1)}</td>
+                <td>$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
+              </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ` : ''}
   </div>
+  
+  <script>
+    function loadDate() {
+      const dateSelect = document.getElementById('dateSelect');
+      const selectedDate = (dateSelect as HTMLSelectElement)?.value;
+      if (selectedDate) {
+        window.location.href = '/economic-indicators/fed-assets-liabilities?date=' + selectedDate;
+      } else {
+        window.location.href = '/economic-indicators/fed-assets-liabilities';
+      }
+    }
+    
+    function resetDate() {
+      window.location.href = '/economic-indicators/fed-assets-liabilities';
+    }
+  </script>
 </body>
 </html>
     `);
