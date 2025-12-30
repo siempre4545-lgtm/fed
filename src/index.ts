@@ -1523,13 +1523,6 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       return b.date.localeCompare(a.date); // 최신이 위로 (내림차순)
     });
     
-    // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
-    // getFedReleaseDates()가 이미 정렬되어 있지만, fetch 실패로 인한 순서 변경을 방지하기 위해 재정렬
-    historicalData.sort((a, b) => {
-      // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식이므로 localeCompare로 충분)
-      return b.date.localeCompare(a.date); // 최신이 위로 (내림차순)
-    });
-    
     // FED 자산 항목 추출
     const assets = {
       treasury: report.cards.find(c => c.fedLabel === "U.S. Treasury securities"),
