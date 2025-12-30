@@ -1628,12 +1628,17 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       console.warn(`[Assets/Liabilities] No dates to fetch for historical data`);
     }
     
-    // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
-    // getFedReleaseDates()가 이미 정렬되어 있지만, fetch 실패로 인한 순서 변경을 방지하기 위해 재정렬
+    // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로) - 항상 최신 날짜가 상단에 오도록 보장
+    // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식이므로 localeCompare로 충분)
     historicalData.sort((a, b) => {
-      // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식이므로 localeCompare로 충분)
-      return b.date.localeCompare(a.date); // 최신이 위로 (내림차순)
+      // 최신 날짜가 위로 오도록 내림차순 정렬
+      return b.date.localeCompare(a.date);
     });
+    
+    // 정렬 후 로그 출력 (디버깅용)
+    if (historicalData.length > 0) {
+      console.log(`[Assets/Liabilities] Historical data sorted - First date: ${historicalData[0].date}, Last date: ${historicalData[historicalData.length - 1].date}`);
+    }
     
     // FED 자산 항목 추출
     const assets = {
