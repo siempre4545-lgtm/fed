@@ -1559,14 +1559,20 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
+    // releaseDates가 비어있으면 fallback 사용
+    if (releaseDates.length === 0) {
+      console.warn(`[Assets/Liabilities] No release dates available, using fallback`);
+      const { getFedReleaseDatesFallback } = await import("./h41.js");
+      releaseDates = getFedReleaseDatesFallback();
+    }
+    
+    console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
+    
     // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
     // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-    const datesToFetch = releaseDates.length > 0 ? releaseDates.slice(0, Math.min(10, releaseDates.length)) : [];
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
     
-    if (releaseDates.length === 0) {
-      console.warn(`[Assets/Liabilities] No release dates available!`);
-    } else {
+    if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
       // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
@@ -1618,6 +1624,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       }
       
       console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records out of ${datesToFetch.length} attempts`);
+    } else {
+      console.warn(`[Assets/Liabilities] No dates to fetch for historical data`);
     }
     
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)

@@ -830,6 +830,12 @@ export async function getFedReleaseDates(): Promise<string[]> {
     const uniqueDates = Array.from(new Set(dates));
     uniqueDates.sort((a, b) => b.localeCompare(a));
     
+    // 날짜가 없거나 너무 적으면 fallback 사용
+    if (uniqueDates.length === 0) {
+      console.warn(`[H.4.1] No dates found from FED website, falling back to calculated dates`);
+      return getFedReleaseDatesFallback();
+    }
+    
     // 최대 52주치만 반환
     return uniqueDates.slice(0, 52);
   } catch (e) {

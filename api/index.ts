@@ -1514,12 +1514,22 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // 날짜 파라미터 확인
     const targetDate = req.query.date as string | undefined;
     
-    // FED 발표 날짜 목록 가져오기 (가장 가까운 날짜 찾기용 및 최근 10회분용)
-    const releaseDates = await getFedReleaseDates();
+    // FED 발표 날짜 목록 가져오기 (최근 10회분용 - 날짜 선택과 무관하게 항상 최신 10회분)
+    // 날짜 선택과 무관하게 항상 현재 날짜 기준 최신 10회분을 가져오기 위해 별도로 날짜 목록 생성
+    let releaseDates = await getFedReleaseDates();
+    
+    // releaseDates가 비어있으면 fallback 사용 (이미 getFedReleaseDates 내부에서 처리되지만, 이중 체크)
+    if (releaseDates.length === 0) {
+      console.warn(`[Assets/Liabilities] getFedReleaseDates returned empty array, using fallback`);
+      // fallback 함수를 직접 호출
+      const { getFedReleaseDatesFallback } = await import("../src/h41.js");
+      releaseDates = getFedReleaseDatesFallback();
+    }
     
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
     try {
       // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+      // targetDate는 메인 리포트용이고, historicalData는 항상 최신 10회분만 가져옴
       report = await fetchH41Report(targetDate, releaseDates);
     } catch (error: any) {
       // 아카이브 데이터 가져오기 실패 시 에러 메시지 표시
@@ -1623,16 +1633,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       }
       
       console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records out of ${datesToFetch.length} attempts`);
-      
-      // 디버깅 정보를 클라이언트에 전달하기 위해 전역 변수에 저장 (개발자 도구에서 확인 가능)
-      if (typeof global !== 'undefined') {
-        (global as any).lastHistoricalDataFetch = {
-          releaseDatesCount: releaseDates.length,
-          datesToFetch: datesToFetch,
-          fetchedCount: historicalData.length,
-          data: historicalData.slice(0, 3) // 처음 3개만 샘플로
-        };
-      }
+    } else {
+      console.warn(`[Assets/Liabilities] No dates to fetch for historical data`);
     }
     
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
