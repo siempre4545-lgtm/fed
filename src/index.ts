@@ -1480,9 +1480,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     const startIndex = 0;
     const endIndex = Math.min(10, releaseDates.length);
     
+    console.log(`[Assets/Liabilities] Fetching historical data for ${endIndex} dates, starting from index ${startIndex}`);
+    
     for (let i = startIndex; i < endIndex; i++) {
       try {
-        const histReport = await fetchH41Report(releaseDates[i]);
+        // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+        const histReport = await fetchH41Report(releaseDates[i], releaseDates);
         const histAssets = {
           treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
           mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
@@ -1500,10 +1503,14 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           assets: histAssets,
           liabilities: histLiabilities,
         });
+        console.log(`[Assets/Liabilities] Successfully fetched historical data for ${releaseDates[i]}`);
       } catch (e) {
-        console.error(`Failed to fetch historical data for ${releaseDates[i]}:`, e);
+        console.error(`[Assets/Liabilities] Failed to fetch historical data for ${releaseDates[i]}:`, e);
+        // 실패해도 계속 진행 (다음 날짜 시도)
       }
     }
+    
+    console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records`);
     
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
     historicalData.sort((a, b) => {
