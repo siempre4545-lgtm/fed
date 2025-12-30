@@ -813,6 +813,7 @@ export function getFedReleaseDates(): string[] {
  */
 export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   let url = SOURCE_URL;
+  let thursdayDate: string | undefined;
   
   // 과거 날짜가 지정된 경우 가장 가까운 목요일 찾기
   if (targetDate) {
@@ -821,7 +822,6 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
       const dateObj = new Date(targetDate);
       const dayOfWeek = dateObj.getDay();
       
-      let thursdayDate: string;
       if (dayOfWeek === 4) {
         // 이미 목요일이면 그대로 사용
         thursdayDate = targetDate;
@@ -850,21 +850,50 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   });
   
   if (!res.ok) {
-    // 아카이브 URL이 실패하면 에러를 던지지 않고 최신 데이터로 폴백
-    if (targetDate && url !== SOURCE_URL) {
-      console.warn(`Failed to fetch archive for ${targetDate} (${url}), status: ${res.status}, falling back to current`);
-      const fallbackRes = await fetch(SOURCE_URL, {
+    // 아카이브 URL이 실패하면 대체 URL 형식 시도
+    if (targetDate && url !== SOURCE_URL && thursdayDate) {
+      console.error(`[H.4.1] Failed to fetch archive for ${targetDate} (${url}), status: ${res.status}`);
+      // 여러 URL 형식 시도
+      const date = new Date(thursdayDate);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      // 대체 URL 형식 시도: https://www.federalreserve.gov/releases/h41/YYYYMMDD/h41.txt
+      const altUrl1 = `${ARCHIVE_BASE_URL}${year}${month}${day}/h41.txt`;
+      console.log(`[H.4.1] Trying alternative URL format 1: ${altUrl1}`);
+      const altRes1 = await fetch(altUrl1, {
         headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
       });
-      if (!fallbackRes.ok) {
-        console.error(`Failed to fetch current H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
-        throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
+      
+      if (altRes1.ok) {
+        const html = await altRes1.text();
+        if (html.length > 500) {
+          const $ = cheerio.load(html);
+          const report = await parseH41Report($, altUrl1);
+          console.log(`[H.4.1] Successfully fetched using alternative URL format`);
+          return report;
+        }
       }
-      const html = await fallbackRes.text();
-      const $ = cheerio.load(html);
-      const report = await parseH41Report($, SOURCE_URL);
-      console.warn(`Using current data instead of requested date ${targetDate}`);
-      return report;
+      
+      // 또 다른 대체 URL 형식: https://www.federalreserve.gov/releases/h41/YYYYMMDD/default.htm
+      const altUrl2 = `${ARCHIVE_BASE_URL}${year}${month}${day}/default.htm`;
+      console.log(`[H.4.1] Trying alternative URL format 2: ${altUrl2}`);
+      const altRes2 = await fetch(altUrl2, {
+        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+      });
+      
+      if (altRes2.ok) {
+        const html = await altRes2.text();
+        if (html.length > 500) {
+          const $ = cheerio.load(html);
+          const report = await parseH41Report($, altUrl2);
+          console.log(`[H.4.1] Successfully fetched using alternative URL format 2`);
+          return report;
+        }
+      }
+      
+      throw new Error(`Failed to fetch H.4.1 archive for date ${targetDate}. Tried URLs: ${url}, ${altUrl1}, ${altUrl2}`);
     }
     throw new Error(`Failed to fetch H.4.1: ${res.status} ${res.statusText}`);
   }

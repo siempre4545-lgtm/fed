@@ -530,16 +530,8 @@ app.get("/", async (req, res) => {
       </div>
       ` : ''}
       <div class="date-selector">
-        <label for="dateSelect">FED 발표 날짜 선택:</label>
-        <select id="dateSelect" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer">
-          <option value="">최신 데이터</option>
-          ${releaseDates.map(date => {
-            const dateObj = new Date(date);
-            const formattedDate = dateObj.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
-            const isSelected = targetDate === date ? 'selected' : '';
-            return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
-          }).join('')}
-        </select>
+        <label for="dateInput">FED 발표 날짜 선택:</label>
+        <input type="date" id="dateInput" value="${targetDate || ''}" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer" />
         <button onclick="loadDate()">조회</button>
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
@@ -570,8 +562,8 @@ app.get("/", async (req, res) => {
   
   <script>
     function loadDate() {
-      const dateSelect = document.getElementById('dateSelect');
-      const selectedDate = (dateSelect as HTMLSelectElement)?.value;
+      const dateInput = document.getElementById('dateInput') as HTMLInputElement;
+      const selectedDate = dateInput?.value;
       if (selectedDate) {
         window.location.href = '/?date=' + selectedDate;
       } else {
@@ -1499,9 +1491,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .back-link:hover{text-decoration:underline}
     .date-selector{margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .date-selector label{font-size:13px;color:#6b7280;font-weight:600}
-    .date-selector select{padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer;min-width:200px}
-    .date-selector select:hover{border-color:#9ca3af}
-    .date-selector select:focus{outline:none;border-color:#3b82f6}
+    .date-selector input[type="date"]{padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer;min-width:200px}
+    .date-selector input[type="date"]:hover{border-color:#9ca3af}
+    .date-selector input[type="date"]:focus{outline:none;border-color:#3b82f6}
     .date-selector button{padding:6px 16px;border:1px solid #3b82f6;border-radius:6px;background:#3b82f6;color:#ffffff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
     .date-selector button:hover{background:#2563eb;border-color:#2563eb}
     .date-selector .reset-btn{padding:6px 12px;border:1px solid #d1d5db;background:transparent;color:#6b7280}
@@ -1534,16 +1526,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     <div class="sub">
       Week ended: ${escapeHtml(report.asOfWeekEndedText)} · Release: ${escapeHtml(report.releaseDateText)}<br/>
       <div class="date-selector">
-        <label for="dateSelect">FED 발표 날짜 선택:</label>
-        <select id="dateSelect">
-          <option value="">최신 데이터</option>
-          ${releaseDates.map(date => {
-            const dateObj = new Date(date);
-            const formattedDate = dateObj.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
-            const isSelected = targetDate === date ? 'selected' : '';
-            return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
-          }).join('')}
-        </select>
+        <label for="dateInput">FED 발표 날짜 선택:</label>
+        <input type="date" id="dateInput" value="${targetDate || ''}" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer" />
         <button onclick="loadDate()">조회</button>
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
@@ -1708,8 +1692,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   
   <script>
     function loadDate() {
-      const dateSelect = document.getElementById('dateSelect');
-      const selectedDate = (dateSelect as HTMLSelectElement)?.value;
+      const dateInput = document.getElementById('dateInput') as HTMLInputElement;
+      const selectedDate = dateInput?.value;
       if (selectedDate) {
         window.location.href = '/economic-indicators/fed-assets-liabilities?date=' + selectedDate;
       } else {
