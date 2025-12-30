@@ -672,11 +672,15 @@ app.get("/", async (req, res) => {
     function toggleCard(idx) {
       const card = document.querySelector('[data-card-id="' + idx + '"]');
       if (card) {
+        const isExpanded = card.classList.contains('expanded');
         card.classList.toggle('expanded');
         const expandIcon = card.querySelector('.expand-icon');
         if (expandIcon) {
-          expandIcon.textContent = card.classList.contains('expanded') ? '▲' : '▼';
+          expandIcon.textContent = !isExpanded ? '▲' : '▼';
         }
+        console.log('Card toggled:', idx, 'Expanded:', !isExpanded);
+      } else {
+        console.error('Card not found:', idx);
       }
     }
     
