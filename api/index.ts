@@ -1490,8 +1490,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
-      // 병렬로 처리하되, 실패한 것도 추적
-      const fetchPromises = datesToFetch.map(async (dateStr) => {
+      // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
+      for (const dateStr of datesToFetch) {
         try {
           // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
           const histReport = await fetchH41Report(dateStr, releaseDates);
@@ -1499,7 +1499,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           // 데이터 유효성 검사
           if (!histReport || !histReport.cards || histReport.cards.length === 0) {
             console.warn(`[Assets/Liabilities] No cards found in report for ${dateStr}`);
-            return null;
+            continue; // 다음 날짜 시도
           }
           
           const histAssets = {
@@ -1515,30 +1515,26 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
           };
           
-          // 데이터가 모두 0이면 유효하지 않은 것으로 간주
-          const hasValidData = histAssets.treasury > 0 || histAssets.mbs > 0 || histLiabilities.currency > 0 || histLiabilities.reserves > 0;
+          // 데이터 유효성 검사: 최소한 하나의 값이라도 0이 아니면 유효한 데이터로 간주
+          // (일부 항목이 0일 수 있으므로 더 관대하게 검사)
+          const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
+          const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
+          const hasValidData = totalAssets > 0 || totalLiabilities > 0;
+          
           if (!hasValidData) {
             console.warn(`[Assets/Liabilities] All values are zero for ${dateStr}, skipping`);
-            return null;
+            continue; // 다음 날짜 시도
           }
           
-          console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
-          return {
+          historicalData.push({
             date: dateStr,
             assets: histAssets,
             liabilities: histLiabilities,
-          };
+          });
+          console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
         } catch (e) {
           console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e instanceof Error ? e.message : String(e));
-          return null;
-        }
-      });
-      
-      const results = await Promise.all(fetchPromises);
-      // null이 아닌 결과만 추가
-      for (const result of results) {
-        if (result !== null) {
-          historicalData.push(result);
+          // 실패해도 계속 진행 (다음 날짜 시도)
         }
       }
       
