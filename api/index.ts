@@ -23,6 +23,89 @@ app.get("/api/h41", async (req, res) => {
   }
 });
 
+// API: 최근 10회분 히스토리 데이터 (디버깅용)
+app.get("/api/h41/history", async (req, res) => {
+  try {
+    const releaseDates = await getFedReleaseDates();
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+    
+    const historicalData: Array<{
+      date: string;
+      assets: { treasury: number; mbs: number; repo: number; loans: number };
+      liabilities: { currency: number; rrp: number; tga: number; reserves: number };
+      error?: string;
+    }> = [];
+    
+    for (const dateStr of datesToFetch) {
+      try {
+        const histReport = await fetchH41Report(dateStr, releaseDates);
+        
+        if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+          historicalData.push({
+            date: dateStr,
+            assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+            liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+            error: "No cards found"
+          });
+          continue;
+        }
+        
+        const histAssets = {
+          treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+          mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+          repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+          loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+        };
+        const histLiabilities = {
+          currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+          rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+          tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+          reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+        };
+        
+        const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
+        const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
+        
+        if (totalAssets === 0 && totalLiabilities === 0) {
+          historicalData.push({
+            date: dateStr,
+            assets: histAssets,
+            liabilities: histLiabilities,
+            error: "All values are zero"
+          });
+          continue;
+        }
+        
+        historicalData.push({
+          date: dateStr,
+          assets: histAssets,
+          liabilities: histLiabilities,
+        });
+      } catch (e) {
+        historicalData.push({
+          date: dateStr,
+          assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+          liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+          error: e instanceof Error ? e.message : String(e)
+        });
+      }
+    }
+    
+    historicalData.sort((a, b) => b.date.localeCompare(a.date));
+    
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.json({
+      releaseDatesCount: releaseDates.length,
+      datesToFetch: datesToFetch,
+      fetchedCount: historicalData.filter(d => !d.error).length,
+      totalAttempts: datesToFetch.length,
+      data: historicalData
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
 // API: 텍스트(알림용)
 app.get("/api/h41.txt", async (_req, res) => {
   try {
@@ -1539,6 +1622,16 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       }
       
       console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records out of ${datesToFetch.length} attempts`);
+      
+      // 디버깅 정보를 클라이언트에 전달하기 위해 전역 변수에 저장 (개발자 도구에서 확인 가능)
+      if (typeof global !== 'undefined') {
+        (global as any).lastHistoricalDataFetch = {
+          releaseDatesCount: releaseDates.length,
+          datesToFetch: datesToFetch,
+          fetchedCount: historicalData.length,
+          data: historicalData.slice(0, 3) // 처음 3개만 샘플로
+        };
+      }
     }
     
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
@@ -1988,6 +2081,50 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       <div style="padding: 40px; text-align: center; color: #6b7280; font-size: 14px;">
         데이터를 불러오는 중입니다...<br/>
         <small style="color: #9ca3af; margin-top: 8px; display: block;">최신 FED H.4.1 데이터를 가져오는 중입니다.</small>
+        <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+          <div style="font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">🔍 디버깅 정보 (개발자 도구에서 확인):</div>
+          <div style="font-size: 12px; color: #4b5563; line-height: 1.6;">
+            <div>• 발표 날짜 개수: ${releaseDates.length}</div>
+            <div>• 가져온 데이터 개수: ${historicalData.length}</div>
+            <div>• 시도한 날짜: ${datesToFetch ? datesToFetch.slice(0, 5).join(', ') : 'N/A'}${datesToFetch && datesToFetch.length > 5 ? '...' : ''}</div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db;">
+              <strong>🔧 브라우저 개발자 도구로 확인하는 방법:</strong><br/>
+              <ol style="margin: 8px 0; padding-left: 20px; font-size: 12px;">
+                <li>F12 키를 눌러 개발자 도구 열기</li>
+                <li><strong>Network 탭</strong>에서 페이지 새로고침 (Ctrl+R 또는 F5)</li>
+                <li><strong>Console 탭</strong>에서 에러 메시지 확인</li>
+                <li>아래 버튼을 클릭하여 API 직접 테스트:</li>
+              </ol>
+              <button onclick="testHistoryAPI()" style="margin-top: 8px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                📊 최근 10회분 데이터 API 테스트
+              </button>
+              <div id="api-test-result" style="margin-top: 12px; padding: 12px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; display: none; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+            </div>
+            <script>
+              async function testHistoryAPI() {
+                const resultDiv = document.getElementById('api-test-result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '데이터를 가져오는 중...';
+                
+                try {
+                  const response = await fetch('/api/h41/history');
+                  const data = await response.json();
+                  
+                  let html = '<div style="font-weight: 600; margin-bottom: 8px;">✅ API 응답 결과:</div>';
+                  html += '<div style="margin-bottom: 8px;"><strong>발표 날짜 개수:</strong> ' + data.releaseDatesCount + '</div>';
+                  html += '<div style="margin-bottom: 8px;"><strong>시도한 날짜:</strong> ' + data.datesToFetch.join(', ') + '</div>';
+                  html += '<div style="margin-bottom: 8px;"><strong>성공한 데이터:</strong> ' + data.fetchedCount + ' / ' + data.totalAttempts + '</div>';
+                  html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db;"><strong>상세 데이터:</strong></div>';
+                  html += '<pre style="background: #f9fafb; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + JSON.stringify(data.data, null, 2) + '</pre>';
+                  
+                  resultDiv.innerHTML = html;
+                } catch (error) {
+                  resultDiv.innerHTML = '<div style="color: #dc2626;">❌ 에러 발생: ' + error.message + '</div>';
+                }
+              }
+            </script>
+          </div>
+        </div>
       </div>
       `}
     </div>
