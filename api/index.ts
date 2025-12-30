@@ -1805,7 +1805,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .history-table th.sticky-col{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
     .history-table th.asset-col{background:#f0fdf4 !important;color:#166534;font-weight:700}
     .history-table th.liability-col{background:#fef2f2 !important;color:#991b1b;font-weight:700}
-    .history-table td{padding:12px;text-align:center;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+    .history-table td{padding:12px;text-align:center;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;white-space:nowrap;vertical-align:middle}
     .history-table td.sticky-col{background:#ffffff;position:sticky;left:0;z-index:10;font-weight:600;color:#1a1a1a;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
     .history-table td.asset-cell{background:#f0fdf4 !important}
     .history-table td.liability-cell{background:#fef2f2 !important}
