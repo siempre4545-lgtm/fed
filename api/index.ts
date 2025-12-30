@@ -538,7 +538,7 @@ app.get("/", async (req, res) => {
       ` : ''}
       <div class="date-selector">
         <label for="dateSelect">FED 발표 날짜 선택:</label>
-        <select id="dateSelect" onchange="loadDate()" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer">
+        <select id="dateSelect" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer">
           <option value="">최신 데이터</option>
           ${releaseDates.map(date => {
             const dateObj = new Date(date);
@@ -547,6 +547,7 @@ app.get("/", async (req, res) => {
             return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
           }).join('')}
         </select>
+        <button onclick="loadDate()">조회</button>
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
     </div>
@@ -1511,10 +1512,16 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .history-table{width:100%;border-collapse:collapse;min-width:800px}
     .history-table th{background:#f9fafb;padding:12px;text-align:left;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;position:sticky;left:0;z-index:10}
     .history-table th:first-child{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:120px}
+    .history-table th.asset-col{background:#dcfce7}
+    .history-table th.liability-col{background:#fee2e2}
     .history-table td{padding:12px;text-align:left;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;position:relative}
     .history-table td:first-child{background:#ffffff;position:sticky;left:0;z-index:5;font-weight:600;color:#3b82f6;min-width:120px}
-    .history-table tr:hover td{background:#f9fafb}
-    .history-table tr:hover td:first-child{background:#f9fafb}
+    .history-table td.asset-col{background:#dcfce7}
+    .history-table td.liability-col{background:#fee2e2}
+    .history-table tr:hover td{background:#f3f4f6}
+    .history-table tr:hover td:first-child{background:#ffffff}
+    .history-table tr:hover td.asset-col{background:#bbf7d0}
+    .history-table tr:hover td.liability-col{background:#fecaca}
     @media (max-width: 768px) {
       .history-table-wrapper{overflow-x:scroll;overflow-y:visible;-webkit-overflow-scrolling:touch}
       .history-table th:first-child,.history-table td:first-child{position:sticky;left:0;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
@@ -1528,7 +1535,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       Week ended: ${escapeHtml(report.asOfWeekEndedText)} · Release: ${escapeHtml(report.releaseDateText)}<br/>
       <div class="date-selector">
         <label for="dateSelect">FED 발표 날짜 선택:</label>
-        <select id="dateSelect" onchange="loadDate()">
+        <select id="dateSelect">
           <option value="">최신 데이터</option>
           ${releaseDates.map(date => {
             const dateObj = new Date(date);
@@ -1537,6 +1544,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             return `<option value="${date}" ${isSelected}>${formattedDate}</option>`;
           }).join('')}
         </select>
+        <button onclick="loadDate()">조회</button>
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
       <a href="/economic-indicators" class="back-link">← 경제 지표로 돌아가기</a>
@@ -1757,14 +1765,14 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <thead>
             <tr>
               <th>발표일</th>
-              <th>국채 (조)</th>
-              <th>MBS (조)</th>
-              <th>리포 (조)</th>
-              <th>대출 (조)</th>
-              <th>통화발행 (조)</th>
-              <th>역리포 (조)</th>
-              <th>TGA (조)</th>
-              <th>지준금 (조)</th>
+              <th class="asset-col">국채 (조)</th>
+              <th class="asset-col">MBS (조)</th>
+              <th class="asset-col">리포 (조)</th>
+              <th class="asset-col">대출 (조)</th>
+              <th class="liability-col">통화발행 (조)</th>
+              <th class="liability-col">역리포 (조)</th>
+              <th class="liability-col">TGA (조)</th>
+              <th class="liability-col">지준금 (조)</th>
             </tr>
           </thead>
           <tbody>
@@ -1774,14 +1782,14 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               return `
               <tr>
                 <td>${formattedDate}</td>
-                <td>$${(item.assets.treasury / 1000).toFixed(1)}</td>
-                <td>$${(item.assets.mbs / 1000).toFixed(1)}</td>
-                <td>$${(item.assets.repo / 1000).toFixed(1)}</td>
-                <td>$${(item.assets.loans / 1000).toFixed(1)}</td>
-                <td>$${(item.liabilities.currency / 1000).toFixed(1)}</td>
-                <td>$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
-                <td>$${(item.liabilities.tga / 1000).toFixed(1)}</td>
-                <td>$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
+                <td class="asset-col">$${(item.assets.treasury / 1000).toFixed(1)}</td>
+                <td class="asset-col">$${(item.assets.mbs / 1000).toFixed(1)}</td>
+                <td class="asset-col">$${(item.assets.repo / 1000).toFixed(1)}</td>
+                <td class="asset-col">$${(item.assets.loans / 1000).toFixed(1)}</td>
+                <td class="liability-col">$${(item.liabilities.currency / 1000).toFixed(1)}</td>
+                <td class="liability-col">$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
+                <td class="liability-col">$${(item.liabilities.tga / 1000).toFixed(1)}</td>
+                <td class="liability-col">$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
               </tr>
               `;
             }).join('')}
