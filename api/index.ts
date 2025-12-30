@@ -2059,20 +2059,57 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             </tr>
           </thead>
           <tbody>
-            ${historicalData.map((item) => {
+            ${historicalData.map((item, index) => {
               const dateObj = new Date(item.date);
               const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              
+              // 이전 날짜 데이터 (다음 인덱스, 더 오래된 날짜)
+              const prevItem = index < historicalData.length - 1 ? historicalData[index + 1] : null;
+              
+              // 증감 계산 함수
+              const getChangeDisplay = (current: number, previous: number | null) => {
+                if (previous === null || previous === 0) return '';
+                const change = current - previous;
+                const changePercent = (change / previous) * 100;
+                const sign = change >= 0 ? '+' : '';
+                return `<div style="font-size:11px;color:${change >= 0 ? '#059669' : '#dc2626'};margin-top:2px">${sign}${(change / 1000).toFixed(1)} (${sign}${changePercent.toFixed(2)}%)</div>`;
+              };
+              
               return `
             <tr>
               <td class="sticky-col">${formattedDate}</td>
-              <td class="asset-cell" data-value="${item.assets.treasury}">$${(item.assets.treasury / 1000).toFixed(1)}</td>
-              <td class="asset-cell" data-value="${item.assets.mbs}">$${(item.assets.mbs / 1000).toFixed(1)}</td>
-              <td class="asset-cell" data-value="${item.assets.repo}">$${(item.assets.repo / 1000).toFixed(1)}</td>
-              <td class="asset-cell" data-value="${item.assets.loans}">$${(item.assets.loans / 1000).toFixed(1)}</td>
-              <td class="liability-cell" data-value="${item.liabilities.currency}">$${(item.liabilities.currency / 1000).toFixed(1)}</td>
-              <td class="liability-cell" data-value="${item.liabilities.rrp}">$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
-              <td class="liability-cell" data-value="${item.liabilities.tga}">$${(item.liabilities.tga / 1000).toFixed(1)}</td>
-              <td class="liability-cell" data-value="${item.liabilities.reserves}">$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
+              <td class="asset-cell" data-value="${item.assets.treasury}">
+                $${(item.assets.treasury / 1000).toFixed(1)}
+                ${getChangeDisplay(item.assets.treasury, prevItem?.assets.treasury || null)}
+              </td>
+              <td class="asset-cell" data-value="${item.assets.mbs}">
+                $${(item.assets.mbs / 1000).toFixed(1)}
+                ${getChangeDisplay(item.assets.mbs, prevItem?.assets.mbs || null)}
+              </td>
+              <td class="asset-cell" data-value="${item.assets.repo}">
+                $${(item.assets.repo / 1000).toFixed(1)}
+                ${getChangeDisplay(item.assets.repo, prevItem?.assets.repo || null)}
+              </td>
+              <td class="asset-cell" data-value="${item.assets.loans}">
+                $${(item.assets.loans / 1000).toFixed(1)}
+                ${getChangeDisplay(item.assets.loans, prevItem?.assets.loans || null)}
+              </td>
+              <td class="liability-cell" data-value="${item.liabilities.currency}">
+                $${(item.liabilities.currency / 1000).toFixed(1)}
+                ${getChangeDisplay(item.liabilities.currency, prevItem?.liabilities.currency || null)}
+              </td>
+              <td class="liability-cell" data-value="${item.liabilities.rrp}">
+                $${(item.liabilities.rrp / 1000).toFixed(1)}
+                ${getChangeDisplay(item.liabilities.rrp, prevItem?.liabilities.rrp || null)}
+              </td>
+              <td class="liability-cell" data-value="${item.liabilities.tga}">
+                $${(item.liabilities.tga / 1000).toFixed(1)}
+                ${getChangeDisplay(item.liabilities.tga, prevItem?.liabilities.tga || null)}
+              </td>
+              <td class="liability-cell" data-value="${item.liabilities.reserves}">
+                $${(item.liabilities.reserves / 1000).toFixed(1)}
+                ${getChangeDisplay(item.liabilities.reserves, prevItem?.liabilities.reserves || null)}
+              </td>
             </tr>
               `;
             }).join('')}
