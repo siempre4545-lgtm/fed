@@ -1798,19 +1798,16 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .history-table{width:100%;border-collapse:collapse;min-width:600px}
     .history-table th{background:#f9fafb;padding:12px;text-align:center;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;white-space:nowrap}
     .history-table th.sticky-col{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
+    .history-table th.asset-col{background:#f0fdf4 !important;color:#166534;font-weight:700}
+    .history-table th.liability-col{background:#fef2f2 !important;color:#991b1b;font-weight:700}
     .history-table td{padding:12px;text-align:center;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;white-space:nowrap}
     .history-table td.sticky-col{background:#ffffff;position:sticky;left:0;z-index:10;font-weight:600;color:#1a1a1a;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
-    .history-table tr.asset-row{background:#f0fdf4}
-    .history-table tr.asset-row td.sticky-col{background:#f0fdf4}
-    .history-table tr.asset-row td.asset-cell{background:#f0fdf4}
-    .history-table tr.liability-row{background:#fef2f2}
-    .history-table tr.liability-row td.sticky-col{background:#fef2f2}
-    .history-table tr.liability-row td.liability-cell{background:#fef2f2}
+    .history-table td.asset-cell{background:#f0fdf4 !important}
+    .history-table td.liability-cell{background:#fef2f2 !important}
     .history-table tr:hover td{background:#f3f4f6}
-    .history-table tr.asset-row:hover td{background:#dcfce7}
-    .history-table tr.asset-row:hover td.sticky-col{background:#dcfce7}
-    .history-table tr.liability-row:hover td{background:#fee2e2}
-    .history-table tr.liability-row:hover td.sticky-col{background:#fee2e2}
+    .history-table tr:hover td.sticky-col{background:#f3f4f6 !important}
+    .history-table tr:hover td.asset-cell{background:#dcfce7 !important}
+    .history-table tr:hover td.liability-cell{background:#fee2e2 !important}
     @media (max-width: 768px) {
       .history-table-wrapper{overflow-x:scroll;overflow-y:visible;-webkit-overflow-scrolling:touch}
       .history-table th.sticky-col,.history-table td.sticky-col{position:sticky;left:0;box-shadow:2px 0 4px rgba(0,0,0,0.15)}
