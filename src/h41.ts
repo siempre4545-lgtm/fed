@@ -817,7 +817,19 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   // 과거 날짜가 지정된 경우 가장 가까운 목요일 찾기
   if (targetDate) {
     try {
-      const thursdayDate = findNearestThursday(targetDate);
+      // targetDate가 이미 목요일인지 확인 (getFedReleaseDates에서 온 경우)
+      const dateObj = new Date(targetDate);
+      const dayOfWeek = dateObj.getDay();
+      
+      let thursdayDate: string;
+      if (dayOfWeek === 4) {
+        // 이미 목요일이면 그대로 사용
+        thursdayDate = targetDate;
+      } else {
+        // 목요일이 아니면 가장 가까운 목요일 찾기
+        thursdayDate = findNearestThursday(targetDate);
+      }
+      
       const date = new Date(thursdayDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -826,6 +838,7 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
       // H.4.1 아카이브 URL 형식: https://www.federalreserve.gov/releases/h41/YYYYMMDD/
       const archiveUrl = `${ARCHIVE_BASE_URL}${year}${month}${day}/`;
       url = archiveUrl;
+      console.log(`Fetching H.4.1 report for date: ${targetDate} (Thursday: ${thursdayDate}), URL: ${archiveUrl}`);
     } catch (e) {
       console.error("Invalid date format, using current:", e);
     }

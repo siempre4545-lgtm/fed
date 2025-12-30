@@ -1361,14 +1361,22 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // FED 발표 날짜 목록 가져오기
     const releaseDates = getFedReleaseDates();
     
-    // 최근 10회분 데이터 가져오기
+    // 최근 10회분 데이터 가져오기 (선택한 날짜 기준)
     const historicalData: Array<{
       date: string;
       assets: { treasury: number; mbs: number; repo: number; loans: number };
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    for (let i = 0; i < 10 && i < releaseDates.length; i++) {
+    // 선택한 날짜가 있으면 그 날짜를 기준으로, 없으면 최신 날짜를 기준으로
+    const baseDate = targetDate || releaseDates[0];
+    const baseDateIndex = releaseDates.findIndex(d => d === baseDate);
+    
+    // 기준 날짜를 포함하여 이전 10회분 가져오기
+    const startIndex = baseDateIndex >= 0 ? baseDateIndex : 0;
+    const endIndex = Math.min(startIndex + 10, releaseDates.length);
+    
+    for (let i = startIndex; i < endIndex; i++) {
       try {
         const histReport = await fetchH41Report(releaseDates[i]);
         const histAssets = {
@@ -1392,6 +1400,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         console.error(`Failed to fetch historical data for ${releaseDates[i]}:`, e);
       }
     }
+    
+    // 날짜 순서를 역순으로 정렬 (최신이 위로)
+    historicalData.reverse();
     
     // FED 자산 항목 추출
     const assets = {
