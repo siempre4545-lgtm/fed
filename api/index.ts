@@ -1867,9 +1867,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     </div>
     
     <!-- 최근 10회분 추이 테이블 -->
-    ${historicalData.length > 0 ? `
     <div class="history-table-section">
       <div class="history-table-title">최근 10회분 추이 📈</div>
+      ${historicalData.length > 0 ? `
       <div class="history-table-wrapper">
         <table class="history-table">
           <thead>
@@ -1906,8 +1906,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </tbody>
         </table>
       </div>
+      ` : `
+      <div style="padding: 40px; text-align: center; color: #6b7280; font-size: 14px;">
+        데이터를 불러오는 중입니다...<br/>
+        <small style="color: #9ca3af; margin-top: 8px; display: block;">최신 FED H.4.1 데이터를 가져오는 중입니다.</small>
+      </div>
+      `}
     </div>
-    ` : ''}
   </div>
   
   <script>
