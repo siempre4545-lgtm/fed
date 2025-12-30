@@ -1521,9 +1521,27 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // releaseDates가 비어있으면 fallback 사용 (이미 getFedReleaseDates 내부에서 처리되지만, 이중 체크)
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] getFedReleaseDates returned empty array, using fallback`);
-      // fallback 함수를 직접 호출
-      const { getFedReleaseDatesFallback } = await import("../src/h41.js");
-      releaseDates = getFedReleaseDatesFallback();
+      // fallback: 현재 날짜 기준으로 최근 52주 목요일 계산
+      const dates: string[] = [];
+      const now = new Date();
+      const today = new Date();
+      const isThursday = today.getDay() === 4;
+      const isAfterRelease = today.getHours() >= 16 || (today.getHours() === 16 && today.getMinutes() >= 30);
+      let startDate = new Date(now);
+      if (!isThursday || !isAfterRelease) {
+        const dayOfWeek = now.getDay();
+        const daysToSubtract = dayOfWeek <= 4 ? (dayOfWeek + 3) : (dayOfWeek - 4);
+        startDate.setDate(now.getDate() - daysToSubtract);
+      }
+      for (let i = 0; i < 52; i++) {
+        const thursday = new Date(startDate);
+        thursday.setDate(startDate.getDate() - (i * 7));
+        const year = thursday.getFullYear();
+        const month = String(thursday.getMonth() + 1).padStart(2, '0');
+        const day = String(thursday.getDate()).padStart(2, '0');
+        dates.push(`${year}-${month}-${day}`);
+      }
+      releaseDates = dates;
     }
     
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
