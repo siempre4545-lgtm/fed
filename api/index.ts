@@ -2,6 +2,7 @@ import express from "express";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
+import { fetchAllSecretIndicators } from "../src/secret-indicators.js";
 
 const app = express();
 
