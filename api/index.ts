@@ -633,8 +633,14 @@ app.get("/", async (req, res) => {
     }
     
     function toggleCard(idx) {
-      const card = document.querySelector(\`[data-card-id="\${idx}"]\`);
-      card.classList.toggle('expanded');
+      const card = document.querySelector('[data-card-id="' + idx + '"]');
+      if (card) {
+        card.classList.toggle('expanded');
+        const expandIcon = card.querySelector('.expand-icon');
+        if (expandIcon) {
+          expandIcon.textContent = card.classList.contains('expanded') ? '▲' : '▼';
+        }
+      }
     }
     
     function toggleReport() {
@@ -1356,7 +1362,44 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   try {
     // 날짜 파라미터 확인
     const targetDate = req.query.date as string | undefined;
-    const report = await fetchH41Report(targetDate);
+    let report: Awaited<ReturnType<typeof fetchH41Report>>;
+    try {
+      report = await fetchH41Report(targetDate);
+    } catch (error: any) {
+      // 아카이브 데이터 가져오기 실패 시 에러 메시지 표시
+      const errorMessage = error?.message || String(error);
+      console.error(`[Assets/Liabilities] Failed to fetch H.41 report for date ${targetDate}:`, errorMessage);
+      
+      // 에러 페이지 렌더링
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>FED 자산/부채 분석 - 오류</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; background: #ffffff; color: #1a1a1a; }
+            .error-container { max-width: 600px; margin: 0 auto; }
+            .error-title { font-size: 24px; margin-bottom: 20px; color: #ef4444; }
+            .error-message { background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .back-link { color: #3b82f6; text-decoration: none; }
+            .back-link:hover { text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="error-container">
+            <h1 class="error-title">데이터를 불러올 수 없습니다</h1>
+            <div class="error-message">
+              <p>선택한 날짜(${targetDate || 'N/A'})의 FED H.4.1 데이터를 가져오는 중 오류가 발생했습니다.</p>
+              <p><strong>오류 내용:</strong> ${escapeHtml(errorMessage)}</p>
+              <p>다른 날짜를 선택하거나 최신 데이터를 확인해주세요.</p>
+            </div>
+            <a href="/economic-indicators/fed-assets-liabilities" class="back-link">← 자산/부채 분석으로 돌아가기</a>
+          </div>
+        </body>
+        </html>
+      `);
+    }
     
     // FED 발표 날짜 목록 가져오기
     const releaseDates = getFedReleaseDates();

@@ -904,16 +904,9 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   if (targetDate && url !== SOURCE_URL) {
     // 아카이브 페이지에 대해서만 엄격한 검증
     if (html.length < 500 || html.toLowerCase().includes("page not found") || html.toLowerCase().includes("404 error")) {
-      console.warn(`Archive page appears to be empty or 404 for ${targetDate} (${url}), falling back to current`);
-      const fallbackRes = await fetch(SOURCE_URL, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
-      });
-      if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
-      const fallbackHtml = await fallbackRes.text();
-      const $ = cheerio.load(fallbackHtml);
-      const report = await parseH41Report($, SOURCE_URL);
-      console.warn(`Using current data instead of requested date ${targetDate}`);
-      return report;
+      console.error(`[H.4.1] Archive page appears to be empty or 404 for ${targetDate} (${url})`);
+      // 최신 데이터로 폴백하지 않고 에러를 던짐
+      throw new Error(`Failed to fetch H.4.1 archive for date ${targetDate}. The archive page appears to be empty or not found.`);
     }
   }
   
@@ -928,18 +921,10 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   try {
     report = await parseH41Report($, url);
   } catch (parseError: any) {
-    // 파싱 실패 시, 최신 데이터가 아니면 최신 데이터로 폴백
+    // 파싱 실패 시, 아카이브 데이터인 경우 에러를 던짐 (최신 데이터로 폴백하지 않음)
     if (targetDate && url !== SOURCE_URL) {
-      console.warn(`Failed to parse archive data for ${targetDate}: ${parseError?.message}, falling back to current`);
-      const fallbackRes = await fetch(SOURCE_URL, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
-      });
-      if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
-      const fallbackHtml = await fallbackRes.text();
-      const $ = cheerio.load(fallbackHtml);
-      report = await parseH41Report($, SOURCE_URL);
-      console.warn(`Using current data instead of requested date ${targetDate}`);
-      return report;
+      console.error(`[H.4.1] Failed to parse archive data for ${targetDate}: ${parseError?.message}`);
+      throw new Error(`Failed to parse H.4.1 archive for date ${targetDate}: ${parseError?.message || String(parseError)}`);
     }
     // 최신 데이터 파싱 실패는 에러로 전파
     throw new Error(`Failed to parse H.4.1 report: ${parseError?.message || String(parseError)}`);
@@ -949,16 +934,8 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
   const hasValidData = report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
   if (!hasValidData) {
     if (targetDate && url !== SOURCE_URL) {
-      console.warn(`Parsed data appears invalid for ${targetDate} (all zeros), falling back to current`);
-      const fallbackRes = await fetch(SOURCE_URL, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
-      });
-      if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
-      const fallbackHtml = await fallbackRes.text();
-      const $ = cheerio.load(fallbackHtml);
-      const fallbackReport = await parseH41Report($, SOURCE_URL);
-      console.warn(`Using current data instead of requested date ${targetDate}`);
-      return fallbackReport;
+      console.error(`[H.4.1] Parsed data appears invalid for ${targetDate} (all zeros)`);
+      throw new Error(`Parsed H.4.1 archive data appears invalid (all zeros) for date ${targetDate}`);
     }
     // 최신 데이터가 모두 0이면 에러
     throw new Error(`Parsed H.4.1 data appears invalid (all zeros) for ${url}`);
