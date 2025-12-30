@@ -2778,6 +2778,180 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (m) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m] as string));
 }
 
+// 비밀지표 페이지
+app.get("/secret-indicators", async (req, res) => {
+  try {
+    const indicators = await fetchAllSecretIndicators();
+    
+    const getRiskColor = (risk: string) => {
+      switch (risk) {
+        case "critical": return "#dc2626";
+        case "high": return "#f59e0b";
+        case "medium": return "#eab308";
+        case "low": return "#10b981";
+        default: return "#6b7280";
+      }
+    };
+    
+    const getTrendIcon = (trend: string) => {
+      switch (trend) {
+        case "up": return "📈";
+        case "down": return "📉";
+        default: return "➡️";
+      }
+    };
+    
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>비밀지표 - 자본주의 내부 신경계 해부</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:24px;font-weight:700;color:#ffffff;margin-bottom:8px}
+    .page-header .sub{opacity:.8;font-size:14px;line-height:1.6;color:#c0c0c0}
+    .page-header a{color:#a78bfa;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#c4b5fd}
+    
+    .intro-section{background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%);border-radius:12px;padding:32px;margin:24px;max-width:1400px;margin-left:auto;margin-right:auto;margin-bottom:32px}
+    .intro-title{font-size:28px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .intro-description{font-size:16px;line-height:1.8;color:#f3f4f6;margin-bottom:12px}
+    .intro-note{font-size:14px;line-height:1.6;color:#e0e7ff;margin-top:16px;padding:16px;background:rgba(255,255,255,0.1);border-radius:8px}
+    
+    .main-content{padding:24px;max-width:1400px;margin:0 auto}
+    
+    .indicator-card{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px;transition:all 0.2s}
+    .indicator-card:hover{border-color:#3d3d3d;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+    .indicator-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #2d2d2d}
+    .indicator-title{font-size:20px;font-weight:700;color:#ffffff;margin-bottom:8px}
+    .indicator-description{font-size:14px;color:#9ca3af;line-height:1.6;margin-bottom:12px}
+    .indicator-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#808080}
+    .indicator-source{background:#2d2d2d;padding:4px 8px;border-radius:4px}
+    
+    .indicator-value-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+    .value-item{background:#252525;border-radius:8px;padding:16px}
+    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .value-number{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:4px}
+    .value-change{font-size:14px;font-weight:600}
+    .value-change.positive{color:#10b981}
+    .value-change.negative{color:#ef4444}
+    .value-change.neutral{color:#9ca3af}
+    
+    .indicator-interpretation{background:#252525;border-radius:8px;padding:20px;margin-top:20px;border-left:4px solid #8b5cf6}
+    .interpretation-title{font-size:16px;font-weight:700;color:#ffffff;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .interpretation-text{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:pre-line}
+    
+    .risk-badge{display:inline-block;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#ffffff}
+    .risk-critical{background:#dc2626}
+    .risk-high{background:#f59e0b}
+    .risk-medium{background:#eab308}
+    .risk-low{background:#10b981}
+    
+    .trend-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;background:#2d2d2d;color:#c0c0c0}
+    
+    @media (max-width: 768px) {
+      .indicator-value-section{grid-template-columns:1fr}
+      .intro-section{padding:24px;margin:16px}
+      .intro-title{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>🔮 비밀지표 - 자본주의 내부 신경계 해부</h1>
+    <div class="sub">
+      <a href="/">← 대시보드로 돌아가기</a>
+    </div>
+  </div>
+  
+  <div class="intro-section">
+    <div class="intro-title">위기가 준비되는 과정을 가장 먼저 알아차리는 지표</div>
+    <div class="intro-description">
+      이 지표들은 예측을 위한 것이 아닙니다. 자본주의 내부에서 이미 시작된 변화를 가장 먼저 확인하는 지표입니다.<br/>
+      위기가 터진 뒤 대응하는 것이 아닌, 위기가 준비되는 과정을 가장 먼저 알아차리고 그 시야를 갖게 하는 것이 목적입니다.
+    </div>
+    <div class="intro-note">
+      <strong>💡 거대 자본가들의 관점:</strong> 이 지표들은 자본주의가 실제로 움직이는 내부 신경계를 마인드맵으로 그리듯 해부하는 원리를 보여줍니다. 
+      뱅가드, 블랙록 같은 거대 자본가들이 가장 먼저 주시하는 선행 지표들입니다.
+    </div>
+  </div>
+  
+  <div class="main-content">
+    ${indicators.map((ind, idx) => {
+      const changeColor = ind.change && ind.change > 0 ? "positive" : ind.change && ind.change < 0 ? "negative" : "neutral";
+      const changeSign = ind.change && ind.change > 0 ? "+" : "";
+      const changePercentSign = ind.changePercent && ind.changePercent > 0 ? "+" : "";
+      
+      return `
+    <div class="indicator-card">
+      <div class="indicator-header">
+        <div style="flex:1">
+          <div class="indicator-title">${idx + 1}. ${escapeHtml(ind.name)}</div>
+          <div class="indicator-description">${escapeHtml(ind.description)}</div>
+          <div class="indicator-meta">
+            ${ind.fredSeriesId ? `<span class="indicator-source">FRED: ${ind.fredSeriesId}</span>` : ""}
+            ${ind.alternativeSource ? `<span class="indicator-source">보조지표: ${escapeHtml(ind.alternativeSource)}</span>` : ""}
+            ${ind.lastUpdated ? `<span class="indicator-source">업데이트: ${ind.lastUpdated}</span>` : ""}
+            <span class="trend-badge">${getTrendIcon(ind.trend)} ${ind.trend === "up" ? "상승" : ind.trend === "down" ? "하락" : "중립"}</span>
+            <span class="risk-badge risk-${ind.riskLevel}">위험: ${ind.riskLevel === "critical" ? "치명적" : ind.riskLevel === "high" ? "높음" : ind.riskLevel === "medium" ? "보통" : "낮음"}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="indicator-value-section">
+        <div class="value-item">
+          <div class="value-label">현재 값</div>
+          <div class="value-number">${ind.value !== null ? ind.value.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "N/A"}</div>
+          <div class="value-label">${ind.unit}</div>
+        </div>
+        ${ind.previousValue !== null ? `
+        <div class="value-item">
+          <div class="value-label">이전 값</div>
+          <div class="value-number" style="font-size:20px;color:#9ca3af">${ind.previousValue.toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>
+          <div class="value-label">${ind.unit}</div>
+        </div>
+        ` : ""}
+        ${ind.change !== null ? `
+        <div class="value-item">
+          <div class="value-label">변동</div>
+          <div class="value-number ${changeColor}">${changeSign}${ind.change.toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>
+          <div class="value-change ${changeColor}">${changePercentSign}${ind.changePercent?.toFixed(2) || "0.00"}%</div>
+        </div>
+        ` : ""}
+      </div>
+      
+      ${ind.interpretation ? `
+      <div class="indicator-interpretation">
+        <div class="interpretation-title">
+          <span>💼 경제 코치 해석</span>
+        </div>
+        <div class="interpretation-text">${escapeHtml(ind.interpretation)}</div>
+      </div>
+      ` : `
+      <div class="indicator-interpretation">
+        <div class="interpretation-title">
+          <span>⚠️ 데이터 수집 중</span>
+        </div>
+        <div class="interpretation-text">이 지표의 데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div>
+      </div>
+      `}
+    </div>
+      `;
+    }).join('')}
+  </div>
+</body>
+</html>
+    `);
+  } catch (e: any) {
+    res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
+  }
+});
+
 // Vercel serverless function export
 // @ts-ignore
 export default app;
