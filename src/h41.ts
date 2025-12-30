@@ -777,7 +777,8 @@ export async function getFedReleaseDates(): Promise<string[]> {
   try {
     const url = "https://www.federalreserve.gov/releases/h41/";
     const response = await fetch(url, { 
-      headers: { "User-Agent": "h41-dashboard/1.0 (+cursor)" } 
+      headers: { "User-Agent": "h41-dashboard/1.0 (+cursor)" },
+      cache: "no-store" // 캐시 방지
     });
     
     if (!response.ok) {
@@ -917,7 +918,8 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
   }
   
   const res = await fetch(url, {
-    headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+    headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
+    cache: "no-store" // 캐시 방지: 항상 최신 데이터 가져오기
   });
   
   if (!res.ok) {
@@ -934,7 +936,8 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
       const altUrl1 = `${ARCHIVE_BASE_URL}${year}${month}${day}/h41.txt`;
       console.log(`[H.4.1] Trying alternative URL format 1: ${altUrl1}`);
       const altRes1 = await fetch(altUrl1, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
+        cache: "no-store" // 캐시 방지
       });
       
       if (altRes1.ok) {
@@ -951,7 +954,8 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
       const altUrl2 = `${ARCHIVE_BASE_URL}${year}${month}${day}/default.htm`;
       console.log(`[H.4.1] Trying alternative URL format 2: ${altUrl2}`);
       const altRes2 = await fetch(altUrl2, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
+        cache: "no-store" // 캐시 방지
       });
       
       if (altRes2.ok) {

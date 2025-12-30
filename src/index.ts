@@ -1628,22 +1628,25 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     .history-table-section{margin-top:40px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px}
     .history-table-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb}
     .history-table-wrapper{overflow-x:auto;overflow-y:visible}
-    .history-table{width:100%;border-collapse:collapse;min-width:800px}
-    .history-table th{background:#f9fafb;padding:12px;text-align:left;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;position:sticky;left:0;z-index:10}
-    .history-table th:first-child{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:120px}
-    .history-table th.asset-col{background:#dcfce7}
-    .history-table th.liability-col{background:#fee2e2}
-    .history-table td{padding:12px;text-align:left;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;position:relative}
-    .history-table td:first-child{background:#ffffff;position:sticky;left:0;z-index:5;font-weight:600;color:#3b82f6;min-width:120px}
-    .history-table td.asset-col{background:#dcfce7}
-    .history-table td.liability-col{background:#fee2e2}
+    .history-table{width:100%;border-collapse:collapse;min-width:600px}
+    .history-table th{background:#f9fafb;padding:12px;text-align:center;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+    .history-table th.sticky-col{background:#f9fafb;position:sticky;left:0;z-index:20;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
+    .history-table td{padding:12px;text-align:center;font-size:13px;color:#1a1a1a;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+    .history-table td.sticky-col{background:#ffffff;position:sticky;left:0;z-index:10;font-weight:600;color:#1a1a1a;min-width:140px;text-align:left;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
+    .history-table tr.asset-row{background:#f0fdf4}
+    .history-table tr.asset-row td.sticky-col{background:#f0fdf4}
+    .history-table tr.asset-row td.asset-cell{background:#f0fdf4}
+    .history-table tr.liability-row{background:#fef2f2}
+    .history-table tr.liability-row td.sticky-col{background:#fef2f2}
+    .history-table tr.liability-row td.liability-cell{background:#fef2f2}
     .history-table tr:hover td{background:#f3f4f6}
-    .history-table tr:hover td:first-child{background:#ffffff}
-    .history-table tr:hover td.asset-col{background:#bbf7d0}
-    .history-table tr:hover td.liability-col{background:#fecaca}
+    .history-table tr.asset-row:hover td{background:#dcfce7}
+    .history-table tr.asset-row:hover td.sticky-col{background:#dcfce7}
+    .history-table tr.liability-row:hover td{background:#fee2e2}
+    .history-table tr.liability-row:hover td.sticky-col{background:#fee2e2}
     @media (max-width: 768px) {
       .history-table-wrapper{overflow-x:scroll;overflow-y:visible;-webkit-overflow-scrolling:touch}
-      .history-table th:first-child,.history-table td:first-child{position:sticky;left:0;box-shadow:2px 0 4px rgba(0,0,0,0.1)}
+      .history-table th.sticky-col,.history-table td.sticky-col{position:sticky;left:0;box-shadow:2px 0 4px rgba(0,0,0,0.15)}
     }
   </style>
 </head>
@@ -1781,35 +1784,81 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         <table class="history-table">
           <thead>
             <tr>
-              <th>발표일</th>
-              <th class="asset-col">국채 (조)</th>
-              <th class="asset-col">MBS (조)</th>
-              <th class="asset-col">리포 (조)</th>
-              <th class="asset-col">대출 (조)</th>
-              <th class="liability-col">통화발행 (조)</th>
-              <th class="liability-col">역리포 (조)</th>
-              <th class="liability-col">TGA (조)</th>
-              <th class="liability-col">지준금 (조)</th>
+              <th class="sticky-col">항목</th>
+              ${historicalData.map((item) => {
+                const dateObj = new Date(item.date);
+                const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                return `<th>${formattedDate}</th>`;
+              }).join('')}
             </tr>
           </thead>
           <tbody>
-            ${historicalData.map((item, idx) => {
-              const dateObj = new Date(item.date);
-              const formattedDate = dateObj.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
-              return `
-              <tr>
-                <td>${formattedDate}</td>
-                <td class="asset-col">$${(item.assets.treasury / 1000).toFixed(1)}</td>
-                <td class="asset-col">$${(item.assets.mbs / 1000).toFixed(1)}</td>
-                <td class="asset-col">$${(item.assets.repo / 1000).toFixed(1)}</td>
-                <td class="asset-col">$${(item.assets.loans / 1000).toFixed(1)}</td>
-                <td class="liability-col">$${(item.liabilities.currency / 1000).toFixed(1)}</td>
-                <td class="liability-col">$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
-                <td class="liability-col">$${(item.liabilities.tga / 1000).toFixed(1)}</td>
-                <td class="liability-col">$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
-              </tr>
-              `;
-            }).join('')}
+            <!-- 자산 4개 행 -->
+            <tr class="asset-row">
+              <td class="sticky-col asset-label">국채 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.assets.treasury / 1000).toFixed(1);
+                const originalValue = item.assets.treasury;
+                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="asset-row">
+              <td class="sticky-col asset-label">MBS (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.assets.mbs / 1000).toFixed(1);
+                const originalValue = item.assets.mbs;
+                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="asset-row">
+              <td class="sticky-col asset-label">리포 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.assets.repo / 1000).toFixed(1);
+                const originalValue = item.assets.repo;
+                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="asset-row">
+              <td class="sticky-col asset-label">대출 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.assets.loans / 1000).toFixed(1);
+                const originalValue = item.assets.loans;
+                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <!-- 부채 4개 행 -->
+            <tr class="liability-row">
+              <td class="sticky-col liability-label">통화발행 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.liabilities.currency / 1000).toFixed(1);
+                const originalValue = item.liabilities.currency;
+                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="liability-row">
+              <td class="sticky-col liability-label">역리포 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.liabilities.rrp / 1000).toFixed(1);
+                const originalValue = item.liabilities.rrp;
+                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="liability-row">
+              <td class="sticky-col liability-label">TGA (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.liabilities.tga / 1000).toFixed(1);
+                const originalValue = item.liabilities.tga;
+                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
+            <tr class="liability-row">
+              <td class="sticky-col liability-label">지준금 (조)</td>
+              ${historicalData.map((item) => {
+                const value = (item.liabilities.reserves / 1000).toFixed(1);
+                const originalValue = item.liabilities.reserves;
+                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
+              }).join('')}
+            </tr>
           </tbody>
         </table>
       </div>
