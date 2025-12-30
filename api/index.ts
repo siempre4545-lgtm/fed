@@ -1481,14 +1481,20 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
-    const startIndex = 0;
-    const endIndex = Math.min(10, releaseDates.length);
+    console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
+    if (releaseDates.length === 0) {
+      console.warn(`[Assets/Liabilities] No release dates available!`);
+    }
     
-    for (let i = startIndex; i < endIndex; i++) {
+    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+    console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
+    
+    for (const dateStr of datesToFetch) {
       try {
         // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
-        const histReport = await fetchH41Report(releaseDates[i], releaseDates);
+        const histReport = await fetchH41Report(dateStr, releaseDates);
         const histAssets = {
           treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
           mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
@@ -1502,21 +1508,24 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
         };
         historicalData.push({
-          date: releaseDates[i],
+          date: dateStr,
           assets: histAssets,
           liabilities: histLiabilities,
         });
+        console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
       } catch (e) {
-        console.error(`Failed to fetch historical data for ${releaseDates[i]}:`, e);
+        console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e);
         // 실패해도 계속 진행 (다음 날짜 시도)
       }
     }
     
+    console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records`);
+    
     // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
+    // getFedReleaseDates()가 이미 정렬되어 있지만, fetch 실패로 인한 순서 변경을 방지하기 위해 재정렬
     historicalData.sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateB.getTime() - dateA.getTime(); // 최신이 위로
+      // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식이므로 localeCompare로 충분)
+      return b.date.localeCompare(a.date); // 최신이 위로 (내림차순)
     });
     
     // FED 자산 항목 추출
