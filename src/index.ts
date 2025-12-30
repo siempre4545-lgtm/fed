@@ -1368,13 +1368,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    // 선택한 날짜가 있으면 그 날짜를 기준으로, 없으면 최신 날짜를 기준으로
-    const baseDate = targetDate || releaseDates[0];
-    const baseDateIndex = releaseDates.findIndex(d => d === baseDate);
-    
-    // 기준 날짜를 포함하여 이전 10회분 가져오기
-    const startIndex = baseDateIndex >= 0 ? baseDateIndex : 0;
-    const endIndex = Math.min(startIndex + 10, releaseDates.length);
+    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
+    const startIndex = 0;
+    const endIndex = Math.min(10, releaseDates.length);
     
     for (let i = startIndex; i < endIndex; i++) {
       try {
@@ -1401,8 +1397,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       }
     }
     
-    // 날짜 순서를 역순으로 정렬 (최신이 위로)
-    historicalData.reverse();
+    // 날짜 순서를 최신부터 과거 순으로 정렬 (최신이 위로)
+    historicalData.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB.getTime() - dateA.getTime(); // 최신이 위로
+    });
     
     // FED 자산 항목 추출
     const assets = {
