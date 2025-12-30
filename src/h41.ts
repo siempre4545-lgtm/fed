@@ -836,7 +836,7 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
       const day = String(date.getDate()).padStart(2, '0');
       
       // H.4.1 아카이브 URL 형식: https://www.federalreserve.gov/releases/h41/YYYYMMDD/
-      // 또는 https://www.federalreserve.gov/releases/h41/current/ (최신)
+      // 실제 FED 사이트에서는 YYYYMMDD 형식의 디렉토리로 접근
       const archiveUrl = `${ARCHIVE_BASE_URL}${year}${month}${day}/`;
       url = archiveUrl;
       console.log(`[H.4.1] Fetching archive for date: ${targetDate} (Thursday: ${thursdayDate}), URL: ${archiveUrl}`);
@@ -871,9 +871,10 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
 
   const html = await res.text();
   
-  // HTML이 비어있거나 에러 페이지인지 확인
-  if (html.length < 1000 || html.includes("404") || html.includes("Not Found")) {
-    if (targetDate && url !== SOURCE_URL) {
+  // HTML이 비어있거나 에러 페이지인지 확인 (아카이브 페이지만 체크)
+  if (targetDate && url !== SOURCE_URL) {
+    // 아카이브 페이지에 대해서만 엄격한 검증
+    if (html.length < 500 || html.toLowerCase().includes("page not found") || html.toLowerCase().includes("404 error")) {
       console.warn(`Archive page appears to be empty or 404 for ${targetDate} (${url}), falling back to current`);
       const fallbackRes = await fetch(SOURCE_URL, {
         headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
@@ -885,28 +886,56 @@ export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
       console.warn(`Using current data instead of requested date ${targetDate}`);
       return report;
     }
-    throw new Error(`H.4.1 page appears to be empty or invalid for ${url}`);
+  }
+  
+  // 최신 데이터의 경우 HTML이 너무 짧으면 에러 (하지만 파싱을 먼저 시도)
+  if (!targetDate && html.length < 500) {
+    console.warn(`Current H.4.1 page HTML seems too short (${html.length} chars), but attempting to parse anyway`);
   }
   
   const $ = cheerio.load(html);
-  const report = await parseH41Report($, url);
+  let report: H41Report;
+  
+  try {
+    report = await parseH41Report($, url);
+  } catch (parseError: any) {
+    // 파싱 실패 시, 최신 데이터가 아니면 최신 데이터로 폴백
+    if (targetDate && url !== SOURCE_URL) {
+      console.warn(`Failed to parse archive data for ${targetDate}: ${parseError?.message}, falling back to current`);
+      const fallbackRes = await fetch(SOURCE_URL, {
+        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+      });
+      if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
+      const fallbackHtml = await fallbackRes.text();
+      const $ = cheerio.load(fallbackHtml);
+      report = await parseH41Report($, SOURCE_URL);
+      console.warn(`Using current data instead of requested date ${targetDate}`);
+      return report;
+    }
+    // 최신 데이터 파싱 실패는 에러로 전파
+    throw new Error(`Failed to parse H.4.1 report: ${parseError?.message || String(parseError)}`);
+  }
   
   // 파싱된 데이터가 유효한지 확인 (모든 카드가 0이면 파싱 실패로 간주)
   const hasValidData = report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
-  if (!hasValidData && targetDate && url !== SOURCE_URL) {
-    console.warn(`Parsed data appears invalid for ${targetDate} (all zeros), falling back to current`);
-    const fallbackRes = await fetch(SOURCE_URL, {
-      headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
-    });
-    if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
-    const fallbackHtml = await fallbackRes.text();
-    const $ = cheerio.load(fallbackHtml);
-    const fallbackReport = await parseH41Report($, SOURCE_URL);
-    console.warn(`Using current data instead of requested date ${targetDate}`);
-    return fallbackReport;
+  if (!hasValidData) {
+    if (targetDate && url !== SOURCE_URL) {
+      console.warn(`Parsed data appears invalid for ${targetDate} (all zeros), falling back to current`);
+      const fallbackRes = await fetch(SOURCE_URL, {
+        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" }
+      });
+      if (!fallbackRes.ok) throw new Error(`Failed to fetch H.4.1: ${fallbackRes.status} ${fallbackRes.statusText}`);
+      const fallbackHtml = await fallbackRes.text();
+      const $ = cheerio.load(fallbackHtml);
+      const fallbackReport = await parseH41Report($, SOURCE_URL);
+      console.warn(`Using current data instead of requested date ${targetDate}`);
+      return fallbackReport;
+    }
+    // 최신 데이터가 모두 0이면 에러
+    throw new Error(`Parsed H.4.1 data appears invalid (all zeros) for ${url}`);
   }
   
-  console.log(`Successfully fetched H.4.1 report for ${targetDate || 'current'}, Week ended: ${report.asOfWeekEndedText}`);
+  console.log(`[H.4.1] Successfully fetched report for ${targetDate || 'current'}, Week ended: ${report.asOfWeekEndedText}`);
   return report;
 }
 
