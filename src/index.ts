@@ -24,6 +24,89 @@ app.get("/api/h41", async (req, res) => {
   }
 });
 
+// API: 최근 10회분 히스토리 데이터 (디버깅용)
+app.get("/api/h41/history", async (req, res) => {
+  try {
+    const releaseDates = await getFedReleaseDates();
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+    
+    const historicalData: Array<{
+      date: string;
+      assets: { treasury: number; mbs: number; repo: number; loans: number };
+      liabilities: { currency: number; rrp: number; tga: number; reserves: number };
+      error?: string;
+    }> = [];
+    
+    for (const dateStr of datesToFetch) {
+      try {
+        const histReport = await fetchH41Report(dateStr, releaseDates);
+        
+        if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+          historicalData.push({
+            date: dateStr,
+            assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+            liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+            error: "No cards found"
+          });
+          continue;
+        }
+        
+        const histAssets = {
+          treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+          mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+          repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+          loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+        };
+        const histLiabilities = {
+          currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+          rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+          tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+          reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+        };
+        
+        const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
+        const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
+        
+        if (totalAssets === 0 && totalLiabilities === 0) {
+          historicalData.push({
+            date: dateStr,
+            assets: histAssets,
+            liabilities: histLiabilities,
+            error: "All values are zero"
+          });
+          continue;
+        }
+        
+        historicalData.push({
+          date: dateStr,
+          assets: histAssets,
+          liabilities: histLiabilities,
+        });
+      } catch (e) {
+        historicalData.push({
+          date: dateStr,
+          assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+          liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+          error: e instanceof Error ? e.message : String(e)
+        });
+      }
+    }
+    
+    historicalData.sort((a, b) => b.date.localeCompare(a.date));
+    
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.json({
+      releaseDatesCount: releaseDates.length,
+      datesToFetch: datesToFetch,
+      fetchedCount: historicalData.filter(d => !d.error).length,
+      totalAttempts: datesToFetch.length,
+      data: historicalData
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
 // API: 텍스트(알림용)
 app.get("/api/h41.txt", async (_req, res) => {
   try {
@@ -1477,13 +1560,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     }> = [];
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
-    let datesToFetch: string[] = [];
+    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
+    const datesToFetch = releaseDates.length > 0 ? releaseDates.slice(0, Math.min(10, releaseDates.length)) : [];
+    
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] No release dates available!`);
     } else {
-      // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
-      // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-      datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
       // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
