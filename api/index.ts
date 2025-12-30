@@ -672,13 +672,23 @@ app.get("/", async (req, res) => {
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
     </div>
-    <div class="traffic-light-container">
-      <a href="/economic-indicators" class="traffic-light-link" title="${economicStatus ? escapeHtml(economicStatus.summary) : "경제 지표 데이터를 불러오는 중..."}">
-        <div class="traffic-light-circle" style="background:${trafficLightColor}"></div>
-        <div class="traffic-light-label">경제 진단</div>
-        <div class="traffic-light-label" style="color:${trafficLightColor};font-weight:700">${trafficLightText}</div>
-        ${economicStatus ? `<div class="traffic-light-score">점수: ${economicStatus.score}/100</div>` : ""}
-      </a>
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <div class="traffic-light-container">
+        <a href="/economic-indicators" class="traffic-light-link" title="${economicStatus ? escapeHtml(economicStatus.summary) : "경제 지표 데이터를 불러오는 중..."}">
+          <div class="traffic-light-circle" style="background:${trafficLightColor}"></div>
+          <div class="traffic-light-label">경제 진단</div>
+          <div class="traffic-light-label" style="color:${trafficLightColor};font-weight:700">${trafficLightText}</div>
+          ${economicStatus ? `<div class="traffic-light-score">점수: ${economicStatus.score}/100</div>` : ""}
+        </a>
+      </div>
+      <div class="traffic-light-container">
+        <a href="/secret-indicators" class="traffic-light-link" title="자본주의 내부 신경계를 해부하는 12개 선행 지표">
+          <div class="traffic-light-circle" style="background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%)"></div>
+          <div class="traffic-light-label">비밀지표</div>
+          <div class="traffic-light-label" style="color:#a78bfa;font-weight:700">12개</div>
+          <div class="traffic-light-score">선행지표</div>
+        </a>
+      </div>
     </div>
   </div>
   
