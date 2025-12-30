@@ -1431,7 +1431,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // 날짜 파라미터 확인
     const targetDate = req.query.date as string | undefined;
     
-    // FED 발표 날짜 목록 가져오기 (가장 가까운 날짜 찾기용)
+    // FED 발표 날짜 목록 가져오기 (가장 가까운 날짜 찾기용 및 최근 10회분용)
     const releaseDates = await getFedReleaseDates();
     
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
@@ -1473,9 +1473,6 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         </html>
       `);
     }
-    
-    // FED 발표 날짜 목록 가져오기
-    const releaseDates = await getFedReleaseDates();
     
     // 최근 10회분 데이터 가져오기 (항상 최신 10회분, 선택한 날짜와 무관)
     const historicalData: Array<{
