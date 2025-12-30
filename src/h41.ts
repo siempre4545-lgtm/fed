@@ -771,9 +771,76 @@ function findNearestThursday(targetDate: string): string {
 }
 
 /**
- * FED H.4.1 발표 날짜 목록 생성 (최근 52주 목요일)
+ * FED H.4.1 발표 날짜 목록 생성 (실제 FED 웹사이트에서 스크래핑)
  */
-export function getFedReleaseDates(): string[] {
+export async function getFedReleaseDates(): Promise<string[]> {
+  try {
+    const url = "https://www.federalreserve.gov/releases/h41/";
+    const response = await fetch(url, { 
+      headers: { "User-Agent": "h41-dashboard/1.0 (+cursor)" } 
+    });
+    
+    if (!response.ok) {
+      console.warn(`[H.4.1] Failed to fetch release dates from FED website, falling back to calculated dates`);
+      return getFedReleaseDatesFallback();
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    const dates: string[] = [];
+    
+    // "Release Date" 테이블에서 날짜 추출
+    $('table.release-date-table td a, table td a[href*="/h41/"]').each((_idx, element) => {
+      const href = $(element).attr('href');
+      const dateText = $(element).text().trim();
+      let dateFound = false;
+      
+      // href에서 날짜 추출 (예: /releases/h41/20251229/)
+      if (href) {
+        const dateMatch = href.match(/\/h41\/(\d{8})\//);
+        if (dateMatch) {
+          const dateStr = dateMatch[1];
+          const year = dateStr.substring(0, 4);
+          const month = dateStr.substring(4, 6);
+          const day = dateStr.substring(6, 8);
+          dates.push(`${year}-${month}-${day}`);
+          dateFound = true;
+        }
+      }
+      
+      // 또는 텍스트에서 날짜 파싱
+      if (!dateFound && dateText) {
+        try {
+          const date = new Date(dateText);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
+          }
+        } catch (e) {
+          // 날짜 파싱 실패 시 무시
+        }
+      }
+    });
+    
+    // 중복 제거 및 정렬 (최신부터)
+    const uniqueDates = Array.from(new Set(dates));
+    uniqueDates.sort((a, b) => b.localeCompare(a));
+    
+    // 최대 52주치만 반환
+    return uniqueDates.slice(0, 52);
+  } catch (e) {
+    console.warn(`[H.4.1] Error fetching release dates from FED website: ${e}, falling back to calculated dates`);
+    return getFedReleaseDatesFallback();
+  }
+}
+
+/**
+ * FED H.4.1 발표 날짜 목록 생성 (계산된 목요일 - Fallback)
+ */
+function getFedReleaseDatesFallback(): string[] {
   const dates: string[] = [];
   const now = new Date();
   

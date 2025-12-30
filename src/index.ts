@@ -80,7 +80,7 @@ app.get("/", async (req, res) => {
     }
     
     // FED 발표 날짜 목록 가져오기
-    const releaseDates = getFedReleaseDates();
+    const releaseDates = await getFedReleaseDates();
     
     // 경제 지표 수집 및 진단
     let economicStatus = null;
@@ -607,8 +607,8 @@ app.get("/", async (req, res) => {
   
   <script>
     function loadDate() {
-      const dateInput = document.getElementById('dateInput') as HTMLInputElement;
-      const selectedDate = dateInput?.value;
+      const dateInput = document.getElementById('dateInput');
+      const selectedDate = dateInput ? dateInput.value : null;
       if (selectedDate) {
         window.location.href = '/?date=' + selectedDate;
       } else {
@@ -1462,7 +1462,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     }
     
     // FED 발표 날짜 목록 가져오기
-    const releaseDates = getFedReleaseDates();
+    const releaseDates = await getFedReleaseDates();
     
     // 최근 10회분 데이터 가져오기 (선택한 날짜 기준)
     const historicalData: Array<{
@@ -1803,8 +1803,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   
   <script>
     function loadDate() {
-      const dateInput = document.getElementById('dateInput') as HTMLInputElement;
-      const selectedDate = dateInput?.value;
+      const dateInput = document.getElementById('dateInput');
+      const selectedDate = dateInput ? dateInput.value : null;
       if (selectedDate) {
         window.location.href = '/economic-indicators/fed-assets-liabilities?date=' + selectedDate;
       } else {
