@@ -1896,81 +1896,35 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         <table class="history-table">
           <thead>
             <tr>
-              <th class="sticky-col">항목</th>
-              ${historicalData.map((item) => {
-                const dateObj = new Date(item.date);
-                const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                return `<th>${formattedDate}</th>`;
-              }).join('')}
+              <th class="sticky-col">날짜</th>
+              <th class="asset-col">국채 (조)</th>
+              <th class="asset-col">MBS (조)</th>
+              <th class="asset-col">리포 (조)</th>
+              <th class="asset-col">대출 (조)</th>
+              <th class="liability-col">통화발행 (조)</th>
+              <th class="liability-col">역리포 (조)</th>
+              <th class="liability-col">TGA (조)</th>
+              <th class="liability-col">지준금 (조)</th>
             </tr>
           </thead>
           <tbody>
-            <!-- 자산 4개 행 -->
-            <tr class="asset-row">
-              <td class="sticky-col asset-label">국채 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.assets.treasury / 1000).toFixed(1);
-                const originalValue = item.assets.treasury;
-                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
+            ${historicalData.map((item) => {
+              const dateObj = new Date(item.date);
+              const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              return `
+            <tr>
+              <td class="sticky-col">${formattedDate}</td>
+              <td class="asset-cell" data-value="${item.assets.treasury}">$${(item.assets.treasury / 1000).toFixed(1)}</td>
+              <td class="asset-cell" data-value="${item.assets.mbs}">$${(item.assets.mbs / 1000).toFixed(1)}</td>
+              <td class="asset-cell" data-value="${item.assets.repo}">$${(item.assets.repo / 1000).toFixed(1)}</td>
+              <td class="asset-cell" data-value="${item.assets.loans}">$${(item.assets.loans / 1000).toFixed(1)}</td>
+              <td class="liability-cell" data-value="${item.liabilities.currency}">$${(item.liabilities.currency / 1000).toFixed(1)}</td>
+              <td class="liability-cell" data-value="${item.liabilities.rrp}">$${(item.liabilities.rrp / 1000).toFixed(1)}</td>
+              <td class="liability-cell" data-value="${item.liabilities.tga}">$${(item.liabilities.tga / 1000).toFixed(1)}</td>
+              <td class="liability-cell" data-value="${item.liabilities.reserves}">$${(item.liabilities.reserves / 1000).toFixed(1)}</td>
             </tr>
-            <tr class="asset-row">
-              <td class="sticky-col asset-label">MBS (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.assets.mbs / 1000).toFixed(1);
-                const originalValue = item.assets.mbs;
-                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <tr class="asset-row">
-              <td class="sticky-col asset-label">리포 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.assets.repo / 1000).toFixed(1);
-                const originalValue = item.assets.repo;
-                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <tr class="asset-row">
-              <td class="sticky-col asset-label">대출 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.assets.loans / 1000).toFixed(1);
-                const originalValue = item.assets.loans;
-                return `<td class="asset-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <!-- 부채 4개 행 -->
-            <tr class="liability-row">
-              <td class="sticky-col liability-label">통화발행 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.liabilities.currency / 1000).toFixed(1);
-                const originalValue = item.liabilities.currency;
-                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <tr class="liability-row">
-              <td class="sticky-col liability-label">역리포 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.liabilities.rrp / 1000).toFixed(1);
-                const originalValue = item.liabilities.rrp;
-                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <tr class="liability-row">
-              <td class="sticky-col liability-label">TGA (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.liabilities.tga / 1000).toFixed(1);
-                const originalValue = item.liabilities.tga;
-                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
-            <tr class="liability-row">
-              <td class="sticky-col liability-label">지준금 (조)</td>
-              ${historicalData.map((item) => {
-                const value = (item.liabilities.reserves / 1000).toFixed(1);
-                const originalValue = item.liabilities.reserves;
-                return `<td class="liability-cell" data-value="${originalValue}">$${value}</td>`;
-              }).join('')}
-            </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
