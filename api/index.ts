@@ -1565,12 +1565,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     }> = [];
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates from getFedReleaseDates`);
+    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
+    const datesToFetch = releaseDates.length > 0 ? releaseDates.slice(0, Math.min(10, releaseDates.length)) : [];
+    
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] No release dates available!`);
     } else {
-      // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
-      // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-      const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
       // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
