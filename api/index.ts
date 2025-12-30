@@ -1430,9 +1430,14 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   try {
     // 날짜 파라미터 확인
     const targetDate = req.query.date as string | undefined;
+    
+    // FED 발표 날짜 목록 가져오기 (가장 가까운 날짜 찾기용)
+    const releaseDates = await getFedReleaseDates();
+    
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
     try {
-      report = await fetchH41Report(targetDate);
+      // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+      report = await fetchH41Report(targetDate, releaseDates);
     } catch (error: any) {
       // 아카이브 데이터 가져오기 실패 시 에러 메시지 표시
       const errorMessage = error?.message || String(error);
@@ -1472,7 +1477,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // FED 발표 날짜 목록 가져오기
     const releaseDates = await getFedReleaseDates();
     
-    // 최근 10회분 데이터 가져오기 (선택한 날짜 기준)
+    // 최근 10회분 데이터 가져오기 (항상 최신 10회분, 선택한 날짜와 무관)
     const historicalData: Array<{
       date: string;
       assets: { treasury: number; mbs: number; repo: number; loans: number };
@@ -1485,7 +1490,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     for (let i = startIndex; i < endIndex; i++) {
       try {
-        const histReport = await fetchH41Report(releaseDates[i]);
+        // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+        const histReport = await fetchH41Report(releaseDates[i], releaseDates);
         const histAssets = {
           treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
           mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
@@ -1505,6 +1511,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         });
       } catch (e) {
         console.error(`Failed to fetch historical data for ${releaseDates[i]}:`, e);
+        // 실패해도 계속 진행 (다음 날짜 시도)
       }
     }
     

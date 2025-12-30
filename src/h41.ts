@@ -876,9 +876,11 @@ function getFedReleaseDatesFallback(): string[] {
 /**
  * 특정 날짜의 H.4.1 리포트 가져오기
  * @param targetDate 선택적 날짜 (YYYY-MM-DD 형식), 없으면 최신 데이터
+ * @param availableDates 사용 가능한 날짜 목록 (가장 가까운 날짜 찾기용)
  * 선택한 날짜에서 가장 가까운 목요일의 데이터를 가져옵니다.
+ * 해당 날짜를 찾을 수 없으면 availableDates에서 가장 가까운 날짜를 시도합니다.
  */
-export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
+export async function fetchH41Report(targetDate?: string, availableDates?: string[]): Promise<H41Report> {
   let url = SOURCE_URL;
   let thursdayDate: string | undefined;
   

@@ -40,9 +40,14 @@ app.get("/", async (req, res) => {
   try {
     // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
     const targetDate = req.query.date as string | undefined;
+    
+    // FED 발표 날짜 목록 가져오기 (가장 가까운 날짜 찾기용)
+    const releaseDates = await getFedReleaseDates();
+    
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
     try {
-      report = await fetchH41Report(targetDate);
+      // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
+      report = await fetchH41Report(targetDate, releaseDates);
     } catch (error: any) {
       // 아카이브 데이터 가져오기 실패 시 에러 메시지 표시
       const errorMessage = error?.message || String(error);
