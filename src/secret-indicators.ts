@@ -25,6 +25,7 @@ export type SecretIndicator = {
  */
 async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: number; previousValue: number; date: string } | null> {
   try {
+    // FRED API 키가 없으면 demo 키 사용 (제한적)
     const apiKey = process.env.FRED_API_KEY || "demo";
     const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&limit=${limit}&sort_order=desc`;
     
@@ -35,10 +36,23 @@ async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: 
     
     if (!response.ok) {
       console.warn(`FRED API error for ${seriesId}: ${response.status}`);
+      // API 키가 없거나 제한에 걸린 경우, 웹 스크래핑 시도
+      if (response.status === 403 || response.status === 429) {
+        console.warn(`FRED API rate limit or authentication issue for ${seriesId}, trying web scraping fallback`);
+        return await fetchFREDWebScraping(seriesId);
+      }
       return null;
     }
     
     const data = await response.json();
+    
+    // FRED API 에러 응답 확인
+    if (data.error_code) {
+      console.warn(`FRED API error for ${seriesId}: ${data.error_message || data.error_code}`);
+      // 웹 스크래핑 fallback 시도
+      return await fetchFREDWebScraping(seriesId);
+    }
+    
     const observations = data.observations || [];
     
     if (observations.length < 2) {
@@ -48,6 +62,12 @@ async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: 
     
     const latest = observations[0];
     const previous = observations[1];
+    
+    // "." 값은 데이터 없음을 의미
+    if (latest.value === "." || previous.value === ".") {
+      console.warn(`Missing data for ${seriesId}`);
+      return null;
+    }
     
     const value = parseFloat(latest.value);
     const previousValue = parseFloat(previous.value);
@@ -63,6 +83,37 @@ async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: 
     };
   } catch (error) {
     console.error(`Failed to fetch FRED data for ${seriesId}:`, error);
+    // 웹 스크래핑 fallback 시도
+    return await fetchFREDWebScraping(seriesId);
+  }
+}
+
+/**
+ * FRED 웹 스크래핑 fallback (API 키가 없거나 제한에 걸린 경우)
+ */
+async function fetchFREDWebScraping(seriesId: string): Promise<{ value: number; previousValue: number; date: string } | null> {
+  try {
+    const url = `https://fred.stlouisfed.org/series/${seriesId}`;
+    const response = await fetch(url, {
+      headers: { "User-Agent": "h41-dashboard/1.0" },
+      cache: "no-store"
+    });
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const html = await response.text();
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    // FRED 페이지에서 최신 데이터 추출 시도
+    // 실제 구조에 맞게 파싱 로직 구현 필요
+    // TODO: FRED 웹 페이지 구조 분석 후 파싱 로직 구현
+    console.warn(`FRED web scraping for ${seriesId} not yet implemented`);
+    return null;
+  } catch (error) {
+    console.error(`Failed to scrape FRED data for ${seriesId}:`, error);
     return null;
   }
 }
