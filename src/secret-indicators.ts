@@ -68,6 +68,77 @@ async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: 
 }
 
 /**
+ * Cross Currency Basis 데이터 가져오기 (MacroMicro 또는 Bloomberg)
+ * 참고: 실제 구현은 공개 API가 필요하지만, 여기서는 예시로 구현
+ */
+async function fetchCrossCurrencyBasis(): Promise<{ value: number; previousValue: number; date: string } | null> {
+  try {
+    // MacroMicro는 유료 API이므로, 실제로는 웹 스크래핑이나 다른 공개 소스를 사용해야 함
+    // 참고: Bloomberg Terminal이나 Refinitiv Eikon 같은 유료 플랫폼에서도 제공
+    // 여기서는 예시로 null 반환 (실제 구현 필요)
+    // TODO: MacroMicro API 또는 웹 스크래핑 구현 필요
+    console.warn("Cross Currency Basis: Data source requires API key or web scraping");
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Cross Currency Basis:", error);
+    return null;
+  }
+}
+
+/**
+ * 프라이머리 딜러 포지션 데이터 가져오기 (NY Fed)
+ */
+async function fetchPrimaryDealerPositioning(): Promise<{ value: number; previousValue: number; date: string } | null> {
+  try {
+    // NY Fed Primary Dealer Statistics는 CSV나 JSON 형식으로 데이터를 제공
+    // 실제 URL: https://www.newyorkfed.org/markets/counterparties/primary-dealers-statistics
+    // 데이터는 주로 "Net Position" 또는 "Total Position" 같은 지표를 사용
+    // NY Fed API를 통해 데이터 가져오기 시도
+    const url = "https://www.newyorkfed.org/markets/counterparties/primary-dealers-statistics";
+    
+    const response = await fetch(url, {
+      headers: { "User-Agent": "h41-dashboard/1.0" },
+      cache: "no-store"
+    });
+    
+    if (!response.ok) {
+      console.warn(`NY Fed API error: ${response.status}`);
+      return null;
+    }
+    
+    // HTML 파싱을 위해 cheerio 사용
+    const cheerio = await import("cheerio");
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    // TODO: 실제 데이터 구조에 맞게 파싱 로직 구현 필요
+    // NY Fed는 CSV 다운로드 링크를 제공할 수 있으므로, 해당 링크를 찾아서 파싱
+    console.warn("Primary Dealer Positioning: Data parsing logic needs to be implemented based on actual NY Fed data structure");
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Primary Dealer Positioning:", error);
+    return null;
+  }
+}
+
+/**
+ * 국가 CDS vs 환율 괴리 데이터 가져오기
+ */
+async function fetchSovereignRiskGap(): Promise<{ value: number; previousValue: number; date: string } | null> {
+  try {
+    // worldgovernmentbonds.com 또는 indexergo.com에서 데이터 가져오기
+    // CDS 스프레드와 환율 데이터를 비교하여 괴리를 계산
+    // 참고: 이 사이트들은 웹 스크래핑이 필요할 수 있음
+    // TODO: 웹 스크래핑 로직 구현 필요
+    console.warn("Sovereign Risk Gap: Data source requires web scraping");
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Sovereign Risk Gap:", error);
+    return null;
+  }
+}
+
+/**
  * 지표별 해석 생성
  */
 function generateInterpretation(
@@ -385,28 +456,41 @@ export async function fetchAllSecretIndicators(): Promise<SecretIndicator[]> {
   
   // FRED API로 데이터 가져오기
   for (const indicator of indicators) {
-    if (indicator.fredSeriesId) {
-      try {
-        const data = await fetchFRED(indicator.fredSeriesId);
-        if (data) {
-          indicator.value = data.value;
-          indicator.previousValue = data.previousValue;
-          indicator.change = data.value - data.previousValue;
-          indicator.changePercent = ((data.value - data.previousValue) / data.previousValue) * 100;
-          indicator.lastUpdated = data.date;
-          indicator.trend = indicator.change > 0 ? "up" : indicator.change < 0 ? "down" : "neutral";
-          indicator.riskLevel = determineRiskLevel(indicator, indicator.change, indicator.changePercent);
-          indicator.interpretation = generateInterpretation(
-            indicator,
-            data.value,
-            data.previousValue,
-            indicator.change,
-            indicator.changePercent
-          );
-        }
-      } catch (error) {
-        console.error(`Failed to fetch ${indicator.name}:`, error);
+    try {
+      let data: { value: number; previousValue: number; date: string } | null = null;
+      
+      if (indicator.fredSeriesId) {
+        // FRED API 사용
+        data = await fetchFRED(indicator.fredSeriesId);
+      } else if (indicator.id === "cross_currency_basis") {
+        // Cross Currency Basis는 별도 함수 사용
+        data = await fetchCrossCurrencyBasis();
+      } else if (indicator.id === "primary_dealer_positioning") {
+        // 프라이머리 딜러 포지션은 별도 함수 사용
+        data = await fetchPrimaryDealerPositioning();
+      } else if (indicator.id === "sovereign_risk_gap") {
+        // 국가 CDS vs 환율 괴리는 별도 함수 사용
+        data = await fetchSovereignRiskGap();
       }
+      
+      if (data) {
+        indicator.value = data.value;
+        indicator.previousValue = data.previousValue;
+        indicator.change = data.value - data.previousValue;
+        indicator.changePercent = ((data.value - data.previousValue) / data.previousValue) * 100;
+        indicator.lastUpdated = data.date;
+        indicator.trend = indicator.change > 0 ? "up" : indicator.change < 0 ? "down" : "neutral";
+        indicator.riskLevel = determineRiskLevel(indicator, indicator.change, indicator.changePercent);
+        indicator.interpretation = generateInterpretation(
+          indicator,
+          data.value,
+          data.previousValue,
+          indicator.change,
+          indicator.changePercent
+        );
+      }
+    } catch (error) {
+      console.error(`Failed to fetch ${indicator.name}:`, error);
     }
   }
   
