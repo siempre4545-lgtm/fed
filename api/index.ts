@@ -1639,9 +1639,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
     
-    // 최신 날짜부터 10회분 가져오기 (항상 최신 10회분)
-    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개를 사용
-    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+    // 최신 날짜부터 가져오기 (더보기 기능을 위해 최대 52주치 데이터)
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 52개를 사용
+    const datesToFetch = releaseDates.slice(0, Math.min(52, releaseDates.length));
     
     if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
@@ -2255,7 +2255,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         btn.style.display = 'none';
       } else if (btn) {
         const remaining = rows.length - visibleCount - 10;
-        btn.textContent = remaining > 0 ? `더보기 (${remaining}개 더)` : '더보기';
+        btn.textContent = remaining > 0 ? '더보기 (' + remaining + '개 더)' : '더보기';
       }
     }
   </script>
