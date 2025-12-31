@@ -534,7 +534,8 @@ app.get("/", async (req, res) => {
     .date-selector .reset-btn:hover{background:#2d2d2d;color:#c0c0c0}
     
     /* 신호등 UI */
-    .traffic-light-container{position:relative;margin-left:20px}
+    .header-right-buttons{display:flex;gap:12px;align-items:flex-start;flex-shrink:0}
+    .traffic-light-container{position:relative}
     .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px}
     .traffic-light-link:hover{background:#252525;border-color:#3d3d3d;transform:translateY(-2px)}
     .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1)}
@@ -642,6 +643,13 @@ app.get("/", async (req, res) => {
     @media (max-width: 768px) {
       .cards-grid{grid-template-columns:1fr}
       .signal-detail{flex-direction:column;gap:8px}
+      .page-header{flex-direction:column;align-items:stretch}
+      .header-right-buttons{margin-top:16px;justify-content:center;gap:8px}
+      .traffic-light-container{flex:1;max-width:calc(50% - 4px)}
+      .traffic-light-link{padding:10px 12px;min-width:auto}
+      .traffic-light-circle{width:28px;height:28px;margin-bottom:6px}
+      .traffic-light-label{font-size:11px}
+      .traffic-light-score{font-size:9px}
     }
   </style>
 </head>
@@ -672,7 +680,7 @@ app.get("/", async (req, res) => {
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
     </div>
-    <div style="display:flex;gap:12px;align-items:flex-start">
+    <div class="header-right-buttons">
       <div class="traffic-light-container">
         <a href="/economic-indicators" class="traffic-light-link" title="${economicStatus ? escapeHtml(economicStatus.summary) : "경제 지표 데이터를 불러오는 중..."}">
           <div class="traffic-light-circle" style="background:${trafficLightColor}"></div>
@@ -2050,26 +2058,28 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       <div class="analysis-content">${escapeHtml(analysis)}</div>
     </div>
     
-    <!-- 최근 10회분 추이 테이블 -->
+    <!-- 최근 자산.부채 추이 테이블 -->
     <div class="history-table-section">
-      <div class="history-table-title">최근 10회분 추이 📈</div>
+      <div class="history-table-title">최근 자산.부채 추이 📈</div>
       ${historicalData.length > 0 ? `
       <div class="history-table-wrapper">
-        <table class="history-table">
+        <table class="history-table" id="historyTable">
           <thead>
             <tr>
               <th class="sticky-col">날짜</th>
+              <th class="asset-col">자산 합계 (조)</th>
               <th class="asset-col">국채 (조)</th>
               <th class="asset-col">MBS (조)</th>
               <th class="asset-col">리포 (조)</th>
               <th class="asset-col">대출 (조)</th>
+              <th class="liability-col">부채 합계 (조)</th>
               <th class="liability-col">통화발행 (조)</th>
               <th class="liability-col">역리포 (조)</th>
               <th class="liability-col">TGA (조)</th>
               <th class="liability-col">지준금 (조)</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="historyTableBody">
             ${historicalData.map((item, index) => {
               const dateObj = new Date(item.date);
               const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -2077,18 +2087,29 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               // 이전 날짜 데이터 (다음 인덱스, 더 오래된 날짜)
               const prevItem = index < historicalData.length - 1 ? historicalData[index + 1] : null;
               
-              // 증감 계산 함수
+              // 자산 합계 계산
+              const totalAssets = item.assets.treasury + item.assets.mbs + item.assets.repo + item.assets.loans;
+              const prevTotalAssets = prevItem ? (prevItem.assets.treasury + prevItem.assets.mbs + prevItem.assets.repo + prevItem.assets.loans) : null;
+              
+              // 부채 합계 계산
+              const totalLiabilities = item.liabilities.currency + item.liabilities.rrp + item.liabilities.tga + item.liabilities.reserves;
+              const prevTotalLiabilities = prevItem ? (prevItem.liabilities.currency + prevItem.liabilities.rrp + prevItem.liabilities.tga + prevItem.liabilities.reserves) : null;
+              
+              // 증감 계산 함수 (퍼센테이지 제거, 숫자만 표시)
               const getChangeDisplay = (current: number, previous: number | null) => {
                 if (previous === null || previous === 0) return '';
                 const change = current - previous;
-                const changePercent = (change / previous) * 100;
                 const sign = change >= 0 ? '+' : '';
-                return `<div style="font-size:11px;color:${change >= 0 ? '#059669' : '#dc2626'};margin-top:2px">${sign}${(change / 1000).toFixed(1)} (${sign}${changePercent.toFixed(2)}%)</div>`;
+                return `<div style="font-size:11px;color:${change >= 0 ? '#059669' : '#dc2626'};margin-top:2px">${sign}${(change / 1000).toFixed(1)}</div>`;
               };
               
               return `
-            <tr>
+            <tr class="history-row" ${index >= 10 ? 'style="display:none"' : ''}>
               <td class="sticky-col">${formattedDate}</td>
+              <td class="asset-cell" data-value="${totalAssets}">
+                $${(totalAssets / 1000).toFixed(1)}
+                ${getChangeDisplay(totalAssets, prevTotalAssets)}
+              </td>
               <td class="asset-cell" data-value="${item.assets.treasury}">
                 $${(item.assets.treasury / 1000).toFixed(1)}
                 ${getChangeDisplay(item.assets.treasury, prevItem?.assets.treasury || null)}
@@ -2104,6 +2125,10 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               <td class="asset-cell" data-value="${item.assets.loans}">
                 $${(item.assets.loans / 1000).toFixed(1)}
                 ${getChangeDisplay(item.assets.loans, prevItem?.assets.loans || null)}
+              </td>
+              <td class="liability-cell" data-value="${totalLiabilities}">
+                $${(totalLiabilities / 1000).toFixed(1)}
+                ${getChangeDisplay(totalLiabilities, prevTotalLiabilities)}
               </td>
               <td class="liability-cell" data-value="${item.liabilities.currency}">
                 $${(item.liabilities.currency / 1000).toFixed(1)}
@@ -2127,6 +2152,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </tbody>
         </table>
       </div>
+      ${historicalData.length > 10 ? `
+      <div style="text-align:center;margin-top:20px">
+        <button id="loadMoreBtn" onclick="loadMoreHistory()" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
+          더보기 (${historicalData.length - 10}개 더)
+        </button>
+      </div>
+      ` : ''}
       ` : `
       <div style="padding: 40px; text-align: center; color: #6b7280; font-size: 14px;">
         데이터를 불러오는 중입니다...<br/>
@@ -2193,6 +2225,38 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     function resetDate() {
       window.location.href = '/economic-indicators/fed-assets-liabilities';
+    }
+    
+    function loadMoreHistory() {
+      const rows = document.querySelectorAll('.history-row');
+      const btn = document.getElementById('loadMoreBtn');
+      let visibleCount = 0;
+      
+      rows.forEach(row => {
+        if (row.style.display !== 'none') {
+          visibleCount++;
+        }
+      });
+      
+      // 다음 10개씩 보이기
+      for (let i = visibleCount; i < Math.min(visibleCount + 10, rows.length); i++) {
+        rows[i].style.display = '';
+      }
+      
+      // 모든 행이 보이면 버튼 숨기기
+      let allVisible = true;
+      rows.forEach(row => {
+        if (row.style.display === 'none') {
+          allVisible = false;
+        }
+      });
+      
+      if (allVisible && btn) {
+        btn.style.display = 'none';
+      } else if (btn) {
+        const remaining = rows.length - visibleCount - 10;
+        btn.textContent = remaining > 0 ? `더보기 (${remaining}개 더)` : '더보기';
+      }
     }
   </script>
 </body>
