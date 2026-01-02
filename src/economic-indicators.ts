@@ -1797,6 +1797,9 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
   // 종합해석 생성
   const comprehensiveAnalysis = await generateComprehensiveAnalysis(indicator, indicators, relatedIndicators);
   
+  // 개념 설명 생성
+  const concept = generateIndicatorConcept(indicator);
+  
   return {
     indicator,
     history,
@@ -1805,6 +1808,7 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
     newsComment,
     relatedIndicators,
     comprehensiveAnalysis,
+    concept,
   };
 }
 
