@@ -4,6 +4,7 @@
  */
 
 import { fetchRelatedNews } from "./news.js";
+import { generateIndicatorConcept } from "./economic-indicators-concept.js";
 
 export type EconomicIndicator = {
   category: string;
