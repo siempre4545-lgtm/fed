@@ -1328,6 +1328,8 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
   analysis: string; // 통합된 자연스러운 분석 문장
   relatedNews?: Array<{ title: string; source: string; publishedAt: string }>;
   newsComment?: string;
+  relatedIndicators?: Array<{ id: string; name: string; category: string }>; // 연관 지표
+  comprehensiveAnalysis?: string; // 종합해석
 }> {
   const indicators = await fetchAllEconomicIndicators();
   const indicator = indicators.find(ind => ind.id === indicatorId) || null;
