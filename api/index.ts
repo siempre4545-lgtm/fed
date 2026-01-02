@@ -2766,6 +2766,27 @@ app.get("/economic-indicators/:id", async (req, res) => {
       <div class="analysis-text">${escapeHtml(detail.analysis)}</div>
     </div>
     
+    ${relatedIndicators.length > 0 ? `
+    <div class="related-indicators-section">
+      <div class="related-indicators-title">연관 지표 바로가기 🔗</div>
+      <div class="related-indicators-list">
+        ${relatedIndicators.map((ri: any) => `
+          <a href="/economic-indicators/${ri.id}" class="related-indicator-link">
+            ${escapeHtml(ri.name)}
+            <span class="related-indicator-category">(${escapeHtml(ri.category)})</span>
+          </a>
+        `).join("")}
+      </div>
+    </div>
+    ` : ""}
+    
+    ${comprehensiveAnalysis ? `
+    <div class="comprehensive-analysis-section">
+      <div class="comprehensive-analysis-title">종합해석 📊</div>
+      <div class="comprehensive-analysis-text">${escapeHtml(comprehensiveAnalysis)}</div>
+    </div>
+    ` : ""}
+    
     ${detail.relatedNews && detail.relatedNews.length > 0 ? `
     <div class="news-section-detail">
       <div class="news-section-title">최근 뉴스 항목</div>

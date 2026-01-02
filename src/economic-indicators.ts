@@ -1139,11 +1139,29 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   // 신용 지표
   const highYieldSpread = await fetchHighYieldSpread();
   
-  // 한국 CDS를 신용 카테고리에 추가
-  if (koreaCDS) {
+  // M2 추가
+  const m2 = await fetchFRED("M2SL", 30);
+  if (m2) {
     indicators.push({
       category: "신용",
-      name: "한국 CDS 프리미엄",
+      name: "M2 (통화량)",
+      symbol: "M2SL",
+      value: m2.value,
+      change: m2.change,
+      changePercent: m2.changePercent,
+      unit: "십억 달러",
+      lastUpdated: now,
+      source: "FRED",
+      history: m2.history,
+      id: "m2",
+    });
+  }
+  
+  // 한국 CDS를 금리 카테고리에 추가 (요청사항에 따라)
+  if (koreaCDS) {
+    indicators.push({
+      category: "금리",
+      name: "대한민국 은행 CDS 프리미엄",
       symbol: "KRW-CDS",
       value: koreaCDS.value,
       change: koreaCDS.change,
@@ -1151,7 +1169,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       unit: "bp",
       lastUpdated: now,
       source: "KCIF",
-      id: "korea-cds",
+      id: "korea-bank-cds",
     });
   } else {
     console.warn("Korea CDS data not available");
@@ -1171,8 +1189,46 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-  // FRED 데이터는 API 키가 필요하므로 주석 처리
-  // 실제 구현 시 FRED API 키를 환경 변수로 설정 필요
+  // 기타 카테고리 지표
+  const [unemploymentRate, stlfsi4] = await Promise.all([
+    fetchFRED("UNRATE", 30), // 실업률
+    fetchFRED("STLFSI4", 30), // STLFSI4
+  ]);
+  
+  if (unemploymentRate) {
+    indicators.push({
+      category: "기타",
+      name: "미국 실업률 - Unemployment Rate",
+      symbol: "UNRATE",
+      value: unemploymentRate.value,
+      change: unemploymentRate.change,
+      changePercent: unemploymentRate.changePercent,
+      unit: "%",
+      lastUpdated: now,
+      source: "FRED",
+      history: unemploymentRate.history,
+      id: "unemployment-rate",
+    });
+  }
+  
+  if (stlfsi4) {
+    indicators.push({
+      category: "기타",
+      name: "STLFSI4",
+      symbol: "STLFSI4",
+      value: stlfsi4.value,
+      change: stlfsi4.change,
+      changePercent: stlfsi4.changePercent,
+      unit: "지수",
+      lastUpdated: now,
+      source: "FRED",
+      history: stlfsi4.history,
+      id: "stlfsi4",
+    });
+  }
+  
+  // ISM 제조업 지수와 소비자신뢰지수는 웹 스크래핑 필요 (나중에 구현)
+  // TODO: ISM 제조업 지수와 소비자신뢰지수 추가
   
   return indicators;
 }
@@ -1608,6 +1664,8 @@ function getRelatedIndicators(indicatorId: string, allIndicators: EconomicIndica
     "m2": ["fed-funds-rate", "sp500"],
     "high-yield-spread": ["fed-funds-rate", "sp500", "vix"],
     "korea-bank-cds": ["fed-funds-rate", "dxy"],
+    "m2": ["fed-funds-rate", "sp500"],
+    "unemployment-rate": ["initial-jobless-claims", "fed-funds-rate"],
     "stlfsi4": ["fed-funds-rate", "vix", "sp500"],
   };
   
