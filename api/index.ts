@@ -1028,7 +1028,7 @@ app.get("/economic-indicators", async (_req, res) => {
     indicatorsByCategory["FED자산/부채"] = [];
     
     // 카테고리 순서 정의 (FED자산/부채를 첫 번째로)
-    const categoryOrder = ["FED자산/부채", "금리", "지수", "심리", "신용"];
+    const categoryOrder = ["FED자산/부채", "금리", "지수", "심리", "신용", "기타"];
     const orderedCategories = categoryOrder.filter(cat => indicatorsByCategory[cat] !== undefined);
     const otherCategories = Object.keys(indicatorsByCategory).filter(cat => !categoryOrder.includes(cat));
     const finalCategoryOrder = [...orderedCategories, ...otherCategories];
@@ -2521,6 +2521,10 @@ app.get("/economic-indicators/:id", async (req, res) => {
       : "#adb5bd";
     const changeSign = ind.changePercent !== null && ind.changePercent > 0 ? "+" : "";
     
+    // 연관 지표와 종합해석
+    const relatedIndicators = detail.relatedIndicators || [];
+    const comprehensiveAnalysis = detail.comprehensiveAnalysis || "";
+    
     // 차트 데이터 준비
     const chartData = detail.history.map(h => ({
       date: h.date,
@@ -2584,6 +2588,17 @@ app.get("/economic-indicators/:id", async (req, res) => {
     .analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
     .analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
     .analysis-text strong{color:#ffffff;font-weight:700}
+    
+    .related-indicators-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .related-indicators-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .related-indicators-list{display:flex;flex-wrap:wrap;gap:12px}
+    .related-indicator-link{padding:10px 16px;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;color:#4dabf7;text-decoration:none;font-size:14px;font-weight:600;transition:all 0.2s}
+    .related-indicator-link:hover{background:#252525;border-color:#4dabf7;color:#74c0fc}
+    .related-indicator-category{font-size:11px;color:#808080;margin-left:8px}
+    
+    .comprehensive-analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .comprehensive-analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .comprehensive-analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
     
     .news-section-detail{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .news-section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}

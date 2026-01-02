@@ -728,11 +728,13 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   
   // FRED 데이터는 별도로 가져오기 (API 키 필요 시)
   // 기준금리: DFF (Federal Funds Effective Rate) 또는 DFEDTARU (Target Upper Bound)
-  const [fedFundsRate_DFF, fedFundsRate_TARU, treasury10Y_FRED, treasury2Y_FRED] = await Promise.all([
+  const [fedFundsRate_DFF, fedFundsRate_TARU, treasury10Y_FRED, treasury2Y_FRED, sofr, onRrp] = await Promise.all([
     fetchFRED("DFF", 30), // 기준금리 - Effective Rate (히스토리 포함)
     fetchFRED("DFEDTARU", 30), // 기준금리 - Target Upper Bound (상단금리, 히스토리 포함)
     fetchFRED("DGS10", 30), // 10년물 (히스토리 포함)
     fetchFRED("DGS2", 30), // 2년물 (히스토리 포함)
+    fetchFRED("SOFR", 30), // SOFR 금리 (히스토리 포함)
+    fetchFRED("RRPONTSYD", 30), // ON RRP (히스토리 포함)
   ]);
   
   // 상단금리(Target Upper Bound) 우선, 없으면 Effective Rate 사용
@@ -797,6 +799,40 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       source: "FRED",
       history: fedFundsRate.history,
       id: "fed-funds-rate",
+    });
+  }
+  
+  // SOFR 추가
+  if (sofr) {
+    indicators.push({
+      category: "금리",
+      name: "USD SOFR (미국 달러 SOFR 금리)",
+      symbol: "SOFR",
+      value: sofr.value,
+      change: sofr.change,
+      changePercent: sofr.changePercent,
+      unit: "%",
+      lastUpdated: now,
+      source: "FRED",
+      history: sofr.history,
+      id: "sofr",
+    });
+  }
+  
+  // ON RRP 추가
+  if (onRrp) {
+    indicators.push({
+      category: "금리",
+      name: "ON RRP",
+      symbol: "RRPONTSYD",
+      value: onRrp.value,
+      change: onRrp.change,
+      changePercent: onRrp.changePercent,
+      unit: "십억 달러",
+      lastUpdated: now,
+      source: "FRED",
+      history: onRrp.history,
+      id: "on-rrp",
     });
   }
   
@@ -1340,7 +1376,7 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
         } catch (e) {
           console.error(`Failed to fetch yield spread history:`, e);
         }
-      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU" || indicator.symbol === "ICSA") {
+      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU" || indicator.symbol === "ICSA" || indicator.symbol === "SOFR" || indicator.symbol === "RRPONTSYD" || indicator.symbol === "M2SL" || indicator.symbol === "UNRATE" || indicator.symbol === "STLFSI4") {
         fredSeriesId = indicator.symbol;
       }
       
@@ -1535,7 +1571,137 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
     analysis,
     relatedNews,
     newsComment,
+    relatedIndicators,
+    comprehensiveAnalysis,
   };
+}
+
+/**
+ * 연관 지표 찾기
+ */
+function getRelatedIndicators(indicatorId: string, allIndicators: EconomicIndicator[]): Array<{ id: string; name: string; category: string }> {
+  const related: Array<{ id: string; name: string; category: string }> = [];
+  
+  // 지표별 연관 지표 매핑
+  const relatedMap: Record<string, string[]> = {
+    "fed-funds-rate": ["sofr", "treasury-10y", "treasury-2y", "yield-spread"],
+    "sofr": ["fed-funds-rate", "on-rrp", "treasury-10y"],
+    "on-rrp": ["sofr", "fed-funds-rate"],
+    "treasury-10y": ["treasury-2y", "yield-spread", "fed-funds-rate", "sofr"],
+    "treasury-2y": ["treasury-10y", "yield-spread", "fed-funds-rate"],
+    "yield-spread": ["treasury-10y", "treasury-2y", "fed-funds-rate"],
+    "dxy": ["fed-funds-rate", "wti", "sp500"],
+    "wti": ["dxy", "sp500"],
+    "sp500": ["vix", "fed-funds-rate", "dxy"],
+    "vix": ["sp500", "fear-greed-index"],
+    "fear-greed-index": ["vix", "sp500"],
+    "initial-jobless-claims": ["unemployment-rate", "fed-funds-rate"],
+    "unemployment-rate": ["initial-jobless-claims", "fed-funds-rate"],
+    "m2": ["fed-funds-rate", "sp500"],
+    "high-yield-spread": ["fed-funds-rate", "sp500", "vix"],
+    "korea-bank-cds": ["fed-funds-rate", "dxy"],
+    "stlfsi4": ["fed-funds-rate", "vix", "sp500"],
+  };
+  
+  const relatedIds = relatedMap[indicatorId] || [];
+  relatedIds.forEach(id => {
+    const ind = allIndicators.find(i => i.id === id);
+    if (ind && ind.id) {
+      related.push({ id: ind.id, name: ind.name, category: ind.category });
+    }
+  });
+  
+  return related.slice(0, 5); // 최대 5개
+}
+
+/**
+ * 종합해석 생성 (여러 지표를 함께 분석)
+ */
+async function generateComprehensiveAnalysis(
+  indicator: EconomicIndicator | null,
+  allIndicators: EconomicIndicator[],
+  relatedIndicators: Array<{ id: string; name: string; category: string }>
+): Promise<string> {
+  if (!indicator) return "";
+  
+  const related = relatedIndicators.map(ri => allIndicators.find(i => i.id === ri.id)).filter(Boolean) as EconomicIndicator[];
+  
+  let analysis = "";
+  
+  // 지표별 종합해석
+  if (indicator.id === "fed-funds-rate") {
+    const sofr = related.find(r => r.id === "sofr");
+    const spread = allIndicators.find(i => i.id === "yield-spread");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    
+    analysis = `[종합해석] 기준금리(${indicator.value?.toFixed(2)}%)와 관련 지표들을 함께 분석하면, `;
+    if (sofr && sofr.value) {
+      const sofrSpread = sofr.value - (indicator.value || 0);
+      analysis += `SOFR(${sofr.value.toFixed(2)}%)와의 스프레드는 ${sofrSpread.toFixed(2)}%p로 ${sofrSpread > 0.1 ? "시장 유동성 경색 신호" : "정상 범위"}입니다. `;
+    }
+    if (spread && spread.value) {
+      analysis += `금리스프레드(${spread.value.toFixed(2)}%p)는 ${spread.value < 0 ? "역전되어 경기 침체 우려" : spread.value < 1 ? "축소되어 경기 둔화 신호" : "정상 범위로 경기 회복 기대"}를 나타냅니다. `;
+    }
+    if (sp500 && sp500.changePercent !== null) {
+      analysis += `주식 시장(${sp500.changePercent > 0 ? "상승" : "하락"})은 연준의 금리 정책에 ${sp500.changePercent > 0 ? "긍정적으로 반응" : "부정적으로 반응"}하고 있습니다.`;
+    }
+  } else if (indicator.id === "sofr") {
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    const onRrp = allIndicators.find(i => i.id === "on-rrp");
+    
+    analysis = `[종합해석] SOFR(${indicator.value?.toFixed(2)}%)는 단기 자금 시장의 리스크를 나타내는 중요한 지표입니다. `;
+    if (fedRate && fedRate.value) {
+      const spread = (indicator.value || 0) - fedRate.value;
+      analysis += `기준금리(${fedRate.value.toFixed(2)}%)와의 스프레드(${spread.toFixed(2)}%p)는 ${spread > 0.2 ? "시장 스트레스가 높음" : "정상 범위"}을 의미합니다. `;
+    }
+    if (onRrp && onRrp.value) {
+      analysis += `ON RRP(${onRrp.value.toFixed(1)}십억 달러)는 연준의 유동성 흡수 수단으로, ${onRrp.value > 1000 ? "대규모 유동성 흡수" : "정상 범위"}를 나타냅니다.`;
+    }
+  } else if (indicator.id === "sp500") {
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    const vix = allIndicators.find(i => i.id === "vix");
+    const m2 = allIndicators.find(i => i.id === "m2");
+    
+    analysis = `[종합해석] S&P500(${indicator.value?.toFixed(2)}점)의 움직임은 여러 거시경제 지표와 연관되어 있습니다. `;
+    if (fedRate && fedRate.value) {
+      analysis += `기준금리(${fedRate.value.toFixed(2)}%)가 ${fedRate.value > 4 ? "높은 수준" : "낮은 수준"}에서 주식 시장은 ${indicator.changePercent && indicator.changePercent > 0 ? "상승" : "하락"}하고 있어, ${fedRate.value > 4 && indicator.changePercent && indicator.changePercent > 0 ? "연준의 정책 전환 기대가 반영" : "금리 영향이 지속"}되고 있습니다. `;
+    }
+    if (vix && vix.value) {
+      analysis += `VIX(${vix.value.toFixed(2)})는 ${vix.value > 20 ? "높은 변동성으로 시장 불안" : "낮은 변동성으로 시장 안정"}을 나타냅니다. `;
+    }
+    if (m2 && m2.changePercent !== null) {
+      analysis += `M2 통화량(${m2.changePercent > 0 ? "증가" : "감소"})은 유동성 환경을 반영하며, 주식 시장에 ${m2.changePercent > 0 ? "긍정적" : "부정적"} 영향을 미칩니다.`;
+    }
+  } else if (indicator.id === "initial-jobless-claims" || indicator.id === "unemployment-rate") {
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    
+    analysis = `[종합해석] 노동시장 지표(${indicator.name})는 연준의 통화정책과 밀접한 관련이 있습니다. `;
+    if (indicator.id === "initial-jobless-claims") {
+      const unemployment = allIndicators.find(i => i.id === "unemployment-rate");
+      if (unemployment && unemployment.value) {
+        analysis += `실업률(${unemployment.value.toFixed(2)}%)과 함께 보면, `;
+      }
+    }
+    if (fedRate && fedRate.value) {
+      analysis += `기준금리(${fedRate.value.toFixed(2)}%)는 노동시장 강도에 따라 조정되며, `;
+    }
+    if (sp500 && sp500.value) {
+      analysis += `주식 시장은 노동시장 개선을 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다.`;
+    }
+  } else {
+    // 기본 종합해석
+    if (related.length > 0) {
+      analysis = `[종합해석] ${indicator.name}(${indicator.value?.toFixed(2)}${indicator.unit})는 `;
+      related.slice(0, 2).forEach((r, idx) => {
+        if (idx > 0) analysis += ", ";
+        analysis += `${r.name}(${r.value?.toFixed(2)}${r.unit})`;
+      });
+      analysis += ` 등과 함께 분석하면 더 정확한 경제 환경을 파악할 수 있습니다.`;
+    }
+  }
+  
+  return analysis;
 }
 
 /**
