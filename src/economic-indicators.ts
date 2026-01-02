@@ -1082,6 +1082,24 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
+  // 실업수당청구건수 (FRED ICSA)
+  const initialClaims = await fetchFRED("ICSA", 30);
+  if (initialClaims) {
+    indicators.push({
+      category: "심리",
+      name: "실업수당청구건수",
+      symbol: "ICSA",
+      value: initialClaims.value,
+      change: initialClaims.change,
+      changePercent: initialClaims.changePercent,
+      unit: "천 명",
+      lastUpdated: now,
+      source: "FRED (DOL)",
+      history: initialClaims.history,
+      id: "initial-jobless-claims",
+    });
+  }
+  
   // 신용 지표
   const highYieldSpread = await fetchHighYieldSpread();
   
@@ -1198,6 +1216,29 @@ export function diagnoseEconomicStatus(indicators: EconomicIndicator[]): Economi
             }
           }
         }
+        // 실업수당청구건수
+        if (ind.name.includes("실업수당청구건수")) {
+          if (ind.value !== null) {
+            if (ind.value > 300) {
+              score -= 5;
+              reasons.push("실업수당청구건수 급증 (노동시장 약화)");
+            } else if (ind.value > 250) {
+              score -= 2;
+            } else if (ind.value < 200) {
+              score += 3;
+              reasons.push("실업수당청구건수 감소 (노동시장 강세)");
+            }
+            // 변화율도 고려
+            if (ind.changePercent !== null) {
+              if (ind.changePercent > 10) {
+                score -= 3;
+                reasons.push("실업수당청구건수 급증");
+              } else if (ind.changePercent < -10) {
+                score += 2;
+              }
+            }
+          }
+        }
         break;
         
       case "신용":
@@ -1299,7 +1340,7 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
         } catch (e) {
           console.error(`Failed to fetch yield spread history:`, e);
         }
-      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU") {
+      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU" || indicator.symbol === "ICSA") {
         fredSeriesId = indicator.symbol;
       }
       
@@ -1665,6 +1706,14 @@ async function generateUnifiedAnalysis(indicator: EconomicIndicator | null, hist
 [시장 심리 해석] ${correlationInsight || `시장 심리가 ${change >= 0 ? "낙관적" : "비관적"}으로 전환되고 있으며, 투자자들의 리스크 선호도가 변화하고 있어 자산 가격 변동성에 직접적인 영향을 미칩니다`}. ${value < 25 ? "역사적으로 극도의 공포 상태는 매수 기회로 해석될 수 있으나, 근본적인 문제가 해결되지 않으면 추가 하락이 있을 수 있습니다" : value > 75 ? "과도한 탐욕 상태는 조정 가능성을 시사하며, 시장이 과열 상태일 가능성이 높습니다" : "현재 수준은 시장의 균형 상태를 나타내며, 특별한 시장 이벤트가 없다면 안정적 흐름이 예상됩니다"}.
 
 [투자 시사점] ${value < 25 ? "극도의 공포 상태는 역행 투자 관점에서 매수 기회로 해석될 수 있으나, 리스크 관리가 중요합니다" : value > 75 ? "과도한 탐욕 상태는 조정 위험이 높아지므로 방어적 자산 배분을 고려해야 합니다" : "현재 수준은 시장의 균형 상태로, 감정에 휘둘리지 않고 객관적인 분석을 유지해야 합니다"}. 투자자는 시장 심리 지표를 참고하되, 근본적인 가치 분석과 함께 판단해야 합니다.`;
+      } else if (indicator.name.includes("실업수당청구건수")) {
+        const claimsStatus = value > 300 ? "높은 수준" : value > 250 ? "보통 수준" : "낮은 수준";
+        const claimsImplication = value > 300 ? "노동 시장이 약화되고 있으며, 경기 둔화 신호가 나타나고 있습니다" : value < 200 ? "노동 시장이 강세를 보이고 있으며, 경기 회복 신호가 나타나고 있습니다" : "노동 시장이 안정적이며, 경기 전망이 중립적입니다";
+        analysis = `[현재 상황] 실업수당청구건수는 ${value.toLocaleString("en-US")}천 명으로 ${historicalContext}입니다. ${claimsStatus}이며, ${trend}을 보이고 있습니다. ${cyclePosition ? `현재 ${cyclePosition}에 위치해 있습니다.` : ""}
+
+[노동 시장 해석] ${claimsImplication}. ${correlationInsight || `실업수당청구건수의 ${recentDirection} 추세는 노동 시장의 건강성과 경제 전망을 나타내는 중요한 선행 지표입니다`}. ${change >= 0 ? "청구건수 증가는 기업의 고용 감소와 경기 둔화를 시사하며, 이는 소비 위축과 경제 성장 둔화로 이어질 수 있습니다" : "청구건수 감소는 기업의 고용 안정과 경기 회복을 시사하며, 이는 소비 증가와 경제 성장 촉진으로 이어질 수 있습니다"}. ${value > 300 ? "역사적으로 높은 청구건수는 경기 침체의 선행 지표로 작용해왔으며, 현재 수준은 경기 둔화 우려를 시사합니다" : value < 200 ? "낮은 청구건수는 강한 노동 시장을 나타내며, 이는 소비자 신뢰와 경제 성장에 긍정적입니다" : "현재 수준은 노동 시장의 정상 범위 내에 있으며, 큰 변화 없이 안정적으로 유지되고 있습니다"}.
+
+[투자 시사점] 실업수당청구건수의 ${recentDirection} 추세는 자산 배분에 중요한 시사점을 제공합니다. ${change >= 0 ? "청구건수 증가는 경기 둔화 우려를 높여 방어적 자산(고품질 채권, 현금)에 유리하며, 리스크 자산(주식, 하이일드 채권)에는 부정적입니다" : "청구건수 감소는 경기 회복 기대를 높여 리스크 자산에 유리하며, 방어적 자산의 상대적 매력은 감소합니다"}. 투자자는 이 지표를 통해 노동 시장의 건강성과 경기 사이클 전환점을 예측하고 자산 배분을 조정할 수 있습니다. 연준은 이 지표를 통화정책 결정의 중요한 참고 자료로 활용하며, 노동 시장 강도에 따라 금리 정책을 조정할 수 있습니다.`;
       } else {
         analysis = `[현재 상황] ${indicator.name}는 ${value.toFixed(2)}로 ${historicalContext}입니다. ${trend}을 보이고 있으며, 변동성은 ${volatility} 수준입니다.
 

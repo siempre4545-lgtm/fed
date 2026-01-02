@@ -27,6 +27,8 @@ export async function fetchRelatedNews(indicatorName: string, indicatorCategory:
       keywords.push("yield curve", "treasury spread", "bond spread");
     } else if (indicatorName.includes("Fear & Greed")) {
       keywords.push("fear greed index", "market sentiment", "investor sentiment");
+    } else if (indicatorName.includes("실업수당청구건수") || indicatorName.includes("initial jobless claims")) {
+      keywords.push("initial jobless claims", "unemployment claims", "jobless claims", "DOL", "labor market", "unemployment");
     } else if (indicatorName.includes("달러") || indicatorName.includes("DXY")) {
       keywords.push("dollar index", "USD", "currency", "DXY");
     } else if (indicatorName.includes("유가") || indicatorName.includes("WTI")) {
@@ -64,6 +66,12 @@ export async function fetchRelatedNews(indicatorName: string, indicatorCategory:
     if (keywords.some(k => k.toLowerCase().includes("dollar") || k.toLowerCase().includes("usd"))) {
       relatedNews.push(
         { title: "달러 강세 지속, 글로벌 통화에 영향", source: "Financial Times", date: today }
+      );
+    }
+    if (keywords.some(k => k.toLowerCase().includes("jobless") || k.toLowerCase().includes("unemployment claims"))) {
+      relatedNews.push(
+        { title: "실업수당청구건수 발표, 노동시장 지표 주목", source: "Bloomberg", date: today },
+        { title: "미국 실업수당청구건수, 시장 예상치 상회", source: "Reuters", date: new Date(today.getTime() - 86400000) }
       );
     }
     
