@@ -1641,7 +1641,7 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
           
           if (period === '1D') {
             range = '1d';
-            interval = '5m'; // 5분 간격
+            interval = '1h'; // 1시간 간격 (5분은 너무 많을 수 있음)
           } else if (period === '1M') {
             range = '1mo';
             interval = '1d';

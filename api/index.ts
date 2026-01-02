@@ -2671,7 +2671,6 @@ app.get("/economic-indicators/:id", async (req, res) => {
     </div>
     ` : ""}
     
-    ${chartData.length > 0 ? `
     <div class="chart-section">
       <div class="chart-header">
         <div class="chart-title">변동 추이</div>
@@ -2684,21 +2683,22 @@ app.get("/economic-indicators/:id", async (req, res) => {
         </div>
       </div>
       <div class="chart-container">
-        <canvas id="indicatorChart"></canvas>
+        ${chartData.length > 0 ? `<canvas id="indicatorChart"></canvas>` : `<div style="padding: 40px; text-align: center; color: #808080;">선택한 기간의 데이터가 없습니다. 다른 기간을 선택해주세요.</div>`}
       </div>
     </div>
-    ` : ""}
     
     ${chartData.length > 0 ? `
     <script>
-      const ctx = document.getElementById('indicatorChart').getContext('2d');
-      const chartLabels = ${JSON.stringify(chartLabels)};
-      const chartValues = ${JSON.stringify(chartValues)};
-      const chartFullDates = ${JSON.stringify(chartFullDates)};
-      const indicatorName = ${JSON.stringify(ind.name)};
-      const indicatorUnit = ${JSON.stringify(ind.unit)};
-      
-      new Chart(ctx, {
+      const chartCanvas = document.getElementById('indicatorChart');
+      if (chartCanvas) {
+        const ctx = chartCanvas.getContext('2d');
+        const chartLabels = ${JSON.stringify(chartLabels)};
+        const chartValues = ${JSON.stringify(chartValues)};
+        const chartFullDates = ${JSON.stringify(chartFullDates)};
+        const indicatorName = ${JSON.stringify(ind.name)};
+        const indicatorUnit = ${JSON.stringify(ind.unit)};
+        
+        new Chart(ctx, {
         type: 'line',
         data: {
           labels: chartLabels,
@@ -2831,34 +2831,54 @@ app.get("/economic-indicators/:id", async (req, res) => {
     ` : ""}
     
     ${detail.history.length > 0 ? `
-    <div class="history-table">
-      <div class="history-title">일별 수치 (최근 ${Math.min(30, detail.history.length)}일)</div>
-      <table>
-        <thead>
-          <tr>
-            <th>날짜</th>
-            <th>값</th>
-            <th>변동</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${detail.history.slice(-30).reverse().map((h, idx, arr) => {
-            const prev = arr[idx + 1];
-            const change = prev ? h.value - prev.value : null;
-            const changePercent = prev && prev.value !== 0 ? ((change! / prev.value) * 100) : null;
-            return `
-            <tr>
-              <td>${new Date(h.date).toLocaleDateString("ko-KR")}</td>
-              <td>${h.value.toFixed(2)} ${escapeHtml(ind.unit)}</td>
-              <td style="color:${change !== null && change > 0 ? "#ff6b6b" : change !== null && change < 0 ? "#51cf66" : "#adb5bd"}">
-                ${change !== null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}` : "-"}
-                ${changePercent !== null ? `(${changePercent > 0 ? "+" : ""}${changePercent.toFixed(2)}%)` : ""}
-              </td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
+    <div class="history-section">
+      <div class="history-header" onclick="toggleHistory()">
+        <div class="history-title">일별 수치 (최근 ${Math.min(30, detail.history.length)}일)</div>
+        <div class="expand-icon" id="history-icon">▼</div>
+      </div>
+      <div class="history-content" id="history-content" style="display: none;">
+        <div class="history-table">
+          <table>
+            <thead>
+              <tr>
+                <th>날짜</th>
+                <th>값</th>
+                <th>변동</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${detail.history.slice(-30).reverse().map((h, idx, arr) => {
+                const prev = arr[idx + 1];
+                const change = prev ? h.value - prev.value : null;
+                const changePercent = prev && prev.value !== 0 ? ((change! / prev.value) * 100) : null;
+                return `
+                <tr>
+                  <td>${new Date(h.date).toLocaleDateString("ko-KR")}</td>
+                  <td>${h.value.toFixed(2)} ${escapeHtml(ind.unit)}</td>
+                  <td style="color:${change !== null && change > 0 ? "#ff6b6b" : change !== null && change < 0 ? "#51cf66" : "#adb5bd"}">
+                    ${change !== null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}` : "-"}
+                    ${changePercent !== null ? `(${changePercent > 0 ? "+" : ""}${changePercent.toFixed(2)}%)` : ""}
+                  </td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+    <script>
+      function toggleHistory() {
+        const content = document.getElementById('history-content');
+        const icon = document.getElementById('history-icon');
+        if (content.style.display === 'none') {
+          content.style.display = 'block';
+          icon.textContent = '▲';
+        } else {
+          content.style.display = 'none';
+          icon.textContent = '▼';
+        }
+      }
+    </script>
     ` : ""}
   </div>
 </body>
