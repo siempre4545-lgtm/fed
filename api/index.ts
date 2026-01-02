@@ -2622,8 +2622,12 @@ app.get("/economic-indicators/:id", async (req, res) => {
     .news-comment-title{font-size:16px;font-weight:700;color:#ffffff;margin-bottom:12px}
     .news-comment-text{font-size:14px;line-height:1.8;color:#c0c0c0}
     
-    .history-table{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;overflow-x:auto}
-    .history-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .history-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;margin-top:24px;overflow:hidden}
+    .history-header{display:flex;align-items:center;justify-content:space-between;padding:20px;cursor:pointer;user-select:none;border-bottom:1px solid #2d2d2d}
+    .history-header:hover{background:#252525}
+    .history-title{font-size:18px;font-weight:700;color:#ffffff}
+    .history-content{display:none;padding:24px}
+    .history-table{overflow-x:auto}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px;text-align:left;border-bottom:1px solid #2d2d2d}
     th{font-weight:600;color:#ffffff;font-size:13px}
