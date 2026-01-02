@@ -2661,6 +2661,16 @@ app.get("/economic-indicators/:id", async (req, res) => {
       </div>
     </div>
     
+    ${detail.concept ? `
+    <div class="concept-section">
+      <div class="concept-title">
+        <span>📚</span>
+        <span>경제코치의 개념 설명</span>
+      </div>
+      <div class="concept-content">${escapeHtml(detail.concept)}</div>
+    </div>
+    ` : ""}
+    
     ${chartData.length > 0 ? `
     <div class="chart-section">
       <div class="chart-header">
