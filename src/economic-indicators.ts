@@ -1664,8 +1664,6 @@ function getRelatedIndicators(indicatorId: string, allIndicators: EconomicIndica
     "m2": ["fed-funds-rate", "sp500"],
     "high-yield-spread": ["fed-funds-rate", "sp500", "vix"],
     "korea-bank-cds": ["fed-funds-rate", "dxy"],
-    "m2": ["fed-funds-rate", "sp500"],
-    "unemployment-rate": ["initial-jobless-claims", "fed-funds-rate"],
     "stlfsi4": ["fed-funds-rate", "vix", "sp500"],
   };
   
