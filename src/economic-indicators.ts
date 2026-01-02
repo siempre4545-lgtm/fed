@@ -1753,6 +1753,32 @@ async function generateComprehensiveAnalysis(
     if (sp500 && sp500.value) {
       analysis += `주식 시장은 노동시장 개선을 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다.`;
     }
+  } else if (indicator.id === "m2") {
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    
+    analysis = `[종합해석] M2 통화량(${indicator.value?.toFixed(2)}십억 달러)은 유동성 환경을 나타내는 중요한 지표입니다. `;
+    if (fedRate && fedRate.value) {
+      analysis += `기준금리(${fedRate.value.toFixed(2)}%)와 함께 보면, 통화정책이 유동성에 미치는 영향을 파악할 수 있습니다. `;
+    }
+    if (sp500 && sp500.value) {
+      analysis += `주식 시장은 M2 ${indicator.changePercent && indicator.changePercent > 0 ? "증가" : "감소"}를 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다.`;
+    }
+  } else if (indicator.id === "stlfsi4") {
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    const vix = allIndicators.find(i => i.id === "vix");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    
+    analysis = `[종합해석] STLFSI4(${indicator.value?.toFixed(2)})는 금융 시스템의 스트레스 수준을 나타냅니다. `;
+    if (fedRate && fedRate.value) {
+      analysis += `기준금리(${fedRate.value.toFixed(2)}%)와 함께 보면, 통화정책이 금융 스트레스에 미치는 영향을 확인할 수 있습니다. `;
+    }
+    if (vix && vix.value) {
+      analysis += `VIX(${vix.value.toFixed(2)})와 함께 보면, 시장 변동성과 금융 스트레스의 상관관계를 파악할 수 있습니다. `;
+    }
+    if (sp500 && sp500.value) {
+      analysis += `주식 시장은 금융 스트레스 ${indicator.value && indicator.value > 0 ? "증가" : "감소"}를 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다.`;
+    }
   } else {
     // 기본 종합해석
     if (related.length > 0) {
