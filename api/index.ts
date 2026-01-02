@@ -2600,6 +2600,14 @@ app.get("/economic-indicators/:id", async (req, res) => {
     .comprehensive-analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
     .comprehensive-analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
     
+    .concept-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .concept-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .concept-content{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
+    .concept-content h3{font-size:16px;font-weight:700;color:#ffffff;margin-top:20px;margin-bottom:12px}
+    .concept-content h3:first-child{margin-top:0}
+    .concept-content p{margin-bottom:12px}
+    .concept-content strong{color:#ffffff;font-weight:700}
+    
     .news-section-detail{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .news-section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
     .news-list-detail{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}

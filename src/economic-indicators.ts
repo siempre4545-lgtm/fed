@@ -1553,6 +1553,7 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
   newsComment?: string;
   relatedIndicators?: Array<{ id: string; name: string; category: string }>; // 연관 지표
   comprehensiveAnalysis?: string; // 종합해석
+  concept?: string; // 개념 설명
 }> {
   const indicators = await fetchAllEconomicIndicators();
   const indicator = indicators.find(ind => ind.id === indicatorId) || null;
