@@ -1565,6 +1565,12 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
     }
   }
   
+  // 연관 지표 찾기
+  const relatedIndicators = getRelatedIndicators(indicatorId, indicators);
+  
+  // 종합해석 생성
+  const comprehensiveAnalysis = await generateComprehensiveAnalysis(indicator, indicators, relatedIndicators);
+  
   return {
     indicator,
     history,

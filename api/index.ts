@@ -2669,7 +2669,9 @@ app.get("/economic-indicators/:id", async (req, res) => {
         <canvas id="indicatorChart"></canvas>
       </div>
     </div>
+    ` : ""}
     
+    ${chartData.length > 0 ? `
     <script>
       const ctx = document.getElementById('indicatorChart').getContext('2d');
       const chartLabels = ${JSON.stringify(chartLabels)};
