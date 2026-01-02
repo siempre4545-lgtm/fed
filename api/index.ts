@@ -6,18 +6,75 @@ import { fetchAllSecretIndicators } from "../src/secret-indicators.js";
 
 const app = express();
 
-// API: JSON
-app.get("/api/h41", async (req, res) => {
+// API: Summary (숫자만, 경량화)
+app.get("/api/h41/summary", async (req, res) => {
   try {
-    // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
     const targetDate = req.query.date as string | undefined;
     const report = await fetchH41Report(targetDate);
     
-    // 캐싱 방지 헤더 추가
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    // 숫자 데이터만 추출 (해석 제외)
+    const summary = {
+      asOf: report.asOf,
+      asOfWeekEndedText: report.asOfWeekEndedText,
+      releaseDateText: report.releaseDateText,
+      sourceUrl: report.sourceUrl,
+      warningLevel: report.warningLevel,
+      assetGuidance: report.assetGuidance,
+      teamSignal: report.teamSignal,
+      cards: report.coreCards.map(c => ({
+        key: c.key,
+        title: c.title,
+        fedLabel: c.fedLabel,
+        balance_okeusd: c.balance_okeusd,
+        change_okeusd: c.change_okeusd,
+        dataDate: c.dataDate,
+        liquidityTag: c.liquidityTag,
+        // interpretation 제외
+      })),
+    };
     
+    // H.4.1은 주간 업데이트이므로 10분 캐시
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    res.json(summary);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// API: Detail (해석만)
+app.get("/api/h41/detail", async (req, res) => {
+  try {
+    const targetDate = req.query.date as string | undefined;
+    const key = req.query.key as string;
+    
+    if (!key) {
+      return res.status(400).json({ error: 'key parameter required' });
+    }
+    
+    const report = await fetchH41Report(targetDate);
+    const card = report.coreCards.find(c => c.key === key);
+    
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    res.json({
+      key: card.key,
+      interpretation: card.interpretation,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// API: JSON (기존 호환성 유지)
+app.get("/api/h41", async (req, res) => {
+  try {
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
     res.json(report);
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
@@ -37,64 +94,84 @@ app.get("/api/h41/history", async (req, res) => {
       error?: string;
     }> = [];
     
-    for (const dateStr of datesToFetch) {
-      try {
-        const histReport = await fetchH41Report(dateStr, releaseDates);
-        
-        if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+    // 병렬 fetch로 성능 개선 (배치 크기 5)
+    const batchSize = 5;
+    for (let i = 0; i < datesToFetch.length; i += batchSize) {
+      const batch = datesToFetch.slice(i, i + batchSize);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (dateStr) => {
+          try {
+            const histReport = await fetchH41Report(dateStr, releaseDates);
+            
+            if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+              return {
+                date: dateStr,
+                assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+                liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+                error: "No cards found"
+              };
+            }
+            
+            const histAssets = {
+              treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+              mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+              repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+              loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+            };
+            const histLiabilities = {
+              currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+              rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+              tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+              reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+            };
+            
+            const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
+            const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
+            
+            if (totalAssets === 0 && totalLiabilities === 0) {
+              return {
+                date: dateStr,
+                assets: histAssets,
+                liabilities: histLiabilities,
+                error: "All values are zero"
+              };
+            }
+            
+            return {
+              date: dateStr,
+              assets: histAssets,
+              liabilities: histLiabilities,
+            };
+          } catch (e) {
+            return {
+              date: dateStr,
+              assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
+              liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
+              error: e instanceof Error ? e.message : String(e)
+            };
+          }
+        })
+      );
+      
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          historicalData.push(result.value);
+        } else {
+          const dateStr = batch[batchResults.indexOf(result)];
           historicalData.push({
             date: dateStr,
             assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
             liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
-            error: "No cards found"
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason)
           });
-          continue;
         }
-        
-        const histAssets = {
-          treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
-          mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
-          repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
-          loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
-        };
-        const histLiabilities = {
-          currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
-          rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
-          tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
-          reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
-        };
-        
-        const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
-        const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
-        
-        if (totalAssets === 0 && totalLiabilities === 0) {
-          historicalData.push({
-            date: dateStr,
-            assets: histAssets,
-            liabilities: histLiabilities,
-            error: "All values are zero"
-          });
-          continue;
-        }
-        
-        historicalData.push({
-          date: dateStr,
-          assets: histAssets,
-          liabilities: histLiabilities,
-        });
-      } catch (e) {
-        historicalData.push({
-          date: dateStr,
-          assets: { treasury: 0, mbs: 0, repo: 0, loans: 0 },
-          liabilities: { currency: 0, rrp: 0, tga: 0, reserves: 0 },
-          error: e instanceof Error ? e.message : String(e)
-        });
-      }
+      });
     }
     
     historicalData.sort((a, b) => b.date.localeCompare(a.date));
     
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    // H.4.1 히스토리는 주간 업데이트이므로 10분 캐시
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
     res.json({
       releaseDatesCount: releaseDates.length,
       datesToFetch: datesToFetch,
@@ -162,60 +239,63 @@ app.get("/", async (req, res) => {
       `);
     }
     
-    // FED 발표 날짜 목록 가져오기
-    const releaseDates = await getFedReleaseDates();
-    
-    // 경제 지표 수집 및 진단
-    let economicStatus = null;
-    try {
-      const indicators = await fetchAllEconomicIndicators();
-      economicStatus = diagnoseEconomicStatus(indicators);
-    } catch (e) {
-      console.error("Failed to fetch economic indicators:", e);
-    }
-    
-    // 거시경제 뉴스 가져오기
-    let economicNews: Array<{ title: string; source: string; publishedAt: string }> = [];
-    try {
-      economicNews = await fetchEconomicNews();
-    } catch (e) {
-      console.error("Failed to fetch economic news:", e);
-    }
-    
-    // 원/달러 환율 가져오기 (Yahoo Finance API)
-    let usdKrwRate: { price: number; change: number; changePercent: number } | null = null;
-    try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=2d`;
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const result = data.chart?.result?.[0];
-        if (result) {
-          const quote = result.indicators?.quote?.[0];
-          if (quote) {
-            const prices = quote.close.filter((p: number | null) => p !== null);
-            if (prices.length >= 2) {
-              const currentPrice = prices[prices.length - 1];
-              const previousPrice = prices[prices.length - 2];
-              const change = currentPrice - previousPrice;
-              const changePercent = (change / previousPrice) * 100;
-              usdKrwRate = {
-                price: currentPrice,
-                change,
-                changePercent,
-              };
+    // 병렬 fetch로 성능 개선
+    const [releaseDatesResult, indicatorsResult, newsResult, usdKrwResult] = await Promise.allSettled([
+      getFedReleaseDates(),
+      fetchAllEconomicIndicators().then(indicators => ({
+        indicators,
+        status: diagnoseEconomicStatus(indicators)
+      })).catch(e => {
+        console.error("Failed to fetch economic indicators:", e);
+        return { indicators: [], status: null };
+      }),
+      fetchEconomicNews().catch(e => {
+        console.error("Failed to fetch economic news:", e);
+        return [];
+      }),
+      (async () => {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=2d`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 timeout
+          
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+            const data = await response.json();
+            const result = data.chart?.result?.[0];
+            if (result) {
+              const quote = result.indicators?.quote?.[0];
+              if (quote) {
+                const prices = quote.close.filter((p: number | null) => p !== null);
+                if (prices.length >= 2) {
+                  const currentPrice = prices[prices.length - 1];
+                  const previousPrice = prices[prices.length - 2];
+                  const change = currentPrice - previousPrice;
+                  const changePercent = (change / previousPrice) * 100;
+                  return { price: currentPrice, change, changePercent };
+                }
+              }
             }
           }
+          return null;
+        } catch (e) {
+          console.error("Failed to fetch USD/KRW rate:", e);
+          return null;
         }
-      }
-    } catch (e) {
-      console.error("Failed to fetch USD/KRW rate:", e);
-    }
+      })()
+    ]);
+    
+    // 결과 추출
+    const releaseDates = releaseDatesResult.status === 'fulfilled' ? releaseDatesResult.value : [];
+    const { indicators, status: economicStatus } = indicatorsResult.status === 'fulfilled' ? indicatorsResult.value : { indicators: [], status: null };
+    const economicNews = newsResult.status === 'fulfilled' ? newsResult.value : [];
+    const usdKrwRate = usdKrwResult.status === 'fulfilled' ? usdKrwResult.value : null;
     
     const levelText = ["안정", "주의", "경계", "위험"][report.warningLevel];
     const levelColors = ["#22c55e", "#f59e0b", "#f97316", "#ef4444"];
@@ -328,7 +408,7 @@ app.get("/", async (req, res) => {
       }
       
       return `
-      <div class="card" data-card-id="${idx}">
+      <div class="card" data-card-id="${idx}" data-card-key="${escapeHtml(c.key)}">
         <div class="card-header" onclick="event.stopPropagation(); toggleCard(${idx});">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
@@ -346,19 +426,11 @@ app.get("/", async (req, res) => {
               <div class="expanded-label">지난주 대비</div>
               <div class="expanded-value" style="color: ${chColor};font-weight:700">${chSign}$${Math.abs(c.change_okeusd).toFixed(1)}억</div>
             </div>
-            <div class="i">
+            <div class="i" id="interpretation-${idx}">
               <div class="interpretation-label">해석</div>
-              <div class="interpretation-text">${(() => {
-                const parts = escapeHtml(c.interpretation).split("\n");
-                if (parts.length > 0) {
-                  // 첫 번째 줄은 머릿말 (볼드 처리)
-                  const headline = parts[0].trim();
-                  // 나머지는 본문 (전체 표시, 잘리지 않음)
-                  const body = parts.slice(1).filter(p => p.trim()).join("<br/>");
-                  return `<div class="interpretation-headline"><strong>${headline}</strong></div><div class="interpretation-body">${body}</div>`;
-                }
-                return escapeHtml(c.interpretation).replace(/\n/g, "<br/>");
-              })()}</div>
+              <div class="interpretation-text" id="interpretation-text-${idx}">
+                <div style="color: #808080; font-style: italic;">로딩 중...</div>
+              </div>
             </div>
           </div>
         </div>
@@ -779,7 +851,7 @@ app.get("/", async (req, res) => {
       }
     }
     
-    function toggleCard(idx) {
+    async function toggleCard(idx) {
       try {
         const card = document.querySelector('[data-card-id="' + idx + '"]');
         if (!card) {
@@ -791,17 +863,43 @@ app.get("/", async (req, res) => {
         card.classList.toggle('expanded');
         
         const expandIcon = document.getElementById('expand-icon-' + idx);
-        const expandedContent = document.getElementById('card-expanded-' + idx);
-        
         if (expandIcon) {
           expandIcon.textContent = !isExpanded ? '▲' : '▼';
         }
         
-        if (expandedContent) {
-          expandedContent.style.display = !isExpanded ? 'block' : 'none';
+        // 해석 lazy load
+        if (!isExpanded) {
+          const interpretationText = document.getElementById('interpretation-text-' + idx);
+          if (interpretationText && interpretationText.textContent.includes('로딩 중')) {
+            const cardKey = card.getAttribute('data-card-key');
+            if (cardKey) {
+              try {
+                const response = await fetch('/api/h41/detail?key=' + encodeURIComponent(cardKey));
+                if (response.ok) {
+                  const data = await response.json();
+                  const parts = data.interpretation.split("\\n");
+                  if (parts.length > 0) {
+                    const headline = parts[0].trim();
+                    const body = parts.slice(1).filter(p => p.trim()).join("<br/>");
+                    interpretationText.innerHTML = '<div class="interpretation-headline"><strong>' + 
+                      headline.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + 
+                      '</strong></div><div class="interpretation-body">' + 
+                      body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + 
+                      '</div>';
+                  } else {
+                    interpretationText.innerHTML = data.interpretation.replace(/\\n/g, "<br/>")
+                      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                  }
+                } else {
+                  interpretationText.innerHTML = '<div style="color: #ef4444;">해석을 불러올 수 없습니다.</div>';
+                }
+              } catch (e) {
+                console.error('Failed to load interpretation:', e);
+                interpretationText.innerHTML = '<div style="color: #ef4444;">해석을 불러올 수 없습니다.</div>';
+              }
+            }
+          }
         }
-        
-        console.log('Card toggled:', idx, 'Expanded:', !isExpanded, 'Card element:', card);
       } catch (error) {
         console.error('Error in toggleCard:', error, 'idx:', idx);
       }
@@ -2898,6 +2996,9 @@ app.get("/api/economic-indicators", async (_req, res) => {
   try {
     const indicators = await fetchAllEconomicIndicators();
     const status = diagnoseEconomicStatus(indicators);
+    
+    // 경제 지표는 5분 캐시
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     res.json({
       status,
       indicators,
