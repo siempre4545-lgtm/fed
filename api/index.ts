@@ -2779,7 +2779,8 @@ app.get("/economic-indicators/:id", async (req, res) => {
             }
           }
         }
-      });
+        });
+      }
     </script>
     ` : ""}
     
