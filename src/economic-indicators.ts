@@ -1227,10 +1227,177 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-  // ISM 제조업 지수와 소비자신뢰지수는 웹 스크래핑 필요 (나중에 구현)
-  // TODO: ISM 제조업 지수와 소비자신뢰지수 추가
+  // ISM 제조업 지수 가져오기 (웹 스크래핑)
+  const ismManufacturing = await fetchISMManufacturing();
+  if (ismManufacturing) {
+    indicators.push({
+      category: "기타",
+      name: "미국 ISM 제조업 지수 - ISM Manufacturing PMI",
+      symbol: "ISM-PMI",
+      value: ismManufacturing.value,
+      change: ismManufacturing.change,
+      changePercent: ismManufacturing.changePercent,
+      unit: "지수",
+      lastUpdated: ismManufacturing.lastUpdated || now,
+      source: "TradingEconomics",
+      id: "ism-manufacturing",
+    });
+  }
+  
+  // 소비자신뢰지수 가져오기 (웹 스크래핑)
+  const consumerConfidence = await fetchConsumerConfidence();
+  if (consumerConfidence) {
+    indicators.push({
+      category: "기타",
+      name: "미국 소비자신뢰지수 - Consumer Confidence Index",
+      symbol: "CCI",
+      value: consumerConfidence.value,
+      change: consumerConfidence.change,
+      changePercent: consumerConfidence.changePercent,
+      unit: "지수",
+      lastUpdated: consumerConfidence.lastUpdated || now,
+      source: "Conference Board",
+      id: "consumer-confidence",
+    });
+  }
   
   return indicators;
+}
+
+/**
+ * ISM 제조업 지수 가져오기 (TradingEconomics)
+ */
+async function fetchISMManufacturing(): Promise<{ value: number; change: number; changePercent: number; lastUpdated?: string } | null> {
+  try {
+    const url = "https://tradingeconomics.com/united-states/manufacturing-pmi";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch ISM Manufacturing: ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    // TradingEconomics 페이지에서 ISM 제조업 지수 찾기
+    let ismValue: number | null = null;
+    let previousValue: number | null = null;
+    
+    // 다양한 선택자 시도
+    $(".table-responsive table tr, .table tr, table tr").each((_idx, row) => {
+      const $row = $(row);
+      const text = $row.text().toLowerCase();
+      
+      if (text.includes("ism") || text.includes("manufacturing") || text.includes("pmi")) {
+        const cells = $row.find("td");
+        cells.each((_idx, cell) => {
+          const cellText = $(cell).text().trim();
+          const numericMatch = cellText.match(/(\d+\.?\d*)/);
+          if (numericMatch) {
+            const parsed = parseFloat(numericMatch[1]);
+            if (parsed > 0 && parsed < 100) {
+              if (ismValue === null) {
+                ismValue = parsed;
+              } else if (previousValue === null) {
+                previousValue = parsed;
+              }
+            }
+          }
+        });
+      }
+    });
+    
+    if (ismValue !== null && !isNaN(ismValue)) {
+      const change = previousValue !== null ? ismValue - previousValue : 0;
+      const changePercent = previousValue !== null && previousValue !== 0 
+        ? (change / previousValue) * 100 
+        : 0;
+      
+      return {
+        value: ismValue,
+        change,
+        changePercent,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch ISM Manufacturing:", error);
+    return null;
+  }
+}
+
+/**
+ * 소비자신뢰지수 가져오기 (Conference Board)
+ */
+async function fetchConsumerConfidence(): Promise<{ value: number; change: number; changePercent: number; lastUpdated?: string } | null> {
+  try {
+    const url = "https://www.conference-board.org/topics/consumer-confidence";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch Consumer Confidence: ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    // Conference Board 페이지에서 소비자신뢰지수 찾기
+    let confidenceValue: number | null = null;
+    let previousValue: number | null = null;
+    
+    // 다양한 선택자 시도
+    $("table tr, .data-table tr, .indicator-value, .current-value").each((_idx, elem) => {
+      const $elem = $(elem);
+      const text = $elem.text().toLowerCase();
+      
+      if (text.includes("consumer confidence") || text.includes("cci") || text.includes("index")) {
+        const numericMatch = text.match(/(\d+\.?\d*)/);
+        if (numericMatch) {
+          const parsed = parseFloat(numericMatch[1]);
+          if (parsed > 0 && parsed < 200) {
+            if (confidenceValue === null) {
+              confidenceValue = parsed;
+            } else if (previousValue === null) {
+              previousValue = parsed;
+            }
+          }
+        }
+      }
+    });
+    
+    if (confidenceValue !== null && !isNaN(confidenceValue)) {
+      const change = previousValue !== null ? confidenceValue - previousValue : 0;
+      const changePercent = previousValue !== null && previousValue !== 0 
+        ? (change / previousValue) * 100 
+        : 0;
+      
+      return {
+        value: confidenceValue,
+        change,
+        changePercent,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Consumer Confidence:", error);
+    return null;
+  }
 }
 
 /**
@@ -1778,6 +1945,36 @@ async function generateComprehensiveAnalysis(
     }
     if (sp500 && sp500.value) {
       analysis += `주식 시장은 금융 스트레스 ${indicator.value && indicator.value > 0 ? "증가" : "감소"}를 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다.`;
+    }
+  } else if (indicator.id === "ism-manufacturing") {
+    const unemployment = allIndicators.find(i => i.id === "unemployment-rate");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    
+    analysis = `[종합해석] ISM 제조업 지수(${indicator.value?.toFixed(2)})는 제조업 활동과 경제 전망을 나타내는 중요한 지표입니다. `;
+    if (unemployment && unemployment.value) {
+      analysis += `실업률(${unemployment.value.toFixed(2)}%)과 함께 보면, 노동시장과 제조업 활동의 상관관계를 파악할 수 있습니다. `;
+    }
+    if (sp500 && sp500.value) {
+      analysis += `주식 시장은 제조업 활동을 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다. `;
+    }
+    if (fedRate && fedRate.value) {
+      analysis += `연준은 제조업 활동을 통화정책 결정의 중요한 참고 자료로 활용하며, 기준금리(${fedRate.value.toFixed(2)}%) 조정에 영향을 미칩니다.`;
+    }
+  } else if (indicator.id === "consumer-confidence") {
+    const unemployment = allIndicators.find(i => i.id === "unemployment-rate");
+    const sp500 = allIndicators.find(i => i.id === "sp500");
+    const fedRate = allIndicators.find(i => i.id === "fed-funds-rate");
+    
+    analysis = `[종합해석] 소비자신뢰지수(${indicator.value?.toFixed(2)})는 소비자 심리와 경제 전망을 나타내는 중요한 지표입니다. `;
+    if (unemployment && unemployment.value) {
+      analysis += `실업률(${unemployment.value.toFixed(2)}%)과 함께 보면, 노동시장과 소비자 심리의 상관관계를 파악할 수 있습니다. `;
+    }
+    if (sp500 && sp500.value) {
+      analysis += `주식 시장은 소비자 심리를 ${sp500.changePercent && sp500.changePercent > 0 ? "긍정적으로 반영" : "부정적으로 반영"}하고 있습니다. `;
+    }
+    if (fedRate && fedRate.value) {
+      analysis += `연준은 소비자 심리를 통화정책 결정의 중요한 참고 자료로 활용하며, 기준금리(${fedRate.value.toFixed(2)}%) 조정에 영향을 미칩니다.`;
     }
   } else {
     // 기본 종합해석
