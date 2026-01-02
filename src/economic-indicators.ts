@@ -479,9 +479,9 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
     // 방법 2: JavaScript 변수에서 찾기
     if (koreaCDSValue === null) {
       const scriptMatches = [
-        html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s),
-        html.match(/window\.__PRELOADED_STATE__\s*=\s*({.+?});/s),
-        html.match(/var\s+pairData\s*=\s*({.+?});/s),
+        html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/),
+        html.match(/window\.__PRELOADED_STATE__\s*=\s*({.+?});/),
+        html.match(/var\s+pairData\s*=\s*({.+?});/),
       ].filter(Boolean);
       
       for (const match of scriptMatches) {

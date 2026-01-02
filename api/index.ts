@@ -1541,7 +1541,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] getFedReleaseDates returned empty array, using fallback`);
       // fallback: 현재 날짜 기준으로 최근 52주 목요일 계산
-      const dates: string[] = [];
+      const fallbackDates: string[] = [];
       const now = new Date();
       const today = new Date();
       const isThursday = today.getDay() === 4;
@@ -1615,7 +1615,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     if (releaseDates.length === 0) {
       console.warn(`[Assets/Liabilities] No release dates available, using fallback`);
       // fallback: 현재 날짜 기준으로 최근 52주 목요일 계산
-      const dates: string[] = [];
+      const fallbackDates: string[] = [];
       const now = new Date();
       const today = new Date();
       const isThursday = today.getDay() === 4;
@@ -1632,9 +1632,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         const year = thursday.getFullYear();
         const month = String(thursday.getMonth() + 1).padStart(2, '0');
         const day = String(thursday.getDate()).padStart(2, '0');
-        dates.push(`${year}-${month}-${day}`);
+        fallbackDates.push(`${year}-${month}-${day}`);
       }
-      releaseDates = dates;
+      releaseDates = fallbackDates;
     }
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);

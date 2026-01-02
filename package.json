@@ -11,7 +11,9 @@
     "dev": "tsx watch src/index.ts",
     "start": "node --enable-source-maps dist/index.js",
     "build": "tsc -p tsconfig.json",
-    "report": "tsx src/notify.ts"
+    "report": "tsx src/notify.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'No ESLint configured. Run typecheck instead.' && npm run typecheck"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

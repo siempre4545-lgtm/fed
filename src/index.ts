@@ -167,10 +167,7 @@ app.get("/", async (req, res) => {
       `);
     }
     
-    // FED 발표 날짜 목록 가져오기
-    const releaseDates = await getFedReleaseDates();
-    
-    // 경제 지표 수집 및 진단
+    // 경제 지표 수집 및 진단 (releaseDates는 이미 위에서 선언됨)
     let economicStatus = null;
     try {
       const indicators = await fetchAllEconomicIndicators();
@@ -2074,7 +2071,7 @@ async function generateEconomicCoachAnalysis(data: {
   // 통합 해석: 금융패권자들이 보는 큰 그림 (금융패권자 관점을 전반에 통합)
   analysis += `🔍 [통합 해석: 금융패권자들이 보는 거시경제의 큰 그림]\n\n`;
   
-  const netLiquidity = totalAssetsChange - totalLiabilitiesChange;
+  // netLiquidity는 이미 위에서 선언됨 (2030줄)
   if (netLiquidity < -50000) {
     analysis += `현재 순 유동성 흡수 환경에서, 블랙록(BlackRock), 뱅가드(Vanguard), 스테이트 스트릿(State Street), JPMorgan, Fidelity Investment 같은 금융패권자들은 모두 공통적으로 방어적 포지션을 강화하고 있습니다. `;
     if (assets.treasury && assets.treasury.change_musd < -50000) {
