@@ -991,6 +991,8 @@ app.get("/levels", async (_req, res) => {
       </div>`;
     }).join("\n");
 
+    // 경제 지표 페이지는 5분 캐시
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     res.setHeader("content-type", "text/html; charset=utf-8");
     res.send(`
 <!doctype html>
@@ -1053,6 +1055,8 @@ app.get("/concepts", async (_req, res) => {
       </div>`;
     }).join("\n");
 
+    // 경제 지표 페이지는 5분 캐시
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     res.setHeader("content-type", "text/html; charset=utf-8");
     res.send(`
 <!doctype html>
