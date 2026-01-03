@@ -43,6 +43,50 @@ app.get("/api/h41/summary", async (req, res) => {
   }
 });
 
+// API: Interpretation (자산/부채 해석)
+app.get("/api/h41/interpretation", async (req, res) => {
+  try {
+    const targetDate = req.query.date as string | undefined;
+    const key = req.query.key as string;
+    
+    if (!key) {
+      return res.status(400).json({ error: "key parameter is required" });
+    }
+    
+    // 캐시 헤더 설정
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    
+    const report = await fetchH41Report(targetDate);
+    
+    // key에 따라 해당 카드 찾기
+    const card = report.coreCards.find(c => {
+      const keyMap: Record<string, string> = {
+        'treasury': 'treasury',
+        'mbs': 'mbs',
+        'repo': 'repo',
+        'loans': 'loans',
+        'currency': 'currency',
+        'rrp': 'rrp',
+        'tga': 'tga',
+        'reserves': 'reserves',
+      };
+      return c.key === keyMap[key] || c.fedLabel.toLowerCase().includes(key.toLowerCase());
+    });
+    
+    if (!card || !card.interpretation) {
+      return res.status(404).json({ error: "Interpretation not found" });
+    }
+    
+    res.json({
+      interpretation: card.interpretation,
+      title: card.title,
+      key: card.key,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
 // API: Detail (해석만)
 app.get("/api/h41/detail", async (req, res) => {
   try {
@@ -2555,6 +2599,129 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         isLoadingMore = false;
       }
     }
+    
+    // 해석 토글 및 로딩 함수
+    (function() {
+      // 이벤트 위임: interpretation-toggle 클릭 처리
+      document.addEventListener('click', async function(e) {
+        const target = e.target as HTMLElement;
+        if (!target) return;
+        
+        // interpretation-toggle 요소 또는 그 자식 요소 찾기
+        const toggleEl = target.closest('.interpretation-toggle');
+        if (!toggleEl) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // data-toggle-key 추출 (NaN 체크로 0 허용)
+        const toggleKeyRaw = (toggleEl as HTMLElement).dataset.toggleKey;
+        if (toggleKeyRaw === undefined || toggleKeyRaw === null) {
+          console.warn('[Interpretation] toggleKey not found');
+          return;
+        }
+        
+        const toggleKey = toggleKeyRaw;
+        console.log('[Interpretation] Toggle clicked, key:', toggleKey);
+        
+        // 해당 해석 영역 찾기
+        const cardEl = toggleEl.closest('.item-card');
+        if (!cardEl) {
+          console.warn('[Interpretation] Card element not found');
+          return;
+        }
+        
+        const interpretationEl = cardEl.querySelector('.item-interpretation') as HTMLElement;
+        if (!interpretationEl) {
+          console.warn('[Interpretation] Interpretation element not found');
+          return;
+        }
+        
+        const interpretationTextEl = interpretationEl.querySelector('.interpretation-text') as HTMLElement;
+        if (!interpretationTextEl) {
+          console.warn('[Interpretation] Interpretation text element not found');
+          return;
+        }
+        
+        // 이미 로드되었는지 확인
+        if (interpretationEl.dataset.loaded === 'true') {
+          // 토글만 수행
+          const isVisible = interpretationEl.style.display !== 'none';
+          interpretationEl.style.display = isVisible ? 'none' : 'block';
+          toggleEl.textContent = isVisible ? '해석 보기 ▼' : '해석 숨기기 ▲';
+          return;
+        }
+        
+        // 로딩 시작
+        interpretationTextEl.textContent = '로딩 중...';
+        interpretationTextEl.style.color = '#808080';
+        interpretationTextEl.style.fontStyle = 'italic';
+        interpretationEl.style.display = 'block';
+        toggleEl.textContent = '로딩 중...';
+        
+        try {
+          // 날짜 파라미터 가져오기
+          const urlParams = new URLSearchParams(window.location.search);
+          const dateParam = urlParams.get('date') || '';
+          
+          // API 호출
+          const apiUrl = '/api/h41/interpretation?key=' + encodeURIComponent(toggleKey) + 
+                         (dateParam ? '&date=' + encodeURIComponent(dateParam) : '');
+          
+          console.log('[Interpretation] Fetching from:', apiUrl);
+          
+          const response = await fetch(apiUrl);
+          
+          if (!response.ok) {
+            throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+          }
+          
+          const data = await response.json();
+          
+          if (!data.interpretation) {
+            throw new Error('Interpretation data not found in response');
+          }
+          
+          // 해석 텍스트 정규화 및 렌더링
+          const interpretation = data.interpretation;
+          const lines = interpretation.split('\n').filter((line: string) => line.trim().length > 0);
+          
+          if (lines.length === 0) {
+            interpretationTextEl.textContent = '해석 데이터가 없습니다.';
+            interpretationTextEl.style.color = '#808080';
+            return;
+          }
+          
+          // 첫 줄을 타이틀, 나머지를 본문으로
+          const title = lines[0].trim();
+          const body = lines.slice(1).join('\n').trim();
+          
+          // HTML 태그 제거 및 안전한 렌더링
+          const titleEl = interpretationEl.querySelector('.interpretation-title');
+          if (titleEl) {
+            titleEl.textContent = title;
+          }
+          
+          // 본문 렌더링 (줄바꿈 유지)
+          interpretationTextEl.textContent = body;
+          interpretationTextEl.style.color = '#4b5563';
+          interpretationTextEl.style.fontStyle = 'normal';
+          interpretationTextEl.style.whiteSpace = 'pre-wrap';
+          
+          // 로드 완료 표시
+          interpretationEl.dataset.loaded = 'true';
+          toggleEl.textContent = '해석 숨기기 ▲';
+          
+          console.log('[Interpretation] Loaded successfully for key:', toggleKey);
+        } catch (error) {
+          console.error('[Interpretation] Failed to load interpretation:', error);
+          interpretationTextEl.textContent = '해석을 불러올 수 없습니다.';
+          interpretationTextEl.style.color = '#dc2626';
+          interpretationTextEl.style.fontStyle = 'normal';
+          toggleEl.textContent = '해석 보기 ▼';
+        }
+      }, true); // capture phase
+    })();
   </script>
 </body>
 </html>
