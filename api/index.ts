@@ -1039,6 +1039,162 @@ app.get("/levels", async (_req, res) => {
 });
 
 // 계정 개념 페이지
+// 금리 발표 일정 페이지
+app.get("/interest-rate-schedule", async (_req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 2026년 금리 발표 일정
+    const schedules = {
+      fomc: [
+        { month: 1, day: 28, weekday: "수" },
+        { month: 3, day: 18, weekday: "수" },
+        { month: 4, day: 29, weekday: "수" },
+        { month: 6, day: 17, weekday: "수" },
+        { month: 7, day: 29, weekday: "수" },
+        { month: 9, day: 16, weekday: "수" },
+        { month: 10, day: 28, weekday: "수" },
+        { month: 12, day: 9, weekday: "수" },
+      ],
+      ecb: [
+        { month: 2, day: 5, weekday: "목" },
+        { month: 3, day: 19, weekday: "목" },
+        { month: 4, day: 30, weekday: "목" },
+        { month: 6, day: 11, weekday: "목" },
+        { month: 7, day: 23, weekday: "목" },
+        { month: 9, day: 10, weekday: "목" },
+        { month: 10, day: 29, weekday: "목" },
+        { month: 12, day: 17, weekday: "목" },
+      ],
+      korea: [
+        { month: 1, day: 15, weekday: "목" },
+        { month: 2, day: 26, weekday: "목" },
+        { month: 4, day: 10, weekday: "금" },
+        { month: 5, day: 28, weekday: "목" },
+        { month: 7, day: 16, weekday: "목" },
+        { month: 8, day: 27, weekday: "목" },
+        { month: 10, day: 22, weekday: "목" },
+        { month: 11, day: 26, weekday: "목" },
+      ],
+      boj: [
+        { month: 1, day: 22, weekday: "목" },
+        { month: 3, day: 19, weekday: "목" },
+        { month: 4, day: 28, weekday: "월" },
+        { month: 6, day: 13, weekday: "금" },
+        { month: 7, day: 31, weekday: "목" },
+        { month: 9, day: 22, weekday: "월" },
+        { month: 10, day: 31, weekday: "금" },
+        { month: 12, day: 19, weekday: "금" },
+      ],
+    };
+    
+    const calculateDays = (year: number, month: number, day: number) => {
+      const targetDate = new Date(year, month - 1, day);
+      targetDate.setHours(0, 0, 0, 0);
+      if (targetDate < today) return null; // 과거 날짜는 null
+      const diff = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return diff;
+    };
+    
+    const getScheduleRow = (month: number) => {
+      const fomc = schedules.fomc.find(s => s.month === month);
+      const ecb = schedules.ecb.find(s => s.month === month);
+      const korea = schedules.korea.find(s => s.month === month);
+      const boj = schedules.boj.find(s => s.month === month);
+      
+      const fomcDays = fomc ? calculateDays(2026, fomc.month, fomc.day) : null;
+      const ecbDays = ecb ? calculateDays(2026, ecb.month, ecb.day) : null;
+      const koreaDays = korea ? calculateDays(2026, korea.month, korea.day) : null;
+      const bojDays = boj ? calculateDays(2026, boj.month, boj.day) : null;
+      
+      const formatDate = (schedule: { day: number; weekday: string } | undefined, days: number | null) => {
+        if (!schedule) return '<td style="padding: 12px; text-align: center; color: #808080;">-</td>';
+        const ddayText = days !== null ? ` (D-${days})` : '';
+        const color = days !== null && days <= 7 ? '#ff6b6b' : days !== null ? '#4dabf7' : '#c0c0c0';
+        return `<td style="padding: 12px; text-align: center; color: ${color}; font-weight: ${days !== null && days <= 7 ? '600' : '400'};">${schedule.day}일 (${schedule.weekday})${ddayText}</td>`;
+      };
+      
+      return `
+        <tr style="border-bottom: 1px solid #2d2d2d;">
+          <td style="padding: 12px; text-align: center; font-weight: 600; color: #ffffff;">${month}월</td>
+          ${formatDate(fomc, fomcDays)}
+          ${formatDate(ecb, ecbDays)}
+          ${formatDate(korea, koreaDays)}
+          ${formatDate(boj, bojDays)}
+        </tr>
+      `;
+    };
+    
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>2026년 금리 발표 일정 - FED H.4.1</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:20px;font-weight:700;color:#ffffff}
+    .page-header .sub{opacity:.8;font-size:13px;margin-top:8px;line-height:1.5;color:#c0c0c0}
+    .page-header a{color:#4dabf7;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#74c0fc}
+    .main-content{padding:24px;max-width:1200px;margin:0 auto}
+    .schedule-table{width:100%;border-collapse:collapse;background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;margin-top:24px}
+    .schedule-table th{background:#252525;padding:16px 12px;text-align:center;font-weight:700;color:#ffffff;border-bottom:2px solid #2d2d2d;font-size:14px}
+    .schedule-table td{border-bottom:1px solid #2d2d2d}
+    .schedule-table tr:last-child td{border-bottom:none}
+    .schedule-table tr:hover{background:#252525}
+    .info-box{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:20px;margin-top:24px}
+    .info-box h3{margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff}
+    .info-box p{margin:8px 0;font-size:14px;line-height:1.8;color:#c0c0c0}
+    @media (max-width: 768px) {
+      .schedule-table{font-size:12px}
+      .schedule-table th, .schedule-table td{padding:8px 6px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>2026년 금리 발표 일정 📅</h1>
+    <div class="sub">
+      <a href="/">← 대시보드로 돌아가기</a>
+    </div>
+  </div>
+  <div class="main-content">
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th style="width: 15%;">월</th>
+          <th style="width: 21.25%;">🇺🇸 FOMC<br/>(미국)</th>
+          <th style="width: 21.25%;">🇪🇺 ECB<br/>(유럽)</th>
+          <th style="width: 21.25%;">🇰🇷 금통위<br/>(한국)</th>
+          <th style="width: 21.25%;">🇯🇵 BOJ<br/>(일본)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Array.from({ length: 12 }, (_, i) => i + 1).map(month => getScheduleRow(month)).join('')}
+      </tbody>
+    </table>
+    <div class="info-box">
+      <h3>📌 안내</h3>
+      <p>• <strong style="color: #4dabf7;">파란색</strong>: 다가오는 발표일 (D-day 표시)</p>
+      <p>• <strong style="color: #ff6b6b;">빨간색</strong>: 7일 이내 발표일 (주의 필요)</p>
+      <p>• <strong style="color: #808080;">회색</strong>: 이미 지난 발표일</p>
+      <p>• 발표일은 중앙은행 공식 일정을 기준으로 하며, 변경될 수 있습니다.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `);
+  } catch (e: any) {
+    res.status(500).send(e?.message ?? String(e));
+  }
+});
+
 app.get("/concepts", async (_req, res) => {
   try {
     const coreItems = ITEM_DEFS.filter(item => item.isCore);
