@@ -880,12 +880,16 @@ app.get("/", async (req, res) => {
         const fomcDays = calculateDays(nextFomc);
         const koreaDays = calculateDays(nextKorea);
         
+        // 금리 값 포맷팅 (null이면 "로딩 중..." 표시)
+        const usRateText = usRate !== null && usRate !== undefined ? `${usRate.toFixed(2)}%` : "로딩 중...";
+        const krRateText = krRate !== null && krRate !== undefined ? `${krRate.toFixed(2)}%` : "로딩 중...";
+        
         return `
       <div class="rate-announcement-container" style="margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
         ${nextFomc ? `
         <div class="rate-announcement-item" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c0c0c0;">
           <span>🇺🇸 FOMC 미국 금리:</span>
-          <span style="color: #4dabf7; font-weight: 600;">0.0%</span>
+          <span style="color: #4dabf7; font-weight: 600;">${usRateText}</span>
           <span>,</span>
           <span>발표일:</span>
           <span style="color: ${fomcDays !== null && fomcDays <= 7 ? '#ff6b6b' : '#4dabf7'}; font-weight: 600;">D-${fomcDays !== null ? fomcDays : '?'}</span>
@@ -895,7 +899,7 @@ app.get("/", async (req, res) => {
         ${nextKorea ? `
         <div class="rate-announcement-item" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c0c0c0;">
           <span>🇰🇷 한국 금리:</span>
-          <span style="color: #4dabf7; font-weight: 600;">0.0%</span>
+          <span style="color: #4dabf7; font-weight: 600;">${krRateText}</span>
           <span>,</span>
           <span>발표일:</span>
           <span style="color: ${koreaDays !== null && koreaDays <= 7 ? '#ff6b6b' : '#4dabf7'}; font-weight: 600;">D-${koreaDays !== null ? koreaDays : '?'}</span>
