@@ -425,7 +425,7 @@ app.get("/", async (req, res) => {
       
       return `
       <div class="card" data-card-id="${idx}" data-card-key="${escapeHtml(c.key)}">
-        <div class="card-header" onclick="event.stopPropagation(); toggleCard(${idx});">
+        <div class="card-header" data-card-toggle="${idx}">
           <div class="k">${c.key}</div>
           <div class="t">${escapeHtml(c.title)}</div>
           <div class="expand-icon" id="expand-icon-${idx}">▼</div>
@@ -547,7 +547,7 @@ app.get("/", async (req, res) => {
     // 주간 요약 리포트는 lazy load로 변경 (초기 HTML에서 제거하여 payload 축소)
     const weeklyReportSection = `
     <div class="weekly-report">
-      <div class="report-header" onclick="toggleReport()">
+      <div class="report-header" data-report-toggle>
         <h2>주간 요약 리포트 📄</h2>
         <div class="expand-icon" id="report-icon">▼</div>
       </div>
@@ -559,7 +559,7 @@ app.get("/", async (req, res) => {
     // Info 접힘 영역
     const infoSection = `
     <div class="info-section">
-      <div class="info-header" onclick="toggleInfo()">
+      <div class="info-header" data-info-toggle>
         <span class="info-icon">ℹ️</span>
         <span>이 페이지는 무엇을 알려주는가?</span>
         <div class="expand-icon" id="info-icon">▼</div>
@@ -847,6 +847,7 @@ app.get("/", async (req, res) => {
       }
     }
     
+    // 카드 토글 함수 (전역 등록)
     async function toggleCard(idx) {
       try {
         const card = document.querySelector('[data-card-id="' + idx + '"]');
@@ -900,6 +901,37 @@ app.get("/", async (req, res) => {
         console.error('Error in toggleCard:', error, 'idx:', idx);
       }
     }
+    
+    // 전역에 등록 (인라인 onclick 호환성 유지)
+    window.toggleCard = toggleCard;
+    
+    // 이벤트 리스너로 인라인 onclick 대체 (DOMContentLoaded 후 실행)
+    document.addEventListener('DOMContentLoaded', function() {
+      // 카드 헤더 클릭 이벤트
+      document.querySelectorAll('[data-card-toggle]').forEach(function(header) {
+        header.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const idx = parseInt(this.getAttribute('data-card-toggle') || '0', 10);
+          toggleCard(idx);
+        });
+      });
+      
+      // 주간 리포트 헤더 클릭 이벤트
+      const reportHeader = document.querySelector('[data-report-toggle]');
+      if (reportHeader) {
+        reportHeader.addEventListener('click', function() {
+          toggleReport();
+        });
+      }
+      
+      // 정보 섹션 헤더 클릭 이벤트
+      const infoHeader = document.querySelector('[data-info-toggle]');
+      if (infoHeader) {
+        infoHeader.addEventListener('click', function() {
+          toggleInfo();
+        });
+      }
+    });
     
     async function loadWeeklyReport() {
       const reportContent = document.getElementById('report-content');
@@ -971,10 +1003,18 @@ app.get("/", async (req, res) => {
       }
     }
     
+    // 전역에 등록 (인라인 onclick 호환성 유지)
+    window.toggleReport = toggleReport;
+    
     function toggleInfo() {
       const info = document.querySelector('.info-section');
-      info.classList.toggle('expanded');
+      if (info) {
+        info.classList.toggle('expanded');
+      }
     }
+    
+    // 전역에 등록 (인라인 onclick 호환성 유지)
+    window.toggleInfo = toggleInfo;
   </script>
 </body>
 </html>`);
