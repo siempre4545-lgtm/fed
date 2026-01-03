@@ -745,6 +745,82 @@ app.get("/", async (req, res) => {
         </button>
       </div>
       ` : ''}
+      ${(() => {
+        // 2026년 FOMC 및 금통위 일정
+        const fomcDates = [
+          new Date(2026, 0, 28), // 1월 28일
+          new Date(2026, 2, 18), // 3월 18일
+          new Date(2026, 5, 17), // 6월 17일
+          new Date(2026, 6, 29), // 7월 29일
+          new Date(2026, 8, 16), // 9월 16일
+          new Date(2026, 9, 28), // 10월 28일
+          new Date(2026, 11, 9), // 12월 9일
+        ];
+        
+        const koreaDates = [
+          new Date(2026, 0, 15), // 1월 15일
+          new Date(2026, 1, 26), // 2월 26일
+          new Date(2026, 3, 10), // 4월 10일
+          new Date(2026, 4, 28), // 5월 28일
+          new Date(2026, 6, 16), // 7월 16일
+          new Date(2026, 7, 27), // 8월 27일
+          new Date(2026, 9, 22), // 10월 22일
+          new Date(2026, 10, 26), // 11월 26일
+        ];
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // 다음 FOMC 발표일 찾기
+        const nextFomc = fomcDates.find(date => {
+          const d = new Date(date);
+          d.setHours(0, 0, 0, 0);
+          return d >= today;
+        });
+        
+        // 다음 금통위 발표일 찾기
+        const nextKorea = koreaDates.find(date => {
+          const d = new Date(date);
+          d.setHours(0, 0, 0, 0);
+          return d >= today;
+        });
+        
+        const calculateDays = (targetDate: Date | undefined) => {
+          if (!targetDate) return null;
+          const target = new Date(targetDate);
+          target.setHours(0, 0, 0, 0);
+          const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return diff;
+        };
+        
+        const fomcDays = calculateDays(nextFomc);
+        const koreaDays = calculateDays(nextKorea);
+        
+        return `
+      <div class="rate-announcement-container" style="margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+        ${nextFomc ? `
+        <div class="rate-announcement-item" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c0c0c0;">
+          <span>🇺🇸 FOMC 미국 금리:</span>
+          <span style="color: #4dabf7; font-weight: 600;">0.0%</span>
+          <span>,</span>
+          <span>발표일:</span>
+          <span style="color: ${fomcDays !== null && fomcDays <= 7 ? '#ff6b6b' : '#4dabf7'}; font-weight: 600;">D-${fomcDays !== null ? fomcDays : '?'}</span>
+          ${fomcDays !== null && fomcDays <= 7 ? '<span style="color: #ff6b6b;">⚠️</span>' : ''}
+        </div>
+        ` : ''}
+        ${nextKorea ? `
+        <div class="rate-announcement-item" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c0c0c0;">
+          <span>🇰🇷 한국 금리:</span>
+          <span style="color: #4dabf7; font-weight: 600;">0.0%</span>
+          <span>,</span>
+          <span>발표일:</span>
+          <span style="color: ${koreaDays !== null && koreaDays <= 7 ? '#ff6b6b' : '#4dabf7'}; font-weight: 600;">D-${koreaDays !== null ? koreaDays : '?'}</span>
+          ${koreaDays !== null && koreaDays <= 7 ? '<span style="color: #ff6b6b;">⚠️</span>' : ''}
+        </div>
+        ` : ''}
+      </div>
+      `;
+      })()}
       <div class="date-selector">
         <label for="dateInput">FED 발표 날짜 선택:</label>
         <input type="date" id="dateInput" value="${targetDate || ''}" style="padding:6px 12px;border:1px solid #2d2d2d;border-radius:6px;background:#1f1f1f;color:#ffffff;font-size:13px;cursor:pointer" />
