@@ -5,6 +5,7 @@
 
 import { fetchRelatedNews } from "./news.js";
 import { generateIndicatorConcept } from "./economic-indicators-concept.js";
+import { cachedFetch, getCacheKey } from "./cache.js";
 
 export type EconomicIndicator = {
   category: string;
@@ -717,26 +718,68 @@ async function fetchFearGreedIndex(): Promise<{ value: number; change: number; h
  * 모든 경제 지표 수집
  */
 export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]> {
-  const indicators: EconomicIndicator[] = [];
-  const now = new Date().toISOString();
+  // 캐시 키 생성 (1시간 단위로 캐시)
+  const cacheKey = getCacheKey('economic-indicators', Math.floor(Date.now() / 3600000)); // 1시간 단위
   
-  // 금리 지표 (Yahoo Finance)
-  const [treasury3M, treasury2Y, treasury10Y] = await Promise.all([
-    fetchYahooFinance("^IRX"),
-    fetch2YearTreasury(),
-    fetchYahooFinance("^TNX"),
-  ]);
-  
-  // FRED 데이터는 별도로 가져오기 (API 키 필요 시)
-  // 기준금리: DFF (Federal Funds Effective Rate) 또는 DFEDTARU (Target Upper Bound)
-  const [fedFundsRate_DFF, fedFundsRate_TARU, treasury10Y_FRED, treasury2Y_FRED, sofr, onRrp] = await Promise.all([
-    fetchFRED("DFF", 30), // 기준금리 - Effective Rate (히스토리 포함)
-    fetchFRED("DFEDTARU", 30), // 기준금리 - Target Upper Bound (상단금리, 히스토리 포함)
-    fetchFRED("DGS10", 30), // 10년물 (히스토리 포함)
-    fetchFRED("DGS2", 30), // 2년물 (히스토리 포함)
-    fetchFRED("SOFR", 30), // SOFR 금리 (히스토리 포함)
-    fetchFRED("RRPONTSYD", 30), // ON RRP (히스토리 포함)
-  ]);
+  return cachedFetch(
+    cacheKey,
+    async () => {
+      const indicators: EconomicIndicator[] = [];
+      const now = new Date().toISOString();
+      
+      // 금리 지표 (Yahoo Finance) - 캐싱 적용
+      const [treasury3M, treasury2Y, treasury10Y] = await Promise.all([
+        cachedFetch(
+          getCacheKey('yahoo', '^IRX', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^IRX"),
+          { ttl: 3600000 } // 1시간
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '2Y', Math.floor(Date.now() / 3600000)),
+          () => fetch2YearTreasury(),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '^TNX', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^TNX"),
+          { ttl: 3600000 }
+        ),
+      ]);
+      
+      // FRED 데이터는 별도로 가져오기 (API 키 필요 시) - 캐싱 적용
+      // 기준금리: DFF (Federal Funds Effective Rate) 또는 DFEDTARU (Target Upper Bound)
+      const [fedFundsRate_DFF, fedFundsRate_TARU, treasury10Y_FRED, treasury2Y_FRED, sofr, onRrp] = await Promise.all([
+        cachedFetch(
+          getCacheKey('fred', 'DFF', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("DFF", 30),
+          { ttl: 3600000 } // 1시간
+        ),
+        cachedFetch(
+          getCacheKey('fred', 'DFEDTARU', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("DFEDTARU", 30),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('fred', 'DGS10', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("DGS10", 30),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('fred', 'DGS2', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("DGS2", 30),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('fred', 'SOFR', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("SOFR", 30),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('fred', 'RRPONTSYD', Math.floor(Date.now() / 3600000)),
+          () => fetchFRED("RRPONTSYD", 30),
+          { ttl: 3600000 }
+        ),
+      ]);
   
   // 상단금리(Target Upper Bound) 우선, 없으면 Effective Rate 사용
   const fedFundsRate = fedFundsRate_TARU || fedFundsRate_DFF;
@@ -878,15 +921,39 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-  // 지수 지표
-  const [dxy, wti, dow, sp500, nasdaq, russel] = await Promise.all([
-    fetchYahooFinance("DX-Y.NYB"),
-    fetchYahooFinance("CL=F"),
-    fetchYahooFinance("^DJI"),
-    fetchYahooFinance("^GSPC"),
-    fetchYahooFinance("^IXIC"),
-    fetchYahooFinance("^RUT"),
-  ]);
+      // 지수 지표 - 캐싱 적용
+      const [dxy, wti, dow, sp500, nasdaq, russel] = await Promise.all([
+        cachedFetch(
+          getCacheKey('yahoo', 'DX-Y.NYB', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("DX-Y.NYB"),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', 'CL=F', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("CL=F"),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '^DJI', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^DJI"),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '^GSPC', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^GSPC"),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '^IXIC', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^IXIC"),
+          { ttl: 3600000 }
+        ),
+        cachedFetch(
+          getCacheKey('yahoo', '^RUT', Math.floor(Date.now() / 3600000)),
+          () => fetchYahooFinance("^RUT"),
+          { ttl: 3600000 }
+        ),
+      ]);
   
   if (dxy) {
     indicators.push({
@@ -1071,9 +1138,13 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     console.error("Error fetching Fear & Greed Index:", err);
   }
   
-  let koreaCDS = null;
-  try {
-    koreaCDS = await fetchKoreaCDS();
+      let koreaCDS = null;
+      try {
+        koreaCDS = await cachedFetch(
+          getCacheKey('korea-cds', Math.floor(Date.now() / 3600000)),
+          () => fetchKoreaCDS(),
+          { ttl: 3600000 }
+        );
     if (koreaCDS) {
       console.log(`Korea CDS fetched successfully: ${koreaCDS.value}bp (change: ${koreaCDS.change}bp)`);
     } else {
@@ -1119,8 +1190,12 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-  // 실업수당청구건수 (FRED ICSA)
-  const initialClaims = await fetchFRED("ICSA", 30);
+      // 실업수당청구건수 (FRED ICSA) - 캐싱 적용
+      const initialClaims = await cachedFetch(
+        getCacheKey('fred', 'ICSA', Math.floor(Date.now() / 3600000)),
+        () => fetchFRED("ICSA", 30),
+        { ttl: 3600000 }
+      );
   if (initialClaims) {
     indicators.push({
       category: "심리",
@@ -1138,10 +1213,18 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // 신용 지표
-  const highYieldSpread = await fetchHighYieldSpread();
+      const highYieldSpread = await cachedFetch(
+        getCacheKey('high-yield-spread', Math.floor(Date.now() / 3600000)),
+        () => fetchHighYieldSpread(),
+        { ttl: 3600000 }
+      );
   
-  // M2 추가
-  const m2 = await fetchFRED("M2SL", 30);
+      // M2 추가 - 캐싱 적용
+      const m2 = await cachedFetch(
+        getCacheKey('fred', 'M2SL', Math.floor(Date.now() / 3600000)),
+        () => fetchFRED("M2SL", 30),
+        { ttl: 3600000 }
+      );
   if (m2) {
     indicators.push({
       category: "신용",
@@ -1229,7 +1312,11 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // ISM 제조업 지수 가져오기 (웹 스크래핑)
-  const ismManufacturing = await fetchISMManufacturing();
+      const ismManufacturing = await cachedFetch(
+        getCacheKey('ism-manufacturing', Math.floor(Date.now() / 3600000)),
+        () => fetchISMManufacturing(),
+        { ttl: 3600000 }
+      );
   if (ismManufacturing) {
     indicators.push({
       category: "기타",
@@ -1246,7 +1333,11 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
   // 소비자신뢰지수 가져오기 (웹 스크래핑)
-  const consumerConfidence = await fetchConsumerConfidence();
+      const consumerConfidence = await cachedFetch(
+        getCacheKey('consumer-confidence', Math.floor(Date.now() / 3600000)),
+        () => fetchConsumerConfidence(),
+        { ttl: 3600000 }
+      );
   if (consumerConfidence) {
     indicators.push({
       category: "기타",
@@ -1262,7 +1353,10 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-  return indicators;
+      return indicators;
+    },
+    { ttl: 3600000 } // 1시간 캐시
+  );
 }
 
 /**

@@ -1191,6 +1191,9 @@ app.get("/concepts", async (_req, res) => {
 // 경제 지표 페이지
 app.get("/economic-indicators", async (_req, res) => {
   try {
+    // 캐시 헤더 설정 (1시간 캐시, stale-while-revalidate 24시간)
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    
     const indicators = await fetchAllEconomicIndicators();
     const status = diagnoseEconomicStatus(indicators);
     
@@ -1303,6 +1306,8 @@ app.get("/economic-indicators", async (_req, res) => {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>경제 지표 - FED H.4.1</title>
+  <link rel="prefetch" href="/economic-indicators/fed-assets-liabilities" />
+  <script src="/toggles.js" defer></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
@@ -1721,6 +1726,9 @@ app.get("/economic-indicators/fear-greed-index", async (req, res) => {
 // FED 자산/부채 페이지
 app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
   try {
+    // 캐시 헤더 설정 (1시간 캐시, stale-while-revalidate 24시간)
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    
     // 날짜 파라미터 확인
     const targetDate = req.query.date as string | undefined;
     
@@ -2074,12 +2082,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           <div class="item-change ${assets.treasury.change_musd > 0 ? 'positive' : assets.treasury.change_musd < 0 ? 'negative' : 'neutral'}">
             ${assets.treasury.change_musd > 0 ? '+' : ''}${(assets.treasury.change_musd / 1000).toFixed(1)}조
           </div>
-          ${assets.treasury.interpretation ? `
-          <div class="item-interpretation">
-            <div class="interpretation-title">${escapeHtml(assets.treasury.interpretation.split('\n')[0] || '해석')}</div>
-            <div class="interpretation-text">${escapeHtml(assets.treasury.interpretation.split('\n').slice(1).join('\n') || assets.treasury.interpretation).replace(/\n/g, "<br/><br/>")}</div>
+          <div class="item-interpretation" data-interpretation-key="treasury" data-interpretation-date="${targetDate || ''}" style="display:none">
+            <div class="interpretation-title">해석</div>
+            <div class="interpretation-text" style="color: #808080; font-style: italic;">로딩 중...</div>
           </div>
-          ` : ''}
+          <div class="interpretation-toggle" data-toggle-key="treasury" style="margin-top: 12px; padding: 8px 16px; background: #2d2d2d; border-radius: 6px; cursor: pointer; text-align: center; color: #4dabf7; font-size: 13px; font-weight: 600;">
+            해석 보기 ▼
+          </div>
         </div>
         ` : ''}
         ${assets.mbs ? `
