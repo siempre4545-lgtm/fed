@@ -666,7 +666,8 @@ app.get("/", async (req, res) => {
     .interpretation-text{font-size:14px;line-height:1.8;color:#c0c0c0}
     .interpretation-headline{margin-bottom:12px;font-size:15px;font-weight:700;color:#ffffff}
     .interpretation-headline strong{color:#ffffff;font-weight:700}
-    .interpretation-body{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:normal;word-wrap:break-word}
+    .interpretation-body{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:normal;word-wrap:break-word;font-weight:400}
+    .interpretation-body *{font-weight:400 !important}
     .s{margin-top:16px;padding-top:16px;border-top:1px solid #2d2d2d;font-size:12px;color:#808080}
     
     .footer-links{display:flex;gap:20px;justify-content:center;margin-top:40px;padding:20px;border-top:1px solid #2d2d2d}

@@ -10,6 +10,186 @@
   
   console.log('TOGGLE_BIND_INIT', window.location.pathname);
   
+  // 텍스트 정규화 함수: HTML 태그 제거, markdown bold 제거, 안전한 텍스트 추출
+  function normalizeText(rawText) {
+    if (!rawText || typeof rawText !== 'string') {
+      return { title: '', lines: [] };
+    }
+    
+    // HTML 태그 제거 (단, <br>는 줄바꿈으로 치환)
+    let text = rawText
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/?div[^>]*>/gi, '\n')
+      .replace(/<\/?p[^>]*>/gi, '\n')
+      .replace(/<\/?strong[^>]*>/gi, '')
+      .replace(/<\/?b[^>]*>/gi, '')
+      .replace(/<\/?em[^>]*>/gi, '')
+      .replace(/<\/?i[^>]*>/gi, '')
+      .replace(/<[^>]+>/g, ''); // 나머지 모든 HTML 태그 제거
+    
+    // HTML 엔티티 디코딩
+    text = text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+    
+    // Markdown bold 제거 (**텍스트** -> 텍스트)
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+    
+    // 연속 공백/줄바꿈 정리
+    text = text
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+    
+    // 줄 단위로 분리
+    const lines = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (lines.length === 0) {
+      return { title: '', lines: [] };
+    }
+    
+    // 첫 번째 의미있는 줄을 title로, 나머지를 lines로
+    const title = lines[0];
+    const bodyLines = lines.slice(1);
+    
+    return { title, lines: bodyLines };
+  }
+  
+  // 안전한 DOM 렌더링: innerHTML 대신 createElement 사용
+  function renderTextSafely(container, normalized) {
+    // 기존 내용 제거
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    
+    // Title 렌더링 (bold)
+    if (normalized.title) {
+      const titleEl = document.createElement('div');
+      titleEl.className = 'interpretation-headline';
+      titleEl.style.fontWeight = '700';
+      titleEl.style.marginBottom = '12px';
+      titleEl.style.color = '#ffffff';
+      titleEl.textContent = normalized.title;
+      container.appendChild(titleEl);
+    }
+    
+    // Body 렌더링 (normal weight)
+    if (normalized.lines.length > 0) {
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'interpretation-body';
+      bodyEl.style.fontWeight = '400';
+      bodyEl.style.lineHeight = '1.8';
+      bodyEl.style.color = '#c0c0c0';
+      
+      normalized.lines.forEach((line) => {
+        const lineEl = document.createElement('div');
+        lineEl.style.marginBottom = '8px';
+        
+        // 불릿 패턴 감지
+        if (/^[•\-\*▶✅]/.test(line)) {
+          lineEl.style.paddingLeft = '16px';
+          lineEl.style.position = 'relative';
+          lineEl.textContent = line;
+        } else {
+          lineEl.textContent = line;
+        }
+        
+        bodyEl.appendChild(lineEl);
+      });
+      
+      container.appendChild(bodyEl);
+    }
+  }
+  
+  // 주간 리포트 안전 렌더링
+  function renderWeeklyReportSafely(container, rawSummary) {
+    // 기존 내용 제거
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    
+    // 디버깅: raw string 로그 (1회만)
+    if (!window._weeklyReportLogged) {
+      console.log('WEEKLY_REPORT_RAW', {
+        length: rawSummary.length,
+        preview: rawSummary.substring(0, 200)
+      });
+      window._weeklyReportLogged = true;
+    }
+    
+    const normalized = normalizeText(rawSummary);
+    
+    // 디버깅: normalize 결과
+    console.log('WEEKLY_REPORT_NORMALIZED', {
+      titleLength: normalized.title.length,
+      linesCount: normalized.lines.length
+    });
+    
+    // Title 렌더링
+    if (normalized.title) {
+      const titleEl = document.createElement('div');
+      titleEl.className = 'report-main-phrase';
+      titleEl.style.fontWeight = '700';
+      titleEl.style.fontSize = '18px';
+      titleEl.style.marginBottom = '16px';
+      titleEl.style.color = '#ffffff';
+      titleEl.textContent = normalized.title;
+      container.appendChild(titleEl);
+    }
+    
+    // Body 렌더링
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'report-text';
+    bodyEl.style.fontWeight = '400';
+    bodyEl.style.lineHeight = '1.8';
+    bodyEl.style.color = '#c0c0c0';
+    
+    normalized.lines.forEach((line) => {
+      const lineEl = document.createElement('div');
+      lineEl.style.marginBottom = '12px';
+      
+      // 섹션 타이틀 ([...])
+      if (line.startsWith('[') && line.endsWith(']')) {
+        lineEl.className = 'report-section-title';
+        lineEl.style.fontWeight = '600';
+        lineEl.style.fontSize = '16px';
+        lineEl.style.marginTop = '20px';
+        lineEl.style.marginBottom = '12px';
+        lineEl.style.color = '#ffffff';
+        lineEl.textContent = line;
+      }
+      // 불릿 (•, -, *, ▶, ✅)
+      else if (/^[•\-\*▶✅]/.test(line)) {
+        lineEl.className = 'report-bullet';
+        lineEl.style.paddingLeft = '20px';
+        lineEl.style.position = 'relative';
+        lineEl.textContent = line;
+      }
+      // 서브 불릿 (  →)
+      else if (/^\s+→/.test(line)) {
+        lineEl.className = 'report-sub-bullet';
+        lineEl.style.paddingLeft = '32px';
+        lineEl.style.fontSize = '14px';
+        lineEl.textContent = line.trim();
+      }
+      // 일반 문단
+      else {
+        lineEl.className = 'report-paragraph';
+        lineEl.textContent = line;
+      }
+      
+      bodyEl.appendChild(lineEl);
+    });
+    
+    container.appendChild(bodyEl);
+  }
+  
   // 카드 토글 함수
   async function toggleCard(idx) {
     try {
@@ -40,25 +220,24 @@
               const response = await fetch('/api/h41/detail?key=' + encodeURIComponent(cardKey));
               if (response.ok) {
                 const data = await response.json();
-                const parts = data.interpretation.split("\\n");
-                if (parts.length > 0) {
-                  const headline = parts[0].trim();
-                  const body = parts.slice(1).filter(p => p.trim()).join("<br/>");
-                  interpretationText.innerHTML = '<div class="interpretation-headline"><strong>' + 
-                    headline.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + 
-                    '</strong></div><div class="interpretation-body">' + 
-                    body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + 
-                    '</div>';
-                } else {
-                  interpretationText.innerHTML = data.interpretation.replace(/\\n/g, "<br/>")
-                    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-                }
+                // 텍스트 정규화 및 안전한 렌더링
+                const normalized = normalizeText(data.interpretation);
+                renderTextSafely(interpretationText, normalized);
               } else {
-                interpretationText.innerHTML = '<div style="color: #ef4444;">해석을 불러올 수 없습니다.</div>';
+                // 에러 메시지도 안전하게 렌더링
+                const errorEl = document.createElement('div');
+                errorEl.style.color = '#ef4444';
+                errorEl.textContent = '해석을 불러올 수 없습니다.';
+                interpretationText.textContent = '';
+                interpretationText.appendChild(errorEl);
               }
             } catch (e) {
               console.error('Failed to load interpretation:', e);
-              interpretationText.innerHTML = '<div style="color: #ef4444;">해석을 불러올 수 없습니다.</div>';
+              const errorEl = document.createElement('div');
+              errorEl.style.color = '#ef4444';
+              errorEl.textContent = '해석을 불러올 수 없습니다.';
+              interpretationText.textContent = '';
+              interpretationText.appendChild(errorEl);
             }
           }
         }
@@ -76,48 +255,42 @@
     if (reportContent.dataset.loaded === 'true') return;
     
     try {
-      reportContent.innerHTML = '<div style="color: #808080; font-style: italic; padding: 20px; text-align: center;">로딩 중...</div>';
+      // 로딩 메시지 안전하게 렌더링
+      const loadingEl = document.createElement('div');
+      loadingEl.style.color = '#808080';
+      loadingEl.style.fontStyle = 'italic';
+      loadingEl.style.padding = '20px';
+      loadingEl.style.textAlign = 'center';
+      loadingEl.textContent = '로딩 중...';
+      reportContent.textContent = '';
+      reportContent.appendChild(loadingEl);
       
       const response = await fetch('/api/h41/weekly-summary');
       if (response.ok) {
         const data = await response.json();
         const summary = data.summary || '';
         
-        const summaryLines = summary.split("\\n");
-        const mainPhrase = summaryLines.find((line) => line.startsWith("**") && line.endsWith("**")) || "";
-        const mainPhraseClean = mainPhrase.replace(/\\*\\*/g, "");
-        const restOfSummary = summaryLines.filter((line) => !line.startsWith("**") || !line.endsWith("**")).join("\\n");
-        
-        let html = '';
-        if (mainPhraseClean) {
-          html += '<div class="report-main-phrase">' + mainPhraseClean.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
-        }
-        html += '<div class="report-text">';
-        restOfSummary.split("\\n").forEach((line) => {
-          if (line.trim() === "") {
-            html += "<br/>";
-          } else if (line.startsWith("[") && line.endsWith("]")) {
-            html += '<div class="report-section-title">' + line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
-          } else if (line.startsWith("•")) {
-            const processed = line.replace(/\\*\\*(.*?)\\*\\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
-            html += '<div class="report-bullet">' + processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
-          } else if (line.startsWith("  →")) {
-            html += '<div class="report-sub-bullet">' + line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
-          } else {
-            const processed = line.replace(/\\*\\*(.*?)\\*\\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
-            html += '<div class="report-paragraph">' + processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
-          }
-        });
-        html += '</div>';
-        
-        reportContent.innerHTML = html;
+        // 텍스트 정규화 및 안전한 렌더링
+        renderWeeklyReportSafely(reportContent, summary);
         reportContent.dataset.loaded = 'true';
       } else {
-        reportContent.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">리포트를 불러올 수 없습니다.</div>';
+        const errorEl = document.createElement('div');
+        errorEl.style.color = '#ef4444';
+        errorEl.style.padding = '20px';
+        errorEl.style.textAlign = 'center';
+        errorEl.textContent = '리포트를 불러올 수 없습니다.';
+        reportContent.textContent = '';
+        reportContent.appendChild(errorEl);
       }
     } catch (e) {
       console.error('Failed to load weekly report:', e);
-      reportContent.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">리포트를 불러올 수 없습니다.</div>';
+      const errorEl = document.createElement('div');
+      errorEl.style.color = '#ef4444';
+      errorEl.style.padding = '20px';
+      errorEl.style.textAlign = 'center';
+      errorEl.textContent = '리포트를 불러올 수 없습니다.';
+      reportContent.textContent = '';
+      reportContent.appendChild(errorEl);
     }
   }
   
