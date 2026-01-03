@@ -140,11 +140,25 @@ app.get("/api/h41/interpretation", async (req, res) => {
     
     // 국채 특별 처리: treasury로 명시적으로 찾기 (coreCards와 cards 모두 확인)
     if (canonKey === 'treasury' && !card) {
-      card = allCards.find(c => 
-        c.fedLabel === 'U.S. Treasury securities' ||
-        c.fedLabel.toLowerCase().includes('treasury securities') ||
-        (c.fedLabel.toLowerCase().includes('treasury') && !c.fedLabel.toLowerCase().includes('general'))
-      );
+      console.log('[API] TREASURY_INTERP_KEY: searching for treasury with fallback');
+      card = allCards.find(c => {
+        const fedLabelLower = c.fedLabel.toLowerCase();
+        return c.fedLabel === 'U.S. Treasury securities' ||
+               fedLabelLower.includes('treasury securities') ||
+               (fedLabelLower.includes('treasury') && !fedLabelLower.includes('general') && !fedLabelLower.includes('account'));
+      });
+      
+      if (card) {
+        console.log('[API] TREASURY_INTERP_FOUND: matched via fallback', {
+          fedLabel: card.fedLabel,
+          hasInterp: !!card.interpretation
+        });
+      } else {
+        console.warn('[API] TREASURY_INTERP_MISS: not found even with fallback', {
+          canon: canonKey,
+          availableLabels: allCards.map(c => c.fedLabel)
+        });
+      }
     }
     
     if (card) {
@@ -2808,7 +2822,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           if (interpBody.dataset.loaded === 'true') {
             const isVisible = interpBody.style.display !== 'none';
             interpBody.style.display = isVisible ? 'none' : 'block';
-            toggleInterpEl.textContent = isVisible ? '해석 보기 ▼' : '해석 숨기기 ▲';
+            actionEl.textContent = isVisible ? '해석 보기 ▼' : '해석 숨기기 ▲';
             return;
           }
           
@@ -2820,7 +2834,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             interpText.style.fontStyle = 'italic';
           }
           interpBody.style.display = 'block';
-          toggleInterpEl.textContent = '로딩 중...';
+          actionEl.textContent = '로딩 중...';
           
           try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -2899,7 +2913,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             }
             
             interpBody.dataset.loaded = 'true';
-            toggleInterpEl.textContent = '해석 숨기기 ▲';
+            actionEl.textContent = '해석 숨기기 ▲';
             console.log('INTERP_FOUND:', canonKey, 'TREASURY_INTERP_FOUND:', canonKey === 'treasury');
           } catch (error) {
             console.error('INTERP_TARGET_MISSING: Failed to load interpretation:', error);
@@ -2910,7 +2924,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               interpText.style.color = '#dc2626';
               interpText.style.fontStyle = 'normal';
             }
-            toggleInterpEl.textContent = '해석 보기 ▼';
+            actionEl.textContent = '해석 보기 ▼';
           }
           return;
         }
@@ -2928,13 +2942,77 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         }
       }); // capture phase 제거 (기본 bubble phase 사용)
       
+      // ===== 1차 진단: 버튼 직접 이벤트 리스너 (오버레이/CSS 문제 확인) =====
+      function initDiagnosticListeners() {
+        // 날짜 조회 버튼 직접 리스너
+        const dateBtn = document.getElementById('releaseFetchBtn');
+        if (dateBtn) {
+          dateBtn.addEventListener('click', function(e) {
+            console.log('DATE_BTN_NATIVE_CLICK', {
+              target: e.target,
+              currentTarget: e.currentTarget,
+              button: dateBtn,
+              styles: {
+                pointerEvents: window.getComputedStyle(dateBtn).pointerEvents,
+                zIndex: window.getComputedStyle(dateBtn).zIndex,
+                opacity: window.getComputedStyle(dateBtn).opacity,
+                position: window.getComputedStyle(dateBtn).position,
+                disabled: dateBtn.hasAttribute('disabled')
+              }
+            });
+          }, true); // capture phase로 먼저 실행
+        }
+        
+        // 더보기 버튼 직접 리스너
+        const trendBtn = document.getElementById('loadMoreBtn');
+        if (trendBtn) {
+          trendBtn.addEventListener('click', function(e) {
+            console.log('TREND_BTN_NATIVE_CLICK', {
+              target: e.target,
+              currentTarget: e.currentTarget,
+              button: trendBtn,
+              styles: {
+                pointerEvents: window.getComputedStyle(trendBtn).pointerEvents,
+                zIndex: window.getComputedStyle(trendBtn).zIndex,
+                opacity: window.getComputedStyle(trendBtn).opacity,
+                position: window.getComputedStyle(trendBtn).position,
+                disabled: trendBtn.hasAttribute('disabled')
+              }
+            });
+          }, true); // capture phase로 먼저 실행
+        }
+      }
+      
+      // DOMContentLoaded 또는 즉시 실행
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDiagnosticListeners);
+      } else {
+        initDiagnosticListeners();
+      }
+      
+      // ===== 2차 진단: document click 추적 =====
+      document.addEventListener('click', function(e) {
+        const path = e.composedPath ? e.composedPath().slice(0, 5) : [];
+        console.log('DOC_CLICK_TRACE', {
+          target: e.target,
+          path: path.map(el => ({
+            tag: el.tagName,
+            id: el.id || 'none',
+            class: el.className || 'none',
+            dataAction: el.getAttribute ? el.getAttribute('data-action') : null
+          })),
+          defaultPrevented: e.defaultPrevented,
+          propagationStopped: false // stopPropagation은 확인 불가
+        });
+      }, true); // capture phase로 모든 클릭 추적
+      
       // 날짜 조회 버튼 전용 핸들러 (토글과 분리)
       document.addEventListener('click', function(e) {
         const target = e.target;
         if (!target || !(target instanceof HTMLElement)) return;
         
         if (target.id === 'releaseFetchBtn' || target.closest('#releaseFetchBtn') || target.closest('[data-action="date-fetch"]')) {
-          console.log('DATE_FETCH_CLICKED');
+          console.log('DATE_FETCH_CLICKED', 'ACTION_ROUTE: date-fetch');
           const selectEl = document.getElementById('releaseSelect');
           if (!selectEl) {
             console.warn('RELEASE_SELECT_MISSING');
@@ -2942,7 +3020,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           }
           
           const selectedDate = selectEl.value;
-          console.log('RELEASE_SELECTED:', selectedDate, 'ACTION_ROUTE: date-fetch');
+          console.log('RELEASE_SELECTED:', selectedDate);
           
           if (selectedDate) {
             window.location.href = '/economic-indicators/fed-assets-liabilities?date=' + selectedDate;
