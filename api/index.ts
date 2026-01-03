@@ -14,7 +14,6 @@ app.get("/api/h41/summary", async (req, res) => {
     
     // 숫자 데이터만 추출 (해석 제외)
     const summary = {
-      asOf: report.asOf,
       asOfWeekEndedText: report.asOfWeekEndedText,
       releaseDateText: report.releaseDateText,
       sourceUrl: report.sourceUrl,
@@ -100,7 +99,9 @@ app.get("/api/h41", async (req, res) => {
 app.get("/api/h41/history", async (req, res) => {
   try {
     const releaseDates = await getFedReleaseDates();
-    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
+    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const datesToFetch = releaseDates.slice(offset, Math.min(offset + limit, releaseDates.length));
     
     const historicalData: Array<{
       date: string;
@@ -189,10 +190,10 @@ app.get("/api/h41/history", async (req, res) => {
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
     res.json({
       releaseDatesCount: releaseDates.length,
-      datesToFetch: datesToFetch,
-      fetchedCount: historicalData.filter(d => !d.error).length,
-      totalAttempts: datesToFetch.length,
-      data: historicalData
+      offset: offset,
+      limit: limit,
+      hasMore: offset + limit < releaseDates.length,
+      history: historicalData.filter(d => !d.error)
     });
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
@@ -546,7 +547,7 @@ app.get("/", async (req, res) => {
     // 주간 요약 리포트는 lazy load로 변경 (초기 HTML에서 제거하여 payload 축소)
     const weeklyReportSection = `
     <div class="weekly-report">
-      <div class="report-header" onclick="toggleReport(); loadWeeklyReport();">
+      <div class="report-header" onclick="toggleReport()">
         <h2>주간 요약 리포트 📄</h2>
         <div class="expand-icon" id="report-icon">▼</div>
       </div>
@@ -1869,9 +1870,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         const year = thursday.getFullYear();
         const month = String(thursday.getMonth() + 1).padStart(2, '0');
         const day = String(thursday.getDate()).padStart(2, '0');
-        dates.push(`${year}-${month}-${day}`);
+        fallbackDates.push(`${year}-${month}-${day}`);
       }
-      releaseDates = dates;
+      releaseDates = fallbackDates;
     }
     
     let report: Awaited<ReturnType<typeof fetchH41Report>>;
@@ -1950,9 +1951,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
     
-    // 최신 날짜부터 가져오기 (더보기 기능을 위해 최대 52주치 데이터)
-    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 52개를 사용
-    const datesToFetch = releaseDates.slice(0, Math.min(52, releaseDates.length));
+    // 초기 로딩 최적화: 최근 10개만 먼저 가져오기 (나머지는 lazy load)
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 10개만 사용
+    const datesToFetch = releaseDates.slice(0, Math.min(10, releaseDates.length));
     
     if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
@@ -2068,7 +2069,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
                                     (liabilities.reserves?.change_musd || 0);
     
     // 경제 지표 및 뉴스 가져오기
-    let economicIndicators = null;
+    let economicIndicators: Awaited<ReturnType<typeof fetchAllEconomicIndicators>> | null = null;
     let economicNews: Array<{ title: string; source: string; publishedAt: string }> = [];
     try {
       economicIndicators = await fetchAllEconomicIndicators();
@@ -2424,7 +2425,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               };
               
               return `
-            <tr class="history-row" ${index >= 10 ? 'style="display:none"' : ''}>
+            <tr class="history-row">
               <td class="sticky-col">${formattedDate}</td>
               <td class="asset-cell" data-value="${totalAssets}">
                 $${(totalAssets / 1000).toFixed(1)}
@@ -2472,13 +2473,11 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           </tbody>
         </table>
       </div>
-      ${historicalData.length > 10 ? `
       <div style="text-align:center;margin-top:20px">
         <button id="loadMoreBtn" onclick="loadMoreHistory()" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
-          더보기 (${historicalData.length - 10}개 더)
+          더보기
         </button>
       </div>
-      ` : ''}
       ` : `
       <div style="padding: 40px; text-align: center; color: #6b7280; font-size: 14px;">
         데이터를 불러오는 중입니다...<br/>
@@ -2547,35 +2546,125 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       window.location.href = '/economic-indicators/fed-assets-liabilities';
     }
     
-    function loadMoreHistory() {
-      const rows = document.querySelectorAll('.history-row');
+    let allHistoryData = ${JSON.stringify(historicalData)};
+    let currentOffset = ${historicalData.length};
+    let isLoadingMore = false;
+    
+    async function loadMoreHistory() {
+      if (isLoadingMore) return;
+      
       const btn = document.getElementById('loadMoreBtn');
-      let visibleCount = 0;
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody || !btn) return;
       
-      rows.forEach(row => {
-        if (row.style.display !== 'none') {
-          visibleCount++;
+      isLoadingMore = true;
+      btn.disabled = true;
+      btn.textContent = '로딩 중...';
+      
+      try {
+        // API에서 추가 데이터 가져오기
+        const response = await fetch('/api/h41/history?offset=' + currentOffset + '&limit=10');
+        if (response.ok) {
+          const data = await response.json();
+          const newData = data.history || [];
+          
+          if (newData.length === 0) {
+            btn.style.display = 'none';
+            return;
+          }
+          
+          // 새 데이터를 테이블에 추가
+          newData.forEach((item, index) => {
+            const dateObj = new Date(item.date);
+            const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            
+            // 이전 날짜 데이터 계산
+            const prevItem = allHistoryData.length > 0 ? allHistoryData[allHistoryData.length - 1] : null;
+            allHistoryData.push(item);
+            
+            // 자산 합계 계산
+            const totalAssets = item.assets.treasury + item.assets.mbs + item.assets.repo + item.assets.loans;
+            const prevTotalAssets = prevItem ? (prevItem.assets.treasury + prevItem.assets.mbs + prevItem.assets.repo + prevItem.assets.loans) : null;
+            
+            // 부채 합계 계산
+            const totalLiabilities = item.liabilities.currency + item.liabilities.rrp + item.liabilities.tga + item.liabilities.reserves;
+            const prevTotalLiabilities = prevItem ? (prevItem.liabilities.currency + prevItem.liabilities.rrp + prevItem.liabilities.tga + prevItem.liabilities.reserves) : null;
+            
+            // 증감 계산 함수
+            const getChangeDisplay = (current, previous) => {
+              if (previous === null || previous === 0) return '';
+              const change = current - previous;
+              const sign = change >= 0 ? '+' : '';
+              return '<div style="font-size:11px;color:' + (change >= 0 ? '#059669' : '#dc2626') + ';margin-top:2px">' + sign + (change / 1000).toFixed(1) + '</div>';
+            };
+            
+            const row = document.createElement('tr');
+            row.className = 'history-row';
+            row.innerHTML = 
+              '<td class="sticky-col">' + formattedDate + '</td>' +
+              '<td class="asset-cell" data-value="' + totalAssets + '">' +
+                '$' + (totalAssets / 1000).toFixed(1) +
+                getChangeDisplay(totalAssets, prevTotalAssets) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.assets.treasury + '">' +
+                '$' + (item.assets.treasury / 1000).toFixed(1) +
+                getChangeDisplay(item.assets.treasury, prevItem?.assets.treasury || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.assets.mbs + '">' +
+                '$' + (item.assets.mbs / 1000).toFixed(1) +
+                getChangeDisplay(item.assets.mbs, prevItem?.assets.mbs || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.assets.repo + '">' +
+                '$' + (item.assets.repo / 1000).toFixed(1) +
+                getChangeDisplay(item.assets.repo, prevItem?.assets.repo || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.assets.loans + '">' +
+                '$' + (item.assets.loans / 1000).toFixed(1) +
+                getChangeDisplay(item.assets.loans, prevItem?.assets.loans || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + totalLiabilities + '">' +
+                '$' + (totalLiabilities / 1000).toFixed(1) +
+                getChangeDisplay(totalLiabilities, prevTotalLiabilities) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.liabilities.currency + '">' +
+                '$' + (item.liabilities.currency / 1000).toFixed(1) +
+                getChangeDisplay(item.liabilities.currency, prevItem?.liabilities.currency || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.liabilities.rrp + '">' +
+                '$' + (item.liabilities.rrp / 1000).toFixed(1) +
+                getChangeDisplay(item.liabilities.rrp, prevItem?.liabilities.rrp || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.liabilities.tga + '">' +
+                '$' + (item.liabilities.tga / 1000).toFixed(1) +
+                getChangeDisplay(item.liabilities.tga, prevItem?.liabilities.tga || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.liabilities.reserves + '">' +
+                '$' + (item.liabilities.reserves / 1000).toFixed(1) +
+                getChangeDisplay(item.liabilities.reserves, prevItem?.liabilities.reserves || null) +
+              '</td>';
+            
+            tbody.appendChild(row);
+          });
+          
+          currentOffset += newData.length;
+          
+          // 더 가져올 데이터가 있는지 확인
+          if (!data.hasMore || newData.length < 10) {
+            btn.style.display = 'none';
+          } else {
+            btn.disabled = false;
+            btn.textContent = '더보기';
+          }
+        } else {
+          btn.textContent = '로드 실패';
+          btn.disabled = false;
         }
-      });
-      
-      // 다음 10개씩 보이기
-      for (let i = visibleCount; i < Math.min(visibleCount + 10, rows.length); i++) {
-        rows[i].style.display = '';
-      }
-      
-      // 모든 행이 보이면 버튼 숨기기
-      let allVisible = true;
-      rows.forEach(row => {
-        if (row.style.display === 'none') {
-          allVisible = false;
-        }
-      });
-      
-      if (allVisible && btn) {
-        btn.style.display = 'none';
-      } else if (btn) {
-        const remaining = rows.length - visibleCount - 10;
-        btn.textContent = remaining > 0 ? '더보기 (' + remaining + '개 더)' : '더보기';
+      } catch (e) {
+        console.error('Failed to load more history:', e);
+        btn.textContent = '로드 실패';
+        btn.disabled = false;
+      } finally {
+        isLoadingMore = false;
       }
     }
   </script>
