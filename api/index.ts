@@ -2205,7 +2205,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       <div class="date-selector">
         <label for="releaseSelect">FED 발표 날짜 선택:</label>
         <input type="date" id="releaseSelect" value="${targetDate || ''}" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer" />
-        <button id="releaseFetchBtn" data-action="fetch-release">조회</button>
+        <button id="releaseFetchBtn" data-action="date-fetch" data-no-toggle="true">조회</button>
         ${targetDate ? `<button class="reset-btn" data-action="reset-release">초기화</button>` : ''}
       </div>
       <a href="/economic-indicators" class="back-link">← 경제 지표로 돌아가기</a>
@@ -2513,7 +2513,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         </table>
       </div>
       <div style="text-align:center;margin-top:20px">
-        <button id="loadMoreBtn" data-action="toggle-trends" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        <button id="loadMoreBtn" data-action="trend-more" data-no-toggle="true" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
           더보기
         </button>
       </div>
@@ -2740,18 +2740,50 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         }
       }
       
-      // 통합 이벤트 위임 핸들러
+      // 토글 전용 이벤트 위임 핸들러 (범위를 좁혀서 다른 UI와 충돌 방지)
       document.addEventListener('click', async function(e) {
         const target = e.target;
         if (!target || !(target instanceof HTMLElement)) return;
         
+        // 명시적으로 제외할 버튼들 (날짜 조회/더보기 등)
+        if (target.closest('[data-action="date-fetch"]') || 
+            target.closest('[data-action="trend-more"]') ||
+            target.closest('[data-no-toggle="true"]') ||
+            target.id === 'releaseFetchBtn' ||
+            target.id === 'loadMoreBtn' ||
+            target.closest('#releaseFetchBtn') ||
+            target.closest('#loadMoreBtn')) {
+          // 이 버튼들은 100% 통과 (다른 핸들러가 처리)
+          return;
+        }
+        
+        // 토글 전용: data-action 속성을 가진 요소만 처리
+        const actionEl = target.closest('[data-action]');
+        if (!actionEl) return; // 토글 대상이 아니면 즉시 return
+        
+        const action = actionEl.getAttribute('data-action');
+        if (!action) return;
+        
+        // 토글 액션만 처리 (해석/주간리포트/정보 토글)
+        const toggleActions = ['toggle-interp', 'toggle-weekly', 'toggle-info'];
+        if (!toggleActions.includes(action)) {
+          // 토글이 아닌 다른 액션은 통과
+          console.log('CLICK_ACTION:', action, 'ACTION_ROUTE: pass');
+          return;
+        }
+        
+        console.log('CLICK_ACTION:', action, 'ACTION_ROUTE: toggle', {
+          tagName: actionEl.tagName,
+          id: actionEl.id || 'none',
+          className: actionEl.className || 'none'
+        });
+        
         // 1. 해석 토글 처리
-        const toggleInterpEl = target.closest('[data-action="toggle-interp"]');
-        if (toggleInterpEl) {
-          e.preventDefault();
-          e.stopPropagation();
+        if (action === 'toggle-interp') {
+          // preventDefault는 필요할 때만 (링크나 폼 제출 방지용)
+          // stopPropagation은 사용하지 않음 (다른 핸들러와 충돌 방지)
           
-          const cardEl = toggleInterpEl.closest('[data-item-key]');
+          const cardEl = actionEl.closest('[data-item-key]');
           if (!cardEl) {
             console.warn('INTERP_TARGET_MISSING: card not found');
             return;
@@ -2883,11 +2915,26 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           return;
         }
         
-        // 2. 날짜 조회 버튼 처리
-        if (target.id === 'releaseFetchBtn' || target.closest('#releaseFetchBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          
+        // 2. 주간 리포트 토글 (향후 확장용)
+        if (action === 'toggle-weekly') {
+          // 주간 리포트 토글 로직 (필요시 구현)
+          return;
+        }
+        
+        // 3. 정보 토글 (향후 확장용)
+        if (action === 'toggle-info') {
+          // 정보 토글 로직 (필요시 구현)
+          return;
+        }
+      }); // capture phase 제거 (기본 bubble phase 사용)
+      
+      // 날짜 조회 버튼 전용 핸들러 (토글과 분리)
+      document.addEventListener('click', function(e) {
+        const target = e.target;
+        if (!target || !(target instanceof HTMLElement)) return;
+        
+        if (target.id === 'releaseFetchBtn' || target.closest('#releaseFetchBtn') || target.closest('[data-action="date-fetch"]')) {
+          console.log('DATE_FETCH_CLICKED');
           const selectEl = document.getElementById('releaseSelect');
           if (!selectEl) {
             console.warn('RELEASE_SELECT_MISSING');
@@ -2895,7 +2942,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           }
           
           const selectedDate = selectEl.value;
-          console.log('RELEASE_SELECTED:', selectedDate);
+          console.log('RELEASE_SELECTED:', selectedDate, 'ACTION_ROUTE: date-fetch');
           
           if (selectedDate) {
             window.location.href = '/economic-indicators/fed-assets-liabilities?date=' + selectedDate;
@@ -2905,23 +2952,25 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           return;
         }
         
-        // 3. 날짜 초기화 버튼 처리
+        // 날짜 초기화 버튼
         if (target.closest('[data-action="reset-release"]')) {
-          e.preventDefault();
-          e.stopPropagation();
+          console.log('RESET_RELEASE_CLICKED');
           window.location.href = '/economic-indicators/fed-assets-liabilities';
           return;
         }
+      });
+      
+      // 더보기 버튼 전용 핸들러 (토글과 분리)
+      document.addEventListener('click', function(e) {
+        const target = e.target;
+        if (!target || !(target instanceof HTMLElement)) return;
         
-        // 4. 더보기 버튼 처리
-        if (target.id === 'loadMoreBtn' || target.closest('#loadMoreBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('TRENDS_TOGGLE_CLICK');
+        if (target.id === 'loadMoreBtn' || target.closest('#loadMoreBtn') || target.closest('[data-action="trend-more"]')) {
+          console.log('TRENDS_TOGGLE_CLICK', 'ACTION_ROUTE: trend-more');
           loadMoreHistory();
           return;
         }
-      }, true); // capture phase
+      });
       
       console.log('RELEASE_BIND_OK');
     })();
