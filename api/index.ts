@@ -45,15 +45,36 @@ app.get("/api/h41/summary", async (req, res) => {
 
 // Canonicalize 함수: 라벨을 표준 키로 변환 (서버 사이드)
 function canonicalizeItemKey(label: string): string {
-  const s = (label || "").toLowerCase();
-  if (s.includes("treasury") || s.includes("국채")) return "treasury";
+  if (!label) return "";
+  // 공백/괄호/마침표/유니코드 공백 제거 후 소문자 변환
+  const s = label
+    .replace(/\u00a0/g, " ") // 유니코드 공백
+    .replace(/[()]/g, " ") // 괄호 제거
+    .replace(/\./g, " ") // 마침표 제거
+    .replace(/\s+/g, " ") // 연속 공백 정리
+    .toLowerCase()
+    .trim();
+  
+  // 국채 우선 매칭 (treasury가 general account와 혼동되지 않도록)
+  if (s.includes("treasury") && !s.includes("general") && !s.includes("account")) return "treasury";
+  if (s.includes("국채")) return "treasury";
+  if (s.includes("u.s. treasury") || s.includes("us treasury")) return "treasury";
+  if (s.includes("treasury securities")) return "treasury";
+  
+  // TGA는 treasury보다 먼저 체크 (treasury general account)
+  if (s.includes("tga") || (s.includes("treasury") && s.includes("general"))) return "tga";
+  
   if (s.includes("mbs") || s.includes("mortgage")) return "mbs";
   if (s.includes("repo") && !s.includes("reverse")) return "repo";
   if (s.includes("loan") || s.includes("대출") || s.includes("primary credit")) return "loans";
   if (s.includes("currency") || s.includes("통화")) return "currency";
   if (s.includes("reverse") && s.includes("repo")) return "rrp";
-  if (s.includes("tga") || (s.includes("treasury") && s.includes("general"))) return "tga";
   if (s.includes("reserve") && s.includes("balance")) return "reserves";
+  
+  // 이미 canonical key인 경우 그대로 반환
+  const canonicalKeys = ["treasury", "mbs", "repo", "loans", "currency", "rrp", "tga", "reserves"];
+  if (canonicalKeys.includes(s)) return s;
+  
   return s.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
@@ -88,23 +109,78 @@ app.get("/api/h41/interpretation", async (req, res) => {
       'reserves': 'Reserve balances with Federal Reserve Banks',
     };
     
+    // cards와 coreCards 모두 확인 (국채는 coreCards에 없을 수 있음)
+    const allCards = [...(report.cards || []), ...(report.coreCards || [])];
+    
+    // 사용 가능한 모든 카드 키 로깅
+    const availableKeys = allCards.map(c => ({
+      key: c.key,
+      fedLabel: c.fedLabel,
+      title: c.title,
+      canon: canonicalizeItemKey(c.fedLabel),
+      hasInterp: !!c.interpretation
+    }));
+    console.log('[API] INTERP_KEYS:', availableKeys);
+    
     const targetFedLabel = keyToFedLabelMap[canonKey] || keyToFedLabelMap[key.toLowerCase()];
-    const card = report.coreCards.find(c => {
+    
+    // 매칭 시도: 1) 정확한 fedLabel 매칭, 2) canonical key로 매칭, 3) fallback
+    let card = allCards.find(c => {
       if (targetFedLabel) {
         return c.fedLabel === targetFedLabel;
+      }
+      // canonical key로 매칭
+      const cardCanon = canonicalizeItemKey(c.fedLabel);
+      if (cardCanon === canonKey) {
+        return true;
       }
       // fallback: key가 fedLabel에 포함되는지 확인
       return c.fedLabel.toLowerCase().includes(key.toLowerCase());
     });
     
+    // 국채 특별 처리: treasury로 명시적으로 찾기 (coreCards와 cards 모두 확인)
+    if (canonKey === 'treasury' && !card) {
+      card = allCards.find(c => 
+        c.fedLabel === 'U.S. Treasury securities' ||
+        c.fedLabel.toLowerCase().includes('treasury securities') ||
+        (c.fedLabel.toLowerCase().includes('treasury') && !c.fedLabel.toLowerCase().includes('general'))
+      );
+    }
+    
     if (card) {
-      console.log('[API] INTERP_FOUND:', { key: canonKey, fedLabel: card.fedLabel, hasInterpretation: !!card.interpretation });
+      const hasInterp = !!card.interpretation;
+      const interpLength = card.interpretation ? card.interpretation.length : 0;
+      console.log('[API] INTERP_FOUND:', { 
+        key: canonKey, 
+        fedLabel: card.fedLabel, 
+        hasInterpretation: hasInterp,
+        interpretationLength: interpLength,
+        interpretationPreview: card.interpretation ? card.interpretation.substring(0, 50) : 'N/A'
+      });
+      
+      // 국채인데 해석이 없으면 에러 로그
+      if (canonKey === 'treasury' && !hasInterp) {
+        console.error('[API] TREASURY_INTERP_MISSING:', {
+          canon: canonKey,
+          fedLabel: card.fedLabel,
+          availableCards: allCards.map(c => ({ fedLabel: c.fedLabel, hasInterp: !!c.interpretation }))
+        });
+      }
     } else {
-      console.warn('[API] INTERP_TARGET_MISSING:', { key: canonKey, availableLabels: report.coreCards.map(c => c.fedLabel) });
+      console.warn('[API] INTERP_TARGET_MISSING:', { 
+        key: canonKey, 
+        rawKey: key,
+        availableLabels: allCards.map(c => c.fedLabel) 
+      });
     }
     
     if (!card || !card.interpretation) {
-      return res.status(404).json({ error: "Interpretation not found", key: canonKey });
+      return res.status(404).json({ 
+        error: "Interpretation not found", 
+        key: canonKey,
+        rawKey: key,
+        availableKeys: availableKeys.map(k => k.canon)
+      });
     }
     
     res.json({
@@ -2507,17 +2583,38 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       let currentOffset = ${historicalData.length};
       let isLoadingMore = false;
       
-      // Canonicalize 함수 (클라이언트 사이드)
+      // Canonicalize 함수 (클라이언트 사이드) - 서버와 동일한 로직
       function canonicalizeItemKey(label) {
-        const s = (label || "").toLowerCase();
-        if (s.includes("treasury") || s.includes("국채")) return "treasury";
+        if (!label) return "";
+        // 공백/괄호/마침표/유니코드 공백 제거 후 소문자 변환
+        const s = label
+          .replace(/\u00a0/g, " ") // 유니코드 공백
+          .replace(/[()]/g, " ") // 괄호 제거
+          .replace(/\./g, " ") // 마침표 제거
+          .replace(/\s+/g, " ") // 연속 공백 정리
+          .toLowerCase()
+          .trim();
+        
+        // 국채 우선 매칭 (treasury가 general account와 혼동되지 않도록)
+        if (s.includes("treasury") && !s.includes("general") && !s.includes("account")) return "treasury";
+        if (s.includes("국채")) return "treasury";
+        if (s.includes("u.s. treasury") || s.includes("us treasury")) return "treasury";
+        if (s.includes("treasury securities")) return "treasury";
+        
+        // TGA는 treasury보다 먼저 체크 (treasury general account)
+        if (s.includes("tga") || (s.includes("treasury") && s.includes("general"))) return "tga";
+        
         if (s.includes("mbs") || s.includes("mortgage")) return "mbs";
         if (s.includes("repo") && !s.includes("reverse")) return "repo";
         if (s.includes("loan") || s.includes("대출") || s.includes("primary credit")) return "loans";
         if (s.includes("currency") || s.includes("통화")) return "currency";
         if (s.includes("reverse") && s.includes("repo")) return "rrp";
-        if (s.includes("tga") || (s.includes("treasury") && s.includes("general"))) return "tga";
         if (s.includes("reserve") && s.includes("balance")) return "reserves";
+        
+        // 이미 canonical key인 경우 그대로 반환
+        const canonicalKeys = ["treasury", "mbs", "repo", "loans", "currency", "rrp", "tga", "reserves"];
+        if (canonicalKeys.includes(s)) return s;
+        
         return s.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
       }
       
@@ -2699,18 +2796,40 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             const apiUrl = '/api/h41/interpretation?key=' + encodeURIComponent(canonKey) + 
                            (dateParam ? '&date=' + encodeURIComponent(dateParam) : '');
             
+            console.log('API_REQ:', {
+              release: dateParam || 'latest',
+              itemKey: itemKey,
+              canon: canonKey,
+              cacheKey: (dateParam || 'latest') + ':' + canonKey
+            });
+            
             const response = await fetch(apiUrl);
             if (!response.ok) {
+              const errorText = await response.text();
+              console.error('API_REQ_FAIL:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+              });
               throw new Error('HTTP ' + response.status + ': ' + response.statusText);
             }
             
             const data = await response.json();
+            const hasTreasury = canonKey === 'treasury' && !!data.interpretation;
+            const interpLength = data.interpretation ? data.interpretation.length : 0;
+            console.log('API_RES_HAS_TREASURY:', hasTreasury, 'length:', interpLength);
+            
             if (!data.interpretation) {
+              console.error('TREASURY_INTERP_MISSING:', {
+                canon: canonKey,
+                response: data
+              });
               throw new Error('Interpretation data not found in response');
             }
             
             const interpretation = data.interpretation;
-            const lines = interpretation.split('\\n').filter(function(line) { return line.trim().length > 0; });
+            // 줄바꿈 처리: 실제 \n 문자로 split
+            const lines = interpretation.split('\n').filter(function(line) { return line.trim().length > 0; });
             
             if (lines.length === 0) {
               if (interpText) {
@@ -2722,7 +2841,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             }
             
             const title = lines[0].trim();
-            const body = lines.slice(1).join('\\n').trim();
+            const body = lines.slice(1).join('\n').trim();
             
             const titleEl = interpBody.querySelector('.interpretation-title');
             if (titleEl) {
@@ -2734,15 +2853,28 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               interpText.style.color = '#4b5563';
               interpText.style.fontStyle = 'normal';
               interpText.style.whiteSpace = 'pre-wrap';
+              
+              // 국채 특별 로깅
+              if (canonKey === 'treasury') {
+                const textLen = interpText.textContent.length;
+                const preview = interpText.textContent.substring(0, 30);
+                console.log('TREASURY_INJECT:', {
+                  targetFound: true,
+                  textLen: textLen,
+                  preview: preview
+                });
+              }
             }
             
             interpBody.dataset.loaded = 'true';
             toggleInterpEl.textContent = '해석 숨기기 ▲';
-            console.log('INTERP_FOUND:', canonKey);
+            console.log('INTERP_FOUND:', canonKey, 'TREASURY_INTERP_FOUND:', canonKey === 'treasury');
           } catch (error) {
             console.error('INTERP_TARGET_MISSING: Failed to load interpretation:', error);
             if (interpText) {
-              interpText.textContent = '해석을 불러올 수 없습니다.';
+              // 에러 메시지에 원인 포함
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              interpText.textContent = '해석을 불러올 수 없습니다. (key=' + canonKey + ', error=' + errorMsg + ')';
               interpText.style.color = '#dc2626';
               interpText.style.fontStyle = 'normal';
             }
