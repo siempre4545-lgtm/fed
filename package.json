@@ -13,7 +13,9 @@
     "build": "tsc -p tsconfig.json",
     "report": "tsx src/notify.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'No ESLint configured. Run typecheck instead.' && npm run typecheck"
+    "lint": "echo 'No ESLint configured. Run typecheck instead.' && npm run typecheck",
+    "audit:local": "tsx scripts/audit-site.ts",
+    "audit:prod": "BASE_URL=https://fedreportsh.vercel.app tsx scripts/audit-site.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
@@ -21,6 +23,8 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "playwright": "^1.40.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

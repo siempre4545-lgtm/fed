@@ -68,6 +68,21 @@ app.get("/api/h41/detail", async (req, res) => {
   }
 });
 
+// API: Weekly Summary (주간 요약 리포트만)
+app.get("/api/h41/weekly-summary", async (req, res) => {
+  try {
+    const targetDate = req.query.date as string | undefined;
+    const report = await fetchH41Report(targetDate);
+    
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    res.json({
+      summary: report.weeklySummary,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
 // API: JSON (기존 호환성 유지)
 app.get("/api/h41", async (req, res) => {
   try {
@@ -528,36 +543,15 @@ app.get("/", async (req, res) => {
       </div>
     </div>`;
 
-    // 주간 리포트 주요 문구 추출
-    const summaryLines = report.weeklySummary.split("\n");
-    const mainPhrase = summaryLines.find(line => line.startsWith("**") && line.endsWith("**")) || "";
-    const mainPhraseClean = mainPhrase.replace(/\*\*/g, "");
-    const restOfSummary = summaryLines.filter(line => !line.startsWith("**") || !line.endsWith("**")).join("\n");
-
-    // 하단 주간 요약 리포트
+    // 주간 요약 리포트는 lazy load로 변경 (초기 HTML에서 제거하여 payload 축소)
     const weeklyReportSection = `
     <div class="weekly-report">
-      <div class="report-header" onclick="toggleReport()">
+      <div class="report-header" onclick="toggleReport(); loadWeeklyReport();">
         <h2>주간 요약 리포트 📄</h2>
         <div class="expand-icon" id="report-icon">▼</div>
       </div>
       <div class="report-content" id="report-content">
-        ${mainPhraseClean ? `<div class="report-main-phrase">${escapeHtml(mainPhraseClean)}</div>` : ""}
-        <div class="report-text">${escapeHtml(restOfSummary).split("\n").map(line => {
-          if (line.trim() === "") return "<br/>";
-          if (line.startsWith("[") && line.endsWith("]")) {
-            return `<div class="report-section-title">${line}</div>`;
-          }
-          if (line.startsWith("•")) {
-            const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
-            return `<div class="report-bullet">${processed}</div>`;
-          }
-          if (line.startsWith("  →")) {
-            return `<div class="report-sub-bullet">${line}</div>`;
-          }
-          const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
-          return `<div class="report-paragraph">${processed}</div>`;
-        }).join("")}</div>
+        <div style="color: #808080; font-style: italic; padding: 20px; text-align: center;">클릭하여 리포트 로드</div>
       </div>
     </div>`;
 
@@ -1904,11 +1898,14 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
       
-      // 순차적으로 처리 (병렬 처리 시 rate limiting 문제 방지)
-      for (const dateStr of datesToFetch) {
-        try {
-          // availableDates를 전달하여 가장 가까운 날짜를 찾을 수 있도록 함
-          const histReport = await fetchH41Report(dateStr, releaseDates);
+      // 배치 병렬 처리로 성능 개선 (배치 크기 5)
+      const batchSize = 5;
+      for (let i = 0; i < datesToFetch.length; i += batchSize) {
+        const batch = datesToFetch.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(
+          batch.map(async (dateStr) => {
+            try {
+              const histReport = await fetchH41Report(dateStr, releaseDates);
           
           // 데이터 유효성 검사
           if (!histReport || !histReport.cards || histReport.cards.length === 0) {
