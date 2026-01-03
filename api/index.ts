@@ -1906,47 +1906,53 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           batch.map(async (dateStr) => {
             try {
               const histReport = await fetchH41Report(dateStr, releaseDates);
-          
-          // 데이터 유효성 검사
-          if (!histReport || !histReport.cards || histReport.cards.length === 0) {
-            console.warn(`[Assets/Liabilities] No cards found in report for ${dateStr}`);
-            continue; // 다음 날짜 시도
+              
+              // 데이터 유효성 검사
+              if (!histReport || !histReport.cards || histReport.cards.length === 0) {
+                console.warn(`[Assets/Liabilities] No cards found in report for ${dateStr}`);
+                return null;
+              }
+              
+              const histAssets = {
+                treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
+                mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
+                repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
+                loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
+              };
+              const histLiabilities = {
+                currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
+                rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
+                tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
+                reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
+              };
+              
+              // 데이터 유효성 검사: 최소한 하나의 값이라도 0이 아니면 유효한 데이터로 간주
+              const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
+              const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
+              const hasValidData = totalAssets > 0 || totalLiabilities > 0;
+              
+              if (!hasValidData) {
+                console.warn(`[Assets/Liabilities] All values are zero for ${dateStr}, skipping`);
+                return null;
+              }
+              
+              return {
+                date: dateStr,
+                assets: histAssets,
+                liabilities: histLiabilities,
+              };
+            } catch (e) {
+              console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e instanceof Error ? e.message : String(e));
+              return null;
+            }
+          })
+        );
+        
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled' && result.value) {
+            historicalData.push(result.value);
           }
-          
-          const histAssets = {
-            treasury: histReport.cards.find(c => c.fedLabel === "U.S. Treasury securities")?.balance_musd || 0,
-            mbs: histReport.cards.find(c => c.fedLabel === "Mortgage-backed securities")?.balance_musd || 0,
-            repo: histReport.cards.find(c => c.fedLabel === "Repurchase agreements")?.balance_musd || 0,
-            loans: histReport.cards.find(c => c.fedLabel === "Primary credit")?.balance_musd || 0,
-          };
-          const histLiabilities = {
-            currency: histReport.cards.find(c => c.fedLabel === "Currency in circulation")?.balance_musd || 0,
-            rrp: histReport.cards.find(c => c.fedLabel === "Reverse repurchase agreements")?.balance_musd || 0,
-            tga: histReport.cards.find(c => c.fedLabel === "U.S. Treasury, General Account")?.balance_musd || 0,
-            reserves: histReport.cards.find(c => c.fedLabel === "Reserve balances with Federal Reserve Banks")?.balance_musd || 0,
-          };
-          
-          // 데이터 유효성 검사: 최소한 하나의 값이라도 0이 아니면 유효한 데이터로 간주
-          // (일부 항목이 0일 수 있으므로 더 관대하게 검사)
-          const totalAssets = histAssets.treasury + histAssets.mbs + histAssets.repo + histAssets.loans;
-          const totalLiabilities = histLiabilities.currency + histLiabilities.rrp + histLiabilities.tga + histLiabilities.reserves;
-          const hasValidData = totalAssets > 0 || totalLiabilities > 0;
-          
-          if (!hasValidData) {
-            console.warn(`[Assets/Liabilities] All values are zero for ${dateStr}, skipping`);
-            continue; // 다음 날짜 시도
-          }
-          
-          historicalData.push({
-            date: dateStr,
-            assets: histAssets,
-            liabilities: histLiabilities,
-          });
-          console.log(`[Assets/Liabilities] Successfully fetched historical data for ${dateStr}`);
-        } catch (e) {
-          console.error(`[Assets/Liabilities] Failed to fetch historical data for ${dateStr}:`, e instanceof Error ? e.message : String(e));
-          // 실패해도 계속 진행 (다음 날짜 시도)
-        }
+        });
       }
       
       console.log(`[Assets/Liabilities] Total historical data fetched: ${historicalData.length} records out of ${datesToFetch.length} attempts`);
