@@ -58,19 +58,25 @@ app.get("/api/h41/interpretation", async (req, res) => {
     
     const report = await fetchH41Report(targetDate);
     
-    // key에 따라 해당 카드 찾기
+    // key에 따라 해당 카드 찾기 (fedLabel로 매칭)
+    const keyToFedLabelMap: Record<string, string> = {
+      'treasury': 'U.S. Treasury securities',
+      'mbs': 'Mortgage-backed securities',
+      'repo': 'Repurchase agreements',
+      'loans': 'Primary credit',
+      'currency': 'Currency in circulation',
+      'rrp': 'Reverse repurchase agreements',
+      'tga': 'U.S. Treasury, General Account',
+      'reserves': 'Reserve balances with Federal Reserve Banks',
+    };
+    
+    const targetFedLabel = keyToFedLabelMap[key.toLowerCase()];
     const card = report.coreCards.find(c => {
-      const keyMap: Record<string, string> = {
-        'treasury': 'treasury',
-        'mbs': 'mbs',
-        'repo': 'repo',
-        'loans': 'loans',
-        'currency': 'currency',
-        'rrp': 'rrp',
-        'tga': 'tga',
-        'reserves': 'reserves',
-      };
-      return c.key === keyMap[key] || c.fedLabel.toLowerCase().includes(key.toLowerCase());
+      if (targetFedLabel) {
+        return c.fedLabel === targetFedLabel;
+      }
+      // fallback: key가 fedLabel에 포함되는지 확인
+      return c.fedLabel.toLowerCase().includes(key.toLowerCase());
     });
     
     if (!card || !card.interpretation) {
@@ -2602,6 +2608,11 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     
     // 해석 토글 및 로딩 함수
     (function() {
+      // 서버 사이드에서는 실행하지 않음
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return;
+      }
+      
       // 이벤트 위임: interpretation-toggle 클릭 처리
       document.addEventListener('click', async function(e) {
         const target = e.target as HTMLElement;
