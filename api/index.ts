@@ -1038,7 +1038,6 @@ app.get("/levels", async (_req, res) => {
   }
 });
 
-// 계정 개념 페이지
 // 금리 발표 일정 페이지
 app.get("/interest-rate-schedule", async (_req, res) => {
   try {
