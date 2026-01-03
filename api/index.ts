@@ -2526,7 +2526,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         </table>
       </div>
       <div style="text-align:center;margin-top:20px">
-        <button id="loadMoreBtn" data-action="trend-more" data-no-toggle="true" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        <button id="loadMoreBtn" onclick="handleTrendMore()" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
           더보기
         </button>
       </div>
