@@ -2220,7 +2220,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         <label for="releaseSelect">FED 발표 날짜 선택:</label>
         <input type="date" id="releaseSelect" value="${targetDate || ''}" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#1a1a1a;font-size:13px;cursor:pointer" />
         <button id="releaseFetchBtn" onclick="handleDateFetch()">조회</button>
-        ${targetDate ? `<button class="reset-btn" data-action="reset-release">초기화</button>` : ''}
+        ${targetDate ? `<button class="reset-btn" onclick="handleResetDate()">초기화</button>` : ''}
       </div>
       <a href="/economic-indicators" class="back-link">← 경제 지표로 돌아가기</a>
     </div>
@@ -2773,10 +2773,21 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         }
       };
       
+      // 초기화 핸들러 (직접 바인딩)
+      window.handleResetDate = function() {
+        console.log('RESET_DATE_CLICK');
+        window.location.href = '/economic-indicators/fed-assets-liabilities';
+      };
+      
       // 더보기 핸들러 (직접 바인딩 - 전역 이벤트 위임 제거)
       window.handleTrendMore = function() {
         console.log('TREND_MORE_CLICK');
-        loadMoreHistory();
+        if (typeof loadMoreHistory === 'function') {
+          loadMoreHistory();
+        } else {
+          console.error('loadMoreHistory function not found');
+          alert('더보기 기능을 불러올 수 없습니다. 페이지를 새로고침해주세요.');
+        }
       };
       
       console.log('RELEASE_BIND_OK');
