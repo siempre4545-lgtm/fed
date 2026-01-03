@@ -239,8 +239,8 @@ app.get("/", async (req, res) => {
       `);
     }
     
-    // 병렬 fetch로 성능 개선
-    const [releaseDatesResult, indicatorsResult, newsResult, usdKrwResult] = await Promise.allSettled([
+    // 병렬 fetch로 성능 개선 (금리 데이터 포함)
+    const [releaseDatesResult, indicatorsResult, newsResult, usdKrwResult, ratesResult] = await Promise.allSettled([
       getFedReleaseDates(),
       fetchAllEconomicIndicators().then(indicators => ({
         indicators,
@@ -288,6 +288,89 @@ app.get("/", async (req, res) => {
           console.error("Failed to fetch USD/KRW rate:", e);
           return null;
         }
+      })(),
+      (async () => {
+        // 미국 금리 (FRED API) 및 한국 금리 병렬 fetch
+        const [usRateResult, krRateResult] = await Promise.allSettled([
+          (async () => {
+            try {
+              // FRED API: DFEDTARU (Target Upper Bound) 우선, 없으면 DFF (Effective Rate)
+              const apiKey = process.env.FRED_API_KEY || "demo";
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
+              
+              // Target Upper Bound 시도
+              let url = `https://api.stlouisfed.org/fred/series/observations?series_id=DFEDTARU&api_key=${apiKey}&file_type=json&limit=1&sort_order=desc`;
+              let response = await fetch(url, { signal: controller.signal });
+              
+              if (!response.ok) {
+                // DFF (Effective Rate)로 fallback
+                url = `https://api.stlouisfed.org/fred/series/observations?series_id=DFF&api_key=${apiKey}&file_type=json&limit=1&sort_order=desc`;
+                response = await fetch(url, { signal: controller.signal });
+              }
+              
+              clearTimeout(timeoutId);
+              
+              if (response.ok) {
+                const data = await response.json();
+                const observations = data.observations || [];
+                if (observations.length > 0 && observations[0].value !== ".") {
+                  return parseFloat(observations[0].value);
+                }
+              }
+              return null;
+            } catch (e) {
+              console.error("Failed to fetch US interest rate:", e);
+              return null;
+            }
+          })(),
+          (async () => {
+            try {
+              // 한국은행 기준금리 - 한국은행 웹사이트에서 최신 금리 정보 가져오기
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
+              
+              // 한국은행 통계 포털 또는 공식 웹사이트에서 최신 기준금리 가져오기
+              // 한국은행 기준금리 페이지: https://www.bok.or.kr/portal/singl/baseRate/list.do
+              // 또는 한국은행 Open API 사용 (인증 필요)
+              
+              // 간단한 방법: 한국은행 공식 웹사이트에서 스크래핑
+              // 더 안정적인 방법: 한국은행 Open API 사용 (API 키 필요)
+              
+              // 일단은 한국은행 웹사이트에서 최신 기준금리 가져오기 시도
+              const url = "https://www.bok.or.kr/portal/singl/baseRate/list.do";
+              const response = await fetch(url, {
+                signal: controller.signal,
+                headers: { "User-Agent": "Mozilla/5.0" }
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (response.ok) {
+                const html = await response.text();
+                // HTML에서 최신 기준금리 추출 시도
+                // 한국은행 웹사이트 구조에 따라 파싱 로직 필요
+                // 예: <td class="rate">2.75</td> 같은 패턴 찾기
+                const rateMatch = html.match(/(\d+\.\d+)\s*%/);
+                if (rateMatch) {
+                  return parseFloat(rateMatch[1]);
+                }
+              }
+              
+              // 웹 스크래핑 실패 시, 대안으로 TradingEconomics API 시도
+              // 또는 한국은행 Open API 사용 (환경 변수에 API 키 필요)
+              return null;
+            } catch (e) {
+              console.error("Failed to fetch Korea interest rate:", e);
+              return null;
+            }
+          })()
+        ]);
+        
+        return {
+          usRate: usRateResult.status === 'fulfilled' ? usRateResult.value : null,
+          krRate: krRateResult.status === 'fulfilled' ? krRateResult.value : null,
+        };
       })()
     ]);
     
@@ -296,6 +379,7 @@ app.get("/", async (req, res) => {
     const { indicators, status: economicStatus } = indicatorsResult.status === 'fulfilled' ? indicatorsResult.value : { indicators: [], status: null };
     const economicNews = newsResult.status === 'fulfilled' ? newsResult.value : [];
     const usdKrwRate = usdKrwResult.status === 'fulfilled' ? usdKrwResult.value : null;
+    const { usRate, krRate } = ratesResult.status === 'fulfilled' ? ratesResult.value : { usRate: null, krRate: null };
     
     const levelText = ["안정", "주의", "경계", "위험"][report.warningLevel];
     const levelColors = ["#22c55e", "#f59e0b", "#f97316", "#ef4444"];
