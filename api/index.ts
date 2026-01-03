@@ -900,13 +900,72 @@ app.get("/", async (req, res) => {
       }
     }
     
+    async function loadWeeklyReport() {
+      const reportContent = document.getElementById('report-content');
+      if (!reportContent) return;
+      
+      // 이미 로드되었으면 다시 로드하지 않음
+      if (reportContent.dataset.loaded === 'true') return;
+      
+      try {
+        reportContent.innerHTML = '<div style="color: #808080; font-style: italic; padding: 20px; text-align: center;">로딩 중...</div>';
+        
+        const response = await fetch('/api/h41/weekly-summary');
+        if (response.ok) {
+          const data = await response.json();
+          const summary = data.summary || '';
+          
+          const summaryLines = summary.split("\\n");
+          const mainPhrase = summaryLines.find((line: string) => line.startsWith("**") && line.endsWith("**")) || "";
+          const mainPhraseClean = mainPhrase.replace(/\\*\\*/g, "");
+          const restOfSummary = summaryLines.filter((line: string) => !line.startsWith("**") || !line.endsWith("**")).join("\\n");
+          
+          let html = '';
+          if (mainPhraseClean) {
+            html += '<div class="report-main-phrase">' + mainPhraseClean.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
+          }
+          html += '<div class="report-text">';
+          restOfSummary.split("\\n").forEach((line: string) => {
+            if (line.trim() === "") {
+              html += "<br/>";
+            } else if (line.startsWith("[") && line.endsWith("]")) {
+              html += '<div class="report-section-title">' + line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
+            } else if (line.startsWith("•")) {
+              const processed = line.replace(/\\*\\*(.*?)\\*\\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
+              html += '<div class="report-bullet">' + processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
+            } else if (line.startsWith("  →")) {
+              html += '<div class="report-sub-bullet">' + line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
+            } else {
+              const processed = line.replace(/\\*\\*(.*?)\\*\\*/g, '<strong style="color:#ffffff;font-weight:700">$1</strong>');
+              html += '<div class="report-paragraph">' + processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") + '</div>';
+            }
+          });
+          html += '</div>';
+          
+          reportContent.innerHTML = html;
+          reportContent.dataset.loaded = 'true';
+        } else {
+          reportContent.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">리포트를 불러올 수 없습니다.</div>';
+        }
+      } catch (e) {
+        console.error('Failed to load weekly report:', e);
+        reportContent.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">리포트를 불러올 수 없습니다.</div>';
+      }
+    }
+    
     function toggleReport() {
       const report = document.querySelector('.weekly-report');
       if (report) {
+        const isExpanded = report.classList.contains('expanded');
         report.classList.toggle('expanded');
         const expandIcon = document.getElementById('report-icon');
         if (expandIcon) {
-          expandIcon.textContent = report.classList.contains('expanded') ? '▲' : '▼';
+          expandIcon.textContent = !isExpanded ? '▲' : '▼';
+        }
+        
+        // 펼칠 때만 리포트 로드
+        if (!isExpanded) {
+          loadWeeklyReport();
         }
       }
     }
