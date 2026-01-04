@@ -1341,7 +1341,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   if (consumerConfidence) {
     indicators.push({
       category: "기타",
-      name: "미국 소비자신뢰지수 - Consumer Confidence Index",
+      name: "컨퍼런스보드 소비자 신뢰지수 (Consumer Confidence Index)",
       symbol: "CCI",
       value: consumerConfidence.value,
       change: consumerConfidence.change,
@@ -1350,6 +1350,94 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       lastUpdated: consumerConfidence.lastUpdated || now,
       source: "Conference Board",
       id: "consumer-confidence",
+    });
+  }
+  
+  // 소매판매 성장률 (FRED RRSFS)
+  const retailSales = await cachedFetch(
+    getCacheKey('fred', 'RRSFS', Math.floor(Date.now() / 3600000)),
+    () => fetchFRED("RRSFS", 90), // 3개월 데이터
+    { ttl: 3600000 }
+  );
+  if (retailSales) {
+    indicators.push({
+      category: "기타",
+      name: "소매판매 성장률 (Retail Sales)",
+      symbol: "RRSFS",
+      value: retailSales.changePercent || 0,
+      change: retailSales.change,
+      changePercent: retailSales.changePercent,
+      unit: "%",
+      lastUpdated: now,
+      source: "FRED",
+      history: retailSales.history,
+      id: "retail-sales",
+    });
+  }
+  
+  // 기업 재고율 (FRED IVSALES)
+  const inventorySalesRatio = await cachedFetch(
+    getCacheKey('fred', 'IVSALES', Math.floor(Date.now() / 3600000)),
+    () => fetchFRED("IVSALES", 90), // 3개월 데이터
+    { ttl: 3600000 }
+  );
+  if (inventorySalesRatio) {
+    indicators.push({
+      category: "기타",
+      name: "기업 재고율 급등 (Inventory to Sales Ratio)",
+      symbol: "IVSALES",
+      value: inventorySalesRatio.value,
+      change: inventorySalesRatio.change,
+      changePercent: inventorySalesRatio.changePercent,
+      unit: "비율",
+      lastUpdated: now,
+      source: "FRED (Census)",
+      history: inventorySalesRatio.history,
+      id: "inventory-sales-ratio",
+    });
+  }
+  
+  // 발틱운임지수 (BDI) - 웹 스크래핑
+  const balticDryIndex = await cachedFetch(
+    getCacheKey('bdi', Math.floor(Date.now() / 3600000)),
+    () => fetchBalticDryIndex(),
+    { ttl: 3600000 }
+  );
+  if (balticDryIndex) {
+    indicators.push({
+      category: "기타",
+      name: "운송 및 물류 지표 급락 (Baltic Dry Index)",
+      symbol: "BDI",
+      value: balticDryIndex.value,
+      change: balticDryIndex.change,
+      changePercent: balticDryIndex.changePercent,
+      unit: "점",
+      lastUpdated: balticDryIndex.lastUpdated || now,
+      source: "Baltic Exchange",
+      history: balticDryIndex.history,
+      id: "baltic-dry-index",
+    });
+  }
+  
+  // Cass Freight Index - 웹 스크래핑
+  const cassFreightIndex = await cachedFetch(
+    getCacheKey('cass-freight', Math.floor(Date.now() / 3600000)),
+    () => fetchCassFreightIndex(),
+    { ttl: 3600000 }
+  );
+  if (cassFreightIndex) {
+    indicators.push({
+      category: "기타",
+      name: "운송 및 물류 지표 급락 (Cass Freight Index)",
+      symbol: "CASS",
+      value: cassFreightIndex.value,
+      change: cassFreightIndex.change,
+      changePercent: cassFreightIndex.changePercent,
+      unit: "지수",
+      lastUpdated: cassFreightIndex.lastUpdated || now,
+      source: "Cass Info",
+      history: cassFreightIndex.history,
+      id: "cass-freight-index",
     });
   }
   

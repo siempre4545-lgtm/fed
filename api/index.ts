@@ -3059,6 +3059,187 @@ app.get("/economic-indicators/:id", async (req, res) => {
     const relatedIndicators = detail.relatedIndicators || [];
     const comprehensiveAnalysis = detail.comprehensiveAnalysis || "";
     
+    // 알림 생성 함수
+    function generateAlerts(indicator: typeof ind, history: typeof detail.history): Array<{ type: 'warning' | 'info' | 'danger'; message: string }> {
+      const alerts: Array<{ type: 'warning' | 'info' | 'danger'; message: string }> = [];
+      
+      if (!indicator || indicator.value === null) return alerts;
+      
+      const value = indicator.value;
+      const historyData = history || [];
+      
+      // 1. ISM 제조업지수: 45 이하 시 경기침체 알림
+      if (indicator.id === 'ism-manufacturing' && value <= 45) {
+        alerts.push({
+          type: 'danger',
+          message: `⚠️ 경기침체 알림: ISM 제조업지수가 ${value.toFixed(2)}로 45 이하로 떨어졌습니다. 제조업 활동이 위축되고 있으며, 경기 침체 신호입니다.`
+        });
+      }
+      
+      // 6. 소비자 신뢰지수: 70 이하로 급락 시 알림
+      if (indicator.id === 'consumer-confidence' && value <= 70) {
+        alerts.push({
+          type: 'warning',
+          message: `⚠️ 소비 지출 급격 감소 예상: 소비자 신뢰지수가 ${value.toFixed(2)}로 70 이하로 급락했습니다. 향후 6개월 내 소비 지출이 급격히 줄어들 수 있습니다.`
+        });
+      }
+      
+      // 7. 소매판매: 3개월 이상 마이너스 연속
+      if (indicator.id === 'retail-sales') {
+        if (historyData.length >= 3) {
+          const recent3Months = historyData.slice(-3).reverse();
+          const allNegative = recent3Months.every(h => h.value < 0);
+          if (allNegative) {
+            alerts.push({
+              type: 'danger',
+              message: `🚨 소비 위축 본격화: 소매판매 증가율이 3개월 이상 마이너스로 이어지고 있습니다. 소비 위축이 본격화되고 있습니다.`
+            });
+          }
+        }
+      }
+      
+      // 8. 기업 재고율: 급등 시 알림
+      if (indicator.id === 'inventory-sales-ratio') {
+        if (historyData.length >= 4) {
+          const recent4Weeks = historyData.slice(-4).reverse();
+          const oldest = recent4Weeks[0].value;
+          const newest = recent4Weeks[recent4Weeks.length - 1].value;
+          const increasePercent = ((newest - oldest) / oldest) * 100;
+          if (increasePercent > 10) {
+            alerts.push({
+              type: 'warning',
+              message: `⚠️ 기업 생산 감소 예상: 기업 재고율이 최근 4주간 ${increasePercent.toFixed(1)}% 급등했습니다. 기업이 생산을 줄이고 해고를 늘릴 수 있습니다.`
+            });
+          }
+        }
+      }
+      
+      // 9. 발틱운임지수: 급락 시 알림
+      if (indicator.id === 'baltic-dry-index') {
+        if (historyData.length >= 30) {
+          const recent30Days = historyData.slice(-30).reverse();
+          const oldest = recent30Days[0].value;
+          const newest = recent30Days[recent30Days.length - 1].value;
+          const decreasePercent = ((oldest - newest) / oldest) * 100;
+          if (decreasePercent > 30) {
+            alerts.push({
+              type: 'danger',
+              message: `🚨 세계 교역량 감소: 발틱운임지수가 최근 30일간 ${decreasePercent.toFixed(1)}% 급락했습니다. 세계 교역량이 감소하고 있으며, 제조업, 고용, 소비에 직격탄을 줄 수 있습니다.`
+            });
+          }
+        }
+      }
+      
+      // 10. Cass Freight Index: 급락 시 알림
+      if (indicator.id === 'cass-freight-index') {
+        if (historyData.length >= 30) {
+          const recent30Days = historyData.slice(-30).reverse();
+          const oldest = recent30Days[0].value;
+          const newest = recent30Days[recent30Days.length - 1].value;
+          const decreasePercent = ((oldest - newest) / oldest) * 100;
+          if (decreasePercent > 20) {
+            alerts.push({
+              type: 'danger',
+              message: `🚨 운송 및 물류 지표 급락: Cass Freight Index가 최근 30일간 ${decreasePercent.toFixed(1)}% 급락했습니다. 세계 교역량이 감소하고 있으며, 금융위기 직전에 항상 나타나는 신호입니다.`
+            });
+          }
+        }
+      }
+      
+      // 2. 금리스프레드: 역전 시 경기침체 경고
+      if (indicator.id === 'yield-spread' && value < 0) {
+        alerts.push({
+          type: 'danger',
+          message: `🚨 경기침체 경고: 금리스프레드가 역전되었습니다 (${value.toFixed(2)}%p). 단기금리(2Y)가 장기금리(10Y)보다 높아 경기 침체 신호입니다.`
+        });
+      }
+      
+      // 3. 실업수당청구건수: 4주 이상 연속 증가 또는 30만건 이상
+      if (indicator.id === 'initial-jobless-claims') {
+        // 4주 이상 연속 증가 체크
+        if (historyData.length >= 4) {
+          const recent4Weeks = historyData.slice(-4).reverse();
+          let consecutiveIncrease = true;
+          for (let i = 1; i < recent4Weeks.length; i++) {
+            if (recent4Weeks[i].value <= recent4Weeks[i - 1].value) {
+              consecutiveIncrease = false;
+              break;
+            }
+          }
+          if (consecutiveIncrease) {
+            alerts.push({
+              type: 'warning',
+              message: `⚠️ 소비둔화 경기침체 예상: 실업수당청구건수가 4주 이상 연속 증가하고 있습니다. 소비 둔화와 경기 침체가 예상됩니다.`
+            });
+          }
+        }
+        // 30만건 이상 체크
+        if (value >= 300000) {
+          alerts.push({
+            type: 'danger',
+            message: `🚨 소비둔화 경기침체 예상: 실업수당청구건수가 ${(value / 1000).toFixed(0)}천 건으로 30만 건 이상입니다. 소비 둔화와 경기 침체가 예상됩니다.`
+          });
+        }
+      }
+      
+      // 4. 달러인덱스: 105 이상 또는 100 이하
+      if (indicator.id === 'dxy') {
+        if (value >= 105) {
+          alerts.push({
+            type: 'info',
+            message: `💵 달러강세/위험자산 약세모드: DXY 지수가 ${value.toFixed(2)}로 105 이상입니다. 달러 강세가 지속되며 위험자산에 압박이 가해질 수 있습니다.`
+          });
+        } else if (value <= 100) {
+          alerts.push({
+            type: 'info',
+            message: `💵 달러약세/위험자산 강세모드: DXY 지수가 ${value.toFixed(2)}로 100 이하입니다. 달러 약세가 지속되며 위험자산에 유리한 환경입니다.`
+          });
+        }
+      }
+      
+      // 5. WTI 유가: 50달러대 진입, 전쟁 급등, 70달러대 진입
+      if (indicator.id === 'wti') {
+        if (value >= 50 && value < 60) {
+          alerts.push({
+            type: 'info',
+            message: `🛢️ 투자알림: WTI 유가가 50달러대(${value.toFixed(2)}달러)에 진입했습니다. 저유가 구간으로 투자 기회가 될 수 있습니다.`
+          });
+        } else if (value >= 70 && value < 80) {
+          alerts.push({
+            type: 'warning',
+            message: `⚠️ 매도알림: WTI 유가가 70달러대(${value.toFixed(2)}달러)에 진입했습니다. 고유가 구간으로 매도 고려 시점입니다.`
+          });
+        }
+        // 전쟁 급등 체크 (최근 30일 중 급등 체크)
+        if (historyData.length >= 30) {
+          const recent30Days = historyData.slice(-30).reverse();
+          const oldest = recent30Days[0].value;
+          const newest = recent30Days[recent30Days.length - 1].value;
+          const increasePercent = ((newest - oldest) / oldest) * 100;
+          if (increasePercent > 30 && newest > 80) {
+            const spikeDate = recent30Days.find(h => {
+              const idx = recent30Days.indexOf(h);
+              if (idx > 0) {
+                const dayIncrease = ((h.value - recent30Days[idx - 1].value) / recent30Days[idx - 1].value) * 100;
+                return dayIncrease > 10;
+              }
+              return false;
+            });
+            if (spikeDate) {
+              alerts.push({
+                type: 'danger',
+                message: `🚨 전쟁 주의 알림: WTI 유가가 ${spikeDate.date} 기준 급등했습니다 (${increasePercent.toFixed(1)}% 상승). 전쟁 등 지地정적 요인으로 인한 급등 가능성이 있습니다.`
+              });
+            }
+          }
+        }
+      }
+      
+      return alerts;
+    }
+    
+    const alerts = generateAlerts(ind, detail.history);
+    
     // 차트 데이터 준비
     const chartData = detail.history.map(h => ({
       date: h.date,
@@ -3142,6 +3323,14 @@ app.get("/economic-indicators/:id", async (req, res) => {
     .concept-content p{margin-bottom:12px}
     .concept-content strong{color:#ffffff;font-weight:700}
     
+    .alert-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .alert-item{padding:16px;border-radius:8px;margin-bottom:12px;border-left:4px solid;font-size:14px;line-height:1.6}
+    .alert-item:last-child{margin-bottom:0}
+    .alert-item.danger{background:rgba(239,68,68,0.1);border-left-color:#ef4444;color:#fca5a5}
+    .alert-item.warning{background:rgba(245,158,11,0.1);border-left-color:#f59e0b;color:#fcd34d}
+    .alert-item.info{background:rgba(59,130,246,0.1);border-left-color:#3b82f6;color:#93c5fd}
+    .alert-title{font-weight:700;margin-bottom:8px;font-size:15px}
+    
     .news-section-detail{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .news-section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
     .news-list-detail{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
@@ -3198,6 +3387,18 @@ app.get("/economic-indicators/:id", async (req, res) => {
         <span>업데이트: ${new Date(ind.lastUpdated).toLocaleString("ko-KR")}</span>
       </div>
     </div>
+    
+    ${alerts.length > 0 ? `
+    <div class="alert-section">
+      <div class="analysis-title">🚨 경제 알림</div>
+      ${alerts.map(alert => `
+        <div class="alert-item ${alert.type}">
+          <div class="alert-title">${alert.type === 'danger' ? '🚨 경고' : alert.type === 'warning' ? '⚠️ 주의' : '💡 정보'}</div>
+          <div>${escapeHtml(alert.message)}</div>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
     
     ${detail.concept ? `
     <div class="concept-section">
