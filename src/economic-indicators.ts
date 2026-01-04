@@ -1584,6 +1584,134 @@ async function fetchConsumerConfidence(): Promise<{ value: number; change: numbe
 }
 
 /**
+ * 발틱운임지수 (BDI) 가져오기
+ */
+async function fetchBalticDryIndex(): Promise<{ value: number; change: number; changePercent: number; history?: Array<{ date: string; value: number }>; lastUpdated?: string } | null> {
+  try {
+    // Investing.com 또는 다른 소스에서 BDI 가져오기
+    const url = "https://www.investing.com/indices/baltic-dry";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch BDI: ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    let bdiValue: number | null = null;
+    let previousValue: number | null = null;
+    
+    // Investing.com 페이지에서 BDI 값 찾기
+    $(".text-2xl, .instrument-price_last__KQzyA, .last-price, .pid-price-last").each((_idx, elem) => {
+      const $elem = $(elem);
+      const text = $elem.text().trim();
+      const numericMatch = text.match(/(\d+\.?\d*)/);
+      if (numericMatch) {
+        const parsed = parseFloat(numericMatch[1]);
+        if (parsed > 0 && parsed < 100000) {
+          if (bdiValue === null) {
+            bdiValue = parsed;
+          } else if (previousValue === null) {
+            previousValue = parsed;
+          }
+        }
+      }
+    });
+    
+    if (bdiValue !== null && !isNaN(bdiValue)) {
+      const change = previousValue !== null ? bdiValue - previousValue : 0;
+      const changePercent = previousValue !== null && previousValue !== 0 
+        ? (change / previousValue) * 100 
+        : 0;
+      
+      return {
+        value: bdiValue,
+        change,
+        changePercent,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Baltic Dry Index:", error);
+    return null;
+  }
+}
+
+/**
+ * Cass Freight Index 가져오기
+ */
+async function fetchCassFreightIndex(): Promise<{ value: number; change: number; changePercent: number; history?: Array<{ date: string; value: number }>; lastUpdated?: string } | null> {
+  try {
+    const url = "https://www.cassinfo.com/freight-audit-payment/cass-transportation-indexes/july-2025";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch Cass Freight Index: ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(html);
+    
+    let cassValue: number | null = null;
+    let previousValue: number | null = null;
+    
+    // Cass Info 페이지에서 최신 지수 값 찾기
+    $("table tr, .data-table tr, .index-value, .current-value").each((_idx, elem) => {
+      const $elem = $(elem);
+      const text = $elem.text().toLowerCase();
+      
+      if (text.includes("cass freight") || text.includes("freight index") || text.includes("shipments")) {
+        const numericMatch = text.match(/(\d+\.?\d*)/);
+        if (numericMatch) {
+          const parsed = parseFloat(numericMatch[1]);
+          if (parsed > 0 && parsed < 10000) {
+            if (cassValue === null) {
+              cassValue = parsed;
+            } else if (previousValue === null) {
+              previousValue = parsed;
+            }
+          }
+        }
+      }
+    });
+    
+    if (cassValue !== null && !isNaN(cassValue)) {
+      const change = previousValue !== null ? cassValue - previousValue : 0;
+      const changePercent = previousValue !== null && previousValue !== 0 
+        ? (change / previousValue) * 100 
+        : 0;
+      
+      return {
+        value: cassValue,
+        change,
+        changePercent,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch Cass Freight Index:", error);
+    return null;
+  }
+}
+
+/**
  * 경제 상태 진단 (초록/주황/빨강)
  */
 export function diagnoseEconomicStatus(indicators: EconomicIndicator[]): EconomicStatus {
