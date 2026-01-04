@@ -1443,7 +1443,10 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   
   return indicators;
     },
-    { ttl: 3600000 } // 1시간 캐시
+    { 
+      ttl: 3600000, // 1시간 캐시
+      timeout: 20000 // 20초 타임아웃 (여러 외부 API를 병렬로 호출하므로 더 긴 타임아웃 필요)
+    }
   );
 }
 

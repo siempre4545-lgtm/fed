@@ -90,13 +90,13 @@ export async function cachedFetch<T>(
   fetchFn: () => Promise<T>,
   options?: {
     ttl?: number; // 캐시 TTL (밀리초, 기본 1시간)
-    timeout?: number; // 타임아웃 (밀리초, 기본 5초)
+    timeout?: number; // 타임아웃 (밀리초, 기본 15초)
     useCache?: boolean; // 캐시 사용 여부 (기본 true)
   }
 ): Promise<T> {
   const {
     ttl = 3600000, // 1시간
-    timeout = 5000, // 5초
+    timeout = 15000, // 15초 (경제 지표는 여러 외부 API를 호출하므로 더 긴 타임아웃 필요)
     useCache = true,
   } = options || {};
 
