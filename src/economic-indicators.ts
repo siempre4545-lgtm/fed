@@ -570,17 +570,17 @@ async function fetchKoreaCDS(): Promise<{ value: number; change: number; changeP
 async function fetchFearGreedIndex(): Promise<{ value: number; change: number; history?: Array<{ date: string; value: number }>; lastUpdated?: string } | null> {
   try {
     // CNN API 우선 시도 (https://edition.cnn.com/markets/fear-and-greed 참조)
-    try {
-      const cnnResponse = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
-        headers: {
+      try {
+        const cnnResponse = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
+          headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json",
           "Referer": "https://edition.cnn.com/",
-        },
-      });
+          },
+        });
       
-      if (cnnResponse.ok) {
-        const cnnData = await cnnResponse.json();
+        if (cnnResponse.ok) {
+          const cnnData = await cnnResponse.json();
         console.log("CNN API Response:", JSON.stringify(cnnData).substring(0, 500));
         
         // CNN API 응답 구조 확인 및 파싱
@@ -642,16 +642,16 @@ async function fetchFearGreedIndex(): Promise<{ value: number; change: number; h
         }
         
         if (currentValue !== null && !isNaN(currentValue) && currentValue >= 0 && currentValue <= 100) {
-          return {
+            return {
             value: Math.round(currentValue),
             change: previousValue !== null ? Math.round(currentValue) - Math.round(previousValue) : 0,
             history: history.length > 0 ? history : undefined,
             lastUpdated: lastUpdated || new Date().toISOString(),
-          };
+            };
+          }
         }
-      }
-    } catch (e) {
-      console.error("CNN API failed:", e);
+      } catch (e) {
+        console.error("CNN API failed:", e);
     }
     
     // 대안: Alternative.me API 사용
@@ -665,38 +665,38 @@ async function fetchFearGreedIndex(): Promise<{ value: number; change: number; h
       if (response.ok) {
         const data = await response.json();
         if (data.data && data.data.length > 0) {
-          const latest = data.data[0];
-          const previous = data.data[1] || latest;
-          
-          const currentValue = parseInt(latest.value, 10);
-          const previousValue = parseInt(previous.value, 10);
-          
+    const latest = data.data[0];
+    const previous = data.data[1] || latest;
+    
+    const currentValue = parseInt(latest.value, 10);
+    const previousValue = parseInt(previous.value, 10);
+    
           if (!isNaN(currentValue) && currentValue >= 0 && currentValue <= 100) {
             // 히스토리 데이터 가져오기 (최근 365일)
-            let history: Array<{ date: string; value: number }> = [];
-            try {
+    let history: Array<{ date: string; value: number }> = [];
+    try {
               const historyResponse = await fetch("https://api.alternative.me/fng/?limit=365");
-              if (historyResponse.ok) {
-                const historyData = await historyResponse.json();
-                if (historyData.data) {
-                  history = historyData.data.map((item: any) => ({
-                    date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
-                    value: parseInt(item.value, 10),
-                  })).reverse();
-                }
-              }
-            } catch (e) {
-              console.error("Failed to fetch history:", e);
-            }
-            
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        if (historyData.data) {
+          history = historyData.data.map((item: any) => ({
+            date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
+            value: parseInt(item.value, 10),
+          })).reverse();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch history:", e);
+    }
+    
             // lastUpdated는 최신 데이터의 타임스탬프 사용
             const lastUpdated = latest.timestamp 
               ? new Date(parseInt(latest.timestamp) * 1000).toISOString()
               : new Date().toISOString();
             
-            return {
-              value: currentValue,
-              change: currentValue - previousValue,
+    return {
+      value: currentValue,
+      change: currentValue - previousValue,
               history: history.length > 0 ? history : undefined,
               lastUpdated,
             };
@@ -724,11 +724,11 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   return cachedFetch(
     cacheKey,
     async () => {
-      const indicators: EconomicIndicator[] = [];
-      const now = new Date().toISOString();
-      
+  const indicators: EconomicIndicator[] = [];
+  const now = new Date().toISOString();
+  
       // 금리 지표 (Yahoo Finance) - 캐싱 적용
-      const [treasury3M, treasury2Y, treasury10Y] = await Promise.all([
+  const [treasury3M, treasury2Y, treasury10Y] = await Promise.all([
         cachedFetch(
           getCacheKey('yahoo', '^IRX', Math.floor(Date.now() / 3600000)),
           () => fetchYahooFinance("^IRX"),
@@ -747,7 +747,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
       ]);
       
       // FRED 데이터는 별도로 가져오기 (API 키 필요 시) - 캐싱 적용
-      // 기준금리: DFF (Federal Funds Effective Rate) 또는 DFEDTARU (Target Upper Bound)
+  // 기준금리: DFF (Federal Funds Effective Rate) 또는 DFEDTARU (Target Upper Bound)
       const [fedFundsRate_DFF, fedFundsRate_TARU, treasury10Y_FRED, treasury2Y_FRED, sofr, onRrp] = await Promise.all([
         cachedFetch(
           getCacheKey('fred', 'DFF', Math.floor(Date.now() / 3600000)),
@@ -779,7 +779,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
           () => fetchFRED("RRPONTSYD", 30),
           { ttl: 3600000 }
         ),
-      ]);
+  ]);
   
   // 상단금리(Target Upper Bound) 우선, 없으면 Effective Rate 사용
   const fedFundsRate = fedFundsRate_TARU || fedFundsRate_DFF;
@@ -922,7 +922,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
   }
   
       // 지수 지표 - 캐싱 적용
-      const [dxy, wti, dow, sp500, nasdaq, russel] = await Promise.all([
+  const [dxy, wti, dow, sp500, nasdaq, russel] = await Promise.all([
         cachedFetch(
           getCacheKey('yahoo', 'DX-Y.NYB', Math.floor(Date.now() / 3600000)),
           () => fetchYahooFinance("DX-Y.NYB"),
@@ -953,7 +953,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
           () => fetchYahooFinance("^RUT"),
           { ttl: 3600000 }
         ),
-      ]);
+  ]);
   
   if (dxy) {
     indicators.push({
@@ -1441,7 +1441,7 @@ export async function fetchAllEconomicIndicators(): Promise<EconomicIndicator[]>
     });
   }
   
-      return indicators;
+  return indicators;
     },
     { ttl: 3600000 } // 1시간 캐시
   );
@@ -1913,8 +1913,12 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
         } catch (e) {
           console.error(`Failed to fetch yield spread history:`, e);
         }
-      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU" || indicator.symbol === "ICSA" || indicator.symbol === "SOFR" || indicator.symbol === "RRPONTSYD" || indicator.symbol === "M2SL" || indicator.symbol === "UNRATE" || indicator.symbol === "STLFSI4") {
+      } else if (indicator.symbol.startsWith("DGS") || indicator.symbol === "DFF" || indicator.symbol === "DFEDTARU" || indicator.symbol === "ICSA" || indicator.symbol === "SOFR" || indicator.symbol === "RRPONTSYD" || indicator.symbol === "M2SL" || indicator.symbol === "UNRATE" || indicator.symbol === "STLFSI4" || indicator.symbol === "RRSFS" || indicator.symbol === "IVSALES") {
         fredSeriesId = indicator.symbol;
+      } else if (indicatorId === "retail-sales") {
+        fredSeriesId = "RRSFS";
+      } else if (indicatorId === "inventory-sales-ratio") {
+        fredSeriesId = "IVSALES";
       }
       
       if (fredSeriesId) {
@@ -1983,6 +1987,12 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
                 values = result.indicators.quote[0].open;
               } else if (result.indicators?.quote?.[0]?.high) {
                 values = result.indicators.quote[0].high;
+              } else if (result.meta?.regularMarketPrice !== null && result.meta?.regularMarketPrice !== undefined) {
+                // VIX 같은 경우 meta에서 가져오기
+                const metaPrice = result.meta.regularMarketPrice;
+                if (result.timestamp.length > 0) {
+                  values = result.timestamp.map(() => metaPrice);
+                }
               }
               
               if (values && values.length > 0) {
@@ -1996,6 +2006,17 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
           }
         } catch (e) {
           console.error(`Failed to fetch Yahoo history for ${indicatorId}:`, e);
+        }
+        } else if (indicatorId === "ism-manufacturing") {
+        // ISM 제조업 지수는 FRED NAPM 시리즈 사용 시도
+        try {
+          const fredLimit = Math.min(daysToFetch, 10000);
+          const ismFredData = await fetchFRED("NAPM", fredLimit);
+          if (ismFredData?.history) {
+            history = ismFredData.history;
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ISM Manufacturing history from FRED:`, e);
         }
         } else if (indicatorId === "fear-greed-index") {
         // Fear & Greed Index는 CNN API 또는 Alternative.me API에서 히스토리 가져오기
@@ -2014,15 +2035,15 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
             }
           } else {
             // 대안: Alternative.me API
-            const limit = period === '1D' ? 1 : period === '1M' ? 30 : period === '1Y' ? 365 : period === '5Y' ? 1825 : 10000;
-            const response = await fetch(`https://api.alternative.me/fng/?limit=${limit}`);
-            if (response.ok) {
-              const data = await response.json();
-              if (data.data) {
-                history = data.data.map((item: any) => ({
-                  date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
-                  value: parseInt(item.value, 10),
-                })).reverse();
+          const limit = period === '1D' ? 1 : period === '1M' ? 30 : period === '1Y' ? 365 : period === '5Y' ? 1825 : 10000;
+          const response = await fetch(`https://api.alternative.me/fng/?limit=${limit}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.data) {
+              history = data.data.map((item: any) => ({
+                date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
+                value: parseInt(item.value, 10),
+              })).reverse();
               }
             }
           }
