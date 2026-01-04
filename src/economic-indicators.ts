@@ -1970,7 +1970,13 @@ export async function getIndicatorDetail(indicatorId: string, period: '1D' | '1M
             interval = '1mo'; // 월간 데이터
           }
           
-          const cleanSymbol = indicator.symbol.replace(/[^A-Z0-9=.-]/g, "");
+          // Yahoo Finance 심볼 정리: ^는 %5E로 인코딩, 나머지는 그대로
+          let cleanSymbol = indicator.symbol;
+          if (cleanSymbol.startsWith("^")) {
+            cleanSymbol = "%5E" + cleanSymbol.substring(1);
+          } else {
+            cleanSymbol = cleanSymbol.replace(/[^A-Z0-9=.-]/g, "");
+          }
           const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSymbol}?interval=${interval}&range=${range}`;
           const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
           if (response.ok) {
