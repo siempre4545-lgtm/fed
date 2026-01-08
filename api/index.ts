@@ -3612,15 +3612,15 @@ app.get("/economic-indicators/:id", async (req, res) => {
               minute: '2-digit'
             });
             
-            return `
-              <div class="memo-item">
-                <div class="memo-item-header">
-                  <span class="memo-item-date">${dateStr}</span>
-                  <button class="memo-item-delete" onclick="deleteMemo(${index})">삭제</button>
-                </div>
-                <div class="memo-item-text">${escapeHtml(memo.text)}</div>
-              </div>
-            `;
+            const escapedText = escapeHtml(memo.text);
+            
+            return '<div class="memo-item">' +
+              '<div class="memo-item-header">' +
+              '<span class="memo-item-date">' + dateStr + '</span>' +
+              '<button class="memo-item-delete" onclick="deleteMemo(' + index + ')">삭제</button>' +
+              '</div>' +
+              '<div class="memo-item-text">' + escapedText + '</div>' +
+              '</div>';
           }).join('');
         }
         
