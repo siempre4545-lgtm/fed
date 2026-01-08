@@ -3315,6 +3315,27 @@ app.get("/economic-indicators/:id", async (req, res) => {
     .comprehensive-analysis-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
     .comprehensive-analysis-text{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
     
+    .memo-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .memo-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .memo-form{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+    .memo-input{width:100%;min-height:80px;padding:12px;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;color:#ffffff;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color 0.2s}
+    .memo-input:focus{border-color:#4dabf7}
+    .memo-input::placeholder{color:#808080}
+    .memo-actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .memo-char-count{font-size:12px;color:#808080}
+    .memo-submit-btn{padding:10px 20px;background:#4dabf7;border:none;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s}
+    .memo-submit-btn:hover{background:#339af0}
+    .memo-submit-btn:disabled{background:#3d3d3d;color:#808080;cursor:not-allowed}
+    .memo-history{display:flex;flex-direction:column;gap:12px}
+    .memo-history-title{font-size:16px;font-weight:600;color:#ffffff;margin-bottom:8px}
+    .memo-history-empty{text-align:center;padding:24px;color:#808080;font-size:14px}
+    .memo-item{background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px}
+    .memo-item-header{display:flex;justify-content:space-between;align-items:center}
+    .memo-item-date{font-size:12px;color:#808080}
+    .memo-item-delete{background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background 0.2s}
+    .memo-item-delete:hover{background:rgba(239,68,68,0.1)}
+    .memo-item-text{font-size:14px;line-height:1.6;color:#c0c0c0;white-space:pre-wrap;word-break:break-word}
+    
     .concept-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .concept-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
     .concept-content{font-size:15px;line-height:2.2;color:#c0c0c0;white-space:pre-line}
@@ -3399,6 +3420,24 @@ app.get("/economic-indicators/:id", async (req, res) => {
       `).join('')}
     </div>
     ` : ''}
+    
+    <div class="memo-section">
+      <div class="memo-title">
+        <span>📝</span>
+        <span>개인 메모</span>
+      </div>
+      <div class="memo-form">
+        <textarea id="memoInput" class="memo-input" placeholder="이 지표에 대한 개인 메모를 작성하세요 (50자 내외 권장)"></textarea>
+        <div class="memo-actions">
+          <span class="memo-char-count"><span id="memoCharCount">0</span>자</span>
+          <button id="memoSubmitBtn" class="memo-submit-btn">추가</button>
+        </div>
+      </div>
+      <div class="memo-history">
+        <div class="memo-history-title">메모 히스토리</div>
+        <div id="memoHistoryList"></div>
+      </div>
+    </div>
     
     ${detail.concept ? `
     <div class="concept-section">
@@ -3518,6 +3557,136 @@ app.get("/economic-indicators/:id", async (req, res) => {
       }
     </script>
     ` : ""}
+    
+    <script>
+      // 메모 기능
+      (function() {
+        const indicatorId = ${JSON.stringify(id)};
+        const memoStorageKey = 'economic-indicator-memos';
+        const memoInput = document.getElementById('memoInput');
+        const memoSubmitBtn = document.getElementById('memoSubmitBtn');
+        const memoCharCount = document.getElementById('memoCharCount');
+        const memoHistoryList = document.getElementById('memoHistoryList');
+        
+        // 로컬 스토리지에서 메모 불러오기
+        function loadMemos() {
+          try {
+            const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+            return allMemos[indicatorId] || [];
+          } catch (e) {
+            console.error('Failed to load memos:', e);
+            return [];
+          }
+        }
+        
+        // 로컬 스토리지에 메모 저장하기
+        function saveMemos(memos) {
+          try {
+            const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+            allMemos[indicatorId] = memos;
+            localStorage.setItem(memoStorageKey, JSON.stringify(allMemos));
+          } catch (e) {
+            console.error('Failed to save memos:', e);
+          }
+        }
+        
+        // 메모 히스토리 렌더링
+        function renderMemoHistory() {
+          const memos = loadMemos();
+          
+          if (memos.length === 0) {
+            memoHistoryList.innerHTML = '<div class="memo-history-empty">저장된 메모가 없습니다.</div>';
+            return;
+          }
+          
+          // 최신순으로 정렬
+          const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+          
+          memoHistoryList.innerHTML = sortedMemos.map((memo, index) => {
+            const date = new Date(memo.date);
+            const dateStr = date.toLocaleString('ko-KR', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            
+            return `
+              <div class="memo-item">
+                <div class="memo-item-header">
+                  <span class="memo-item-date">${dateStr}</span>
+                  <button class="memo-item-delete" onclick="deleteMemo(${index})">삭제</button>
+                </div>
+                <div class="memo-item-text">${escapeHtml(memo.text)}</div>
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // 메모 추가
+        function addMemo() {
+          const text = memoInput.value.trim();
+          if (!text) {
+            alert('메모 내용을 입력해주세요.');
+            return;
+          }
+          
+          const memos = loadMemos();
+          const newMemo = {
+            text: text,
+            date: new Date().toISOString()
+          };
+          
+          memos.push(newMemo);
+          saveMemos(memos);
+          
+          memoInput.value = '';
+          updateCharCount();
+          renderMemoHistory();
+        }
+        
+        // 메모 삭제
+        window.deleteMemo = function(index) {
+          if (!confirm('이 메모를 삭제하시겠습니까?')) {
+            return;
+          }
+          
+          const memos = loadMemos();
+          const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+          sortedMemos.splice(index, 1);
+          
+          saveMemos(sortedMemos);
+          renderMemoHistory();
+        };
+        
+        // 글자수 업데이트
+        function updateCharCount() {
+          const length = memoInput.value.length;
+          memoCharCount.textContent = length;
+        }
+        
+        // HTML 이스케이프 함수
+        function escapeHtml(text) {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+        
+        // 이벤트 리스너
+        memoInput.addEventListener('input', updateCharCount);
+        memoSubmitBtn.addEventListener('click', addMemo);
+        memoInput.addEventListener('keydown', function(e) {
+          if (e.ctrlKey && e.key === 'Enter') {
+            addMemo();
+          }
+        });
+        
+        // 초기화
+        updateCharCount();
+        renderMemoHistory();
+      })();
+    </script>
     
     <div class="analysis-section">
       <div class="analysis-title">경제코치 분석 💡</div>
