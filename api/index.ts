@@ -744,19 +744,6 @@ app.get("/", async (req, res) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="FED 대차대조표(H.4.1)를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시하는 대시보드" />
-  <meta name="keywords" content="FED, H.4.1, 유동성, 대차대조표, 거시경제, 자산배분, QT, QE, 연준" />
-  <meta name="author" content="FED H.4.1 Dashboard" />
-  <meta name="robots" content="index, follow" />
-  <meta property="og:title" content="FED H.4.1 유동성 대시보드" />
-  <meta property="og:description" content="FED 대차대조표를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://fedreportsh.vercel.app" />
-  <meta property="og:site_name" content="FED H.4.1 Dashboard" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="FED H.4.1 유동성 대시보드" />
-  <meta name="twitter:description" content="FED 대차대조표를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시" />
-  <link rel="canonical" href="https://fedreportsh.vercel.app" />
   <title>FED H.4.1 유동성 대시보드</title>
   <script src="/toggles.js" defer></script>
   <style>
@@ -4105,18 +4092,8 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="SOFR-IORB 스프레드 상세 분석. 은행들이 서로를 포기하고 중앙은행으로 돌아가는 신호를 알려주는 지표의 심층 분석" />
-  <meta name="keywords" content="SOFR, IORB, 스프레드, 금융지표, 은행 신뢰, 유동성, 금융시스템" />
-  <meta name="robots" content="index, follow" />
-  <meta property="og:title" content="SOFR-IORB 스프레드 상세 분석" />
-  <meta property="og:description" content="은행들이 서로를 포기하고 중앙은행으로 돌아가는 신호를 알려주는 지표의 심층 분석" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://fedreportsh.vercel.app/secret-indicators/sofr-iorb-spread" />
-  <link rel="canonical" href="https://fedreportsh.vercel.app/secret-indicators/sofr-iorb-spread" />
   <title>SOFR-IORB 스프레드 상세 분석</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
@@ -4254,20 +4231,9 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
   
   ${chartData ? `
   <script>
-    // Chart.js가 로드될 때까지 대기
-    function initChart() {
-      if (typeof Chart === 'undefined') {
-        setTimeout(initChart, 100);
-        return;
-      }
-      
-      const chartData = ${chartDataJson};
-      if (!chartData) return;
-      
-      const canvas = document.getElementById('spreadChart');
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
+    const chartData = ${chartDataJson};
+    if (chartData) {
+      const ctx = document.getElementById('spreadChart').getContext('2d');
       new Chart(ctx, {
         type: 'line',
         data: chartData,
@@ -4343,13 +4309,6 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
           }
         }
       });
-    }
-    
-    // 페이지 로드 후 차트 초기화
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initChart);
-    } else {
-      initChart();
     }
   </script>
   ` : ''}
