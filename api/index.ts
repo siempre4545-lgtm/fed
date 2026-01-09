@@ -3833,6 +3833,9 @@ function escapeHtml(s: string): string {
 // 비밀지표 페이지
 app.get("/secret-indicators", async (req, res) => {
   try {
+    // 캐싱 헤더 설정 (10분 캐시, 1시간 stale-while-revalidate)
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    
     const indicators = await fetchAllSecretIndicators();
     
     const escapeHtml = (s: string): string => {
@@ -3881,6 +3884,8 @@ app.get("/secret-indicators", async (req, res) => {
   <meta name="twitter:title" content="비밀지표 - 자본주의 내부 신경계 해부" />
   <meta name="twitter:description" content="위기가 준비되는 과정을 가장 먼저 알아차리는 12개 선행 지표" />
   <link rel="canonical" href="https://fedreportsh.vercel.app/secret-indicators" />
+  <link rel="preconnect" href="https://api.stlouisfed.org" />
+  <link rel="dns-prefetch" href="https://api.stlouisfed.org" />
   <title>비밀지표 - 자본주의 내부 신경계 해부</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -3927,6 +3932,13 @@ app.get("/secret-indicators", async (req, res) => {
     .risk-low{background:#10b981}
     
     .trend-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;background:#2d2d2d;color:#c0c0c0}
+    
+    /* 로딩 최적화: 폰트 및 리소스 */
+    @font-face{font-display:swap}
+    
+    /* 성능 최적화: will-change 사용 */
+    .indicator-card{will-change:transform}
+    .indicator-card:hover{will-change:auto}
     
     @media (max-width: 768px) {
       .indicator-value-section{grid-template-columns:1fr}

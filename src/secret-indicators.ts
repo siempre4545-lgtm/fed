@@ -771,8 +771,8 @@ export async function fetchAllSecretIndicators(): Promise<SecretIndicator[]> {
     }
   ];
   
-  // FRED API로 데이터 가져오기
-  for (const indicator of indicators) {
+  // FRED API로 데이터 가져오기 (병렬 처리로 최적화)
+  const fetchPromises = indicators.map(async (indicator) => {
     try {
       let data: { value: number; previousValue: number; date: string } | null = null;
       
@@ -815,7 +815,11 @@ export async function fetchAllSecretIndicators(): Promise<SecretIndicator[]> {
     } catch (error) {
       console.error(`Failed to fetch ${indicator.name}:`, error);
     }
-  }
+    return indicator;
+  });
+  
+  // 모든 지표를 병렬로 가져오기
+  await Promise.allSettled(fetchPromises);
   
   return indicators;
 }
