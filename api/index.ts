@@ -2,7 +2,7 @@ import express from "express";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
-import { fetchAllSecretIndicators } from "../src/secret-indicators.js";
+import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation } from "../src/secret-indicators.js";
 
 const app = express();
 
@@ -744,6 +744,19 @@ app.get("/", async (req, res) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="FED 대차대조표(H.4.1)를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시하는 대시보드" />
+  <meta name="keywords" content="FED, H.4.1, 유동성, 대차대조표, 거시경제, 자산배분, QT, QE, 연준" />
+  <meta name="author" content="FED H.4.1 Dashboard" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="FED H.4.1 유동성 대시보드" />
+  <meta property="og:description" content="FED 대차대조표를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://fedreportsh.vercel.app" />
+  <meta property="og:site_name" content="FED H.4.1 Dashboard" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="FED H.4.1 유동성 대시보드" />
+  <meta name="twitter:description" content="FED 대차대조표를 기반으로 거시 유동성 환경을 분석하고 자산군 대응 방향을 제시" />
+  <link rel="canonical" href="https://fedreportsh.vercel.app" />
   <title>FED H.4.1 유동성 대시보드</title>
   <script src="/toggles.js" defer></script>
   <style>
@@ -3835,6 +3848,15 @@ app.get("/secret-indicators", async (req, res) => {
   try {
     const indicators = await fetchAllSecretIndicators();
     
+    const escapeHtml = (s: string): string => {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+    
     const getRiskColor = (risk: string) => {
       switch (risk) {
         case "critical": return "#dc2626";
@@ -3859,6 +3881,19 @@ app.get("/secret-indicators", async (req, res) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="위기가 준비되는 과정을 가장 먼저 알아차리는 12개 선행 지표. 자본주의 내부 신경계를 해부하는 비밀지표 대시보드" />
+  <meta name="keywords" content="SOFR, IORB, 스프레드, 금융지표, 선행지표, 거시경제, 유동성, FED" />
+  <meta name="author" content="FED H.4.1 Dashboard" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="비밀지표 - 자본주의 내부 신경계 해부" />
+  <meta property="og:description" content="위기가 준비되는 과정을 가장 먼저 알아차리는 12개 선행 지표" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://fedreportsh.vercel.app/secret-indicators" />
+  <meta property="og:site_name" content="FED H.4.1 Dashboard" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="비밀지표 - 자본주의 내부 신경계 해부" />
+  <meta name="twitter:description" content="위기가 준비되는 과정을 가장 먼저 알아차리는 12개 선행 지표" />
+  <link rel="canonical" href="https://fedreportsh.vercel.app/secret-indicators" />
   <title>비밀지표 - 자본주의 내부 신경계 해부</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -3938,12 +3973,16 @@ app.get("/secret-indicators", async (req, res) => {
       const changeColor = ind.change && ind.change > 0 ? "positive" : ind.change && ind.change < 0 ? "negative" : "neutral";
       const changeSign = ind.change && ind.change > 0 ? "+" : "";
       const changePercentSign = ind.changePercent && ind.changePercent > 0 ? "+" : "";
+      const hasDetailPage = ind.id === "sofr_iorb_spread";
       
       return `
-    <div class="indicator-card">
+    <div class="indicator-card" ${hasDetailPage ? 'style="cursor:pointer" onclick="window.location.href=\'/secret-indicators/sofr-iorb-spread\'"' : ''}>
       <div class="indicator-header">
         <div style="flex:1">
-          <div class="indicator-title">${idx + 1}. ${escapeHtml(ind.name)}</div>
+          <div class="indicator-title">
+            ${idx + 1}. ${escapeHtml(ind.name)}
+            ${hasDetailPage ? '<span style="font-size:14px;color:#a78bfa;margin-left:8px">📊 클릭하여 상세 분석 보기</span>' : ''}
+          </div>
           <div class="indicator-description">${escapeHtml(ind.description)}</div>
           <div class="indicator-meta">
             ${ind.fredSeriesId ? `<span class="indicator-source">FRED: ${ind.fredSeriesId}</span>` : ""}
@@ -3996,6 +4035,324 @@ app.get("/secret-indicators", async (req, res) => {
       `;
     }).join('')}
   </div>
+</body>
+</html>
+    `);
+  } catch (e: any) {
+    res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
+  }
+});
+
+// SOFR-IORB 스프레드 세부 페이지
+app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
+  try {
+    const [spreadData, chartData] = await Promise.all([
+      fetchSOFRIORBSpread(),
+      fetchSOFRIORBSpreadChartData(365)
+    ]);
+    
+    const interpretation = generateSOFRIORBSpreadDetailedInterpretation(spreadData, chartData);
+    
+    const escapeHtml = (text: string) => {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+    
+    // 차트 데이터를 JSON으로 변환 (Chart.js 사용)
+    const chartDataJson = chartData ? JSON.stringify({
+      labels: chartData.dates,
+      datasets: [
+        {
+          label: "SOFR (%)",
+          data: chartData.sofr,
+          borderColor: "#4dabf7",
+          backgroundColor: "rgba(77, 171, 247, 0.1)",
+          yAxisID: "y",
+          tension: 0.1
+        },
+        {
+          label: "IORB (%)",
+          data: chartData.iorb,
+          borderColor: "#51cf66",
+          backgroundColor: "rgba(81, 207, 102, 0.1)",
+          yAxisID: "y",
+          borderDash: [5, 5],
+          tension: 0.1
+        },
+        {
+          label: "스프레드 (bp)",
+          data: chartData.spread,
+          borderColor: "#ffd43b",
+          backgroundColor: "rgba(255, 212, 59, 0.1)",
+          yAxisID: "y1",
+          tension: 0.1
+        }
+      ]
+    }) : "null";
+    
+    const stateColor = interpretation.currentState === "normal" ? "#10b981" : 
+                       interpretation.currentState === "warning" ? "#f59e0b" : "#ef4444";
+    const stateText = interpretation.currentState === "normal" ? "정상" : 
+                      interpretation.currentState === "warning" ? "경계" : "방어";
+    
+    res.send(`
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="SOFR-IORB 스프레드 상세 분석. 은행들이 서로를 포기하고 중앙은행으로 돌아가는 신호를 알려주는 지표의 심층 분석" />
+  <meta name="keywords" content="SOFR, IORB, 스프레드, 금융지표, 은행 신뢰, 유동성, 금융시스템" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="SOFR-IORB 스프레드 상세 분석" />
+  <meta property="og:description" content="은행들이 서로를 포기하고 중앙은행으로 돌아가는 신호를 알려주는 지표의 심층 분석" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://fedreportsh.vercel.app/secret-indicators/sofr-iorb-spread" />
+  <link rel="canonical" href="https://fedreportsh.vercel.app/secret-indicators/sofr-iorb-spread" />
+  <title>SOFR-IORB 스프레드 상세 분석</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#121212;color:#e8e8e8;line-height:1.6}
+    
+    .page-header{padding:20px 24px;border-bottom:1px solid #2d2d2d;position:sticky;top:0;background:#1a1a1a;z-index:100}
+    .page-header h1{margin:0;font-size:24px;font-weight:700;color:#ffffff;margin-bottom:8px}
+    .page-header .sub{opacity:.8;font-size:14px;line-height:1.6;color:#c0c0c0}
+    .page-header a{color:#a78bfa;text-decoration:none;font-weight:500}
+    .page-header a:hover{text-decoration:underline;color:#c4b5fd}
+    
+    .main-content{padding:24px;max-width:1400px;margin:0 auto}
+    
+    .status-badge{display:inline-block;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;color:#ffffff;margin-bottom:20px}
+    
+    .value-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px}
+    .value-item{background:#252525;border-radius:8px;padding:16px}
+    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .value-number{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:4px}
+    .value-unit{font-size:12px;color:#808080}
+    
+    .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .chart-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    
+    .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .section-content{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:pre-line}
+    .section-content strong{color:#ffffff;font-weight:700}
+    
+    .interpretation-box{background:#252525;border-left:4px solid #8b5cf6;border-radius:8px;padding:20px;margin-top:16px}
+    
+    @media (max-width: 768px) {
+      .value-grid{grid-template-columns:1fr}
+      .main-content{padding:16px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>📊 SOFR-IORB 스프레드 상세 분석</h1>
+    <div class="sub">
+      <a href="/secret-indicators">← 비밀지표로 돌아가기</a>
+    </div>
+  </div>
+  
+  <div class="main-content">
+    ${spreadData.spread && spreadData.sofr && spreadData.iorb ? `
+    <div class="status-badge" style="background:${stateColor}">
+      현재 상태: ${stateText}
+    </div>
+    
+    <div class="value-section">
+      <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px">현재 수치</h2>
+      <div class="value-grid">
+        <div class="value-item">
+          <div class="value-label">SOFR</div>
+          <div class="value-number">${spreadData.sofr.value.toFixed(2)}</div>
+          <div class="value-unit">%</div>
+        </div>
+        <div class="value-item">
+          <div class="value-label">IORB</div>
+          <div class="value-number">${spreadData.iorb.value.toFixed(2)}</div>
+          <div class="value-unit">%</div>
+        </div>
+        <div class="value-item">
+          <div class="value-label">스프레드</div>
+          <div class="value-number" style="color:#ffd43b">${spreadData.spread.value.toFixed(2)}</div>
+          <div class="value-unit">bp</div>
+        </div>
+        <div class="value-item">
+          <div class="value-label">변동</div>
+          <div class="value-number" style="color:${spreadData.spread.value - spreadData.spread.previousValue > 0 ? '#ef4444' : '#10b981'}">
+            ${spreadData.spread.value - spreadData.spread.previousValue > 0 ? '+' : ''}${(spreadData.spread.value - spreadData.spread.previousValue).toFixed(2)}
+          </div>
+          <div class="value-unit">bp</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:#808080">
+        업데이트: ${spreadData.spread.date}
+      </div>
+    </div>
+    
+    ${chartData ? `
+    <div class="chart-container">
+      <div class="chart-title">SOFR-IORB 스프레드 차트 (최근 1년)</div>
+      <canvas id="spreadChart" style="max-height:400px"></canvas>
+    </div>
+    ` : ''}
+    
+    <div class="analysis-section">
+      <div class="section-title">
+        <span>1️⃣ 1차 판독</span>
+      </div>
+      <div class="section-content">${escapeHtml(interpretation.primaryAnalysis)}</div>
+    </div>
+    
+    <div class="analysis-section">
+      <div class="section-title">
+        <span>2️⃣ 2차 판독: 지속성과 방향</span>
+      </div>
+      <div class="section-content">${escapeHtml(interpretation.secondaryAnalysis)}</div>
+    </div>
+    
+    <div class="analysis-section">
+      <div class="section-title">
+        <span>📊 교차 판독 방법</span>
+      </div>
+      <div class="section-content">${escapeHtml(interpretation.crossReading)}</div>
+    </div>
+    
+    <div class="analysis-section">
+      <div class="section-title">
+        <span>💼 포지션 판단</span>
+      </div>
+      <div class="interpretation-box">
+        <div class="section-content">${escapeHtml(interpretation.positionGuidance)}</div>
+      </div>
+    </div>
+    
+    <div class="analysis-section">
+      <div class="section-title">
+        <span>📚 상세 설명</span>
+      </div>
+      <div class="section-content">${escapeHtml(interpretation.detailedExplanation)}</div>
+    </div>
+    ` : `
+    <div class="value-section">
+      <div style="text-align:center;padding:40px;color:#9ca3af">
+        <div style="font-size:24px;margin-bottom:16px">⚠️</div>
+        <div>데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div>
+      </div>
+    </div>
+    `}
+  </div>
+  
+  ${chartData ? `
+  <script>
+    // Chart.js가 로드될 때까지 대기
+    function initChart() {
+      if (typeof Chart === 'undefined') {
+        setTimeout(initChart, 100);
+        return;
+      }
+      
+      const chartData = ${chartDataJson};
+      if (!chartData) return;
+      
+      const canvas = document.getElementById('spreadChart');
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                color: '#e8e8e8',
+                font: {
+                  size: 12
+                }
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#ffffff',
+              bodyColor: '#e8e8e8',
+              borderColor: '#2d2d2d',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: '#9ca3af',
+                maxRotation: 45,
+                minRotation: 45
+              },
+              grid: {
+                color: '#2d2d2d'
+              }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: '금리 (%)',
+                color: '#9ca3af'
+              },
+              ticks: {
+                color: '#9ca3af'
+              },
+              grid: {
+                color: '#2d2d2d'
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: '스프레드 (bp)',
+                color: '#9ca3af'
+              },
+              ticks: {
+                color: '#9ca3af'
+              },
+              grid: {
+                drawOnChartArea: false
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // 페이지 로드 후 차트 초기화
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initChart);
+    } else {
+      initChart();
+    }
+  </script>
+  ` : ''}
 </body>
 </html>
     `);

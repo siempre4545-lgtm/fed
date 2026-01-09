@@ -190,6 +190,272 @@ async function fetchSovereignRiskGap(): Promise<{ value: number; previousValue: 
 }
 
 /**
+ * SOFR-IORB 스프레드 데이터 가져오기
+ * SOFR과 IORB를 각각 가져와서 스프레드 계산
+ */
+export async function fetchSOFRIORBSpread(): Promise<{
+  sofr: { value: number; previousValue: number; date: string } | null;
+  iorb: { value: number; previousValue: number; date: string } | null;
+  spread: { value: number; previousValue: number; date: string } | null;
+}> {
+  try {
+    // SOFR과 IORB를 병렬로 가져오기
+    const [sofrData, iorbData] = await Promise.all([
+      fetchFRED("SOFR", 2),
+      fetchFRED("DFEDTARU", 2) // Interest Rate on Reserve Balances
+    ]);
+    
+    let spread: { value: number; previousValue: number; date: string } | null = null;
+    
+    if (sofrData && iorbData) {
+      // 스프레드 계산 (bp 단위로 변환: 1% = 100bp)
+      const spreadValue = (sofrData.value - iorbData.value) * 100;
+      const spreadPreviousValue = (sofrData.previousValue - iorbData.previousValue) * 100;
+      
+      spread = {
+        value: spreadValue,
+        previousValue: spreadPreviousValue,
+        date: sofrData.date // 최신 날짜 사용
+      };
+    }
+    
+    return {
+      sofr: sofrData,
+      iorb: iorbData,
+      spread
+    };
+  } catch (error) {
+    console.error("Failed to fetch SOFR-IORB spread:", error);
+    return {
+      sofr: null,
+      iorb: null,
+      spread: null
+    };
+  }
+}
+
+/**
+ * SOFR-IORB 스프레드 차트 데이터 가져오기 (최근 1년)
+ */
+export async function fetchSOFRIORBSpreadChartData(days: number = 365): Promise<{
+  dates: string[];
+  sofr: number[];
+  iorb: number[];
+  spread: number[];
+} | null> {
+  try {
+    const apiKey = process.env.FRED_API_KEY || "demo";
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    // SOFR과 IORB 데이터를 병렬로 가져오기
+    const [sofrResponse, iorbResponse] = await Promise.all([
+      fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=SOFR&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`),
+      fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=DFEDTARU&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`)
+    ]);
+    
+    if (!sofrResponse.ok || !iorbResponse.ok) {
+      console.warn("Failed to fetch chart data from FRED API");
+      return null;
+    }
+    
+    const sofrData = await sofrResponse.json();
+    const iorbData = await iorbResponse.json();
+    
+    if (sofrData.error_code || iorbData.error_code) {
+      console.warn("FRED API error:", sofrData.error_message || iorbData.error_message);
+      return null;
+    }
+    
+    const sofrObservations = (sofrData.observations || []).filter((obs: any) => obs.value !== ".");
+    const iorbObservations = (iorbData.observations || []).filter((obs: any) => obs.value !== ".");
+    
+    // 날짜 기준으로 매칭
+    const dateMap = new Map<string, { sofr?: number; iorb?: number }>();
+    
+    sofrObservations.forEach((obs: any) => {
+      const date = obs.date;
+      const value = parseFloat(obs.value);
+      if (!isNaN(value)) {
+        if (!dateMap.has(date)) {
+          dateMap.set(date, {});
+        }
+        dateMap.get(date)!.sofr = value;
+      }
+    });
+    
+    iorbObservations.forEach((obs: any) => {
+      const date = obs.date;
+      const value = parseFloat(obs.value);
+      if (!isNaN(value)) {
+        if (!dateMap.has(date)) {
+          dateMap.set(date, {});
+        }
+        dateMap.get(date)!.iorb = value;
+      }
+    });
+    
+    // 두 값이 모두 있는 날짜만 사용
+    const dates: string[] = [];
+    const sofr: number[] = [];
+    const iorb: number[] = [];
+    const spread: number[] = [];
+    
+    Array.from(dateMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .forEach(([date, values]) => {
+        if (values.sofr !== undefined && values.iorb !== undefined) {
+          dates.push(date);
+          sofr.push(values.sofr);
+          iorb.push(values.iorb);
+          spread.push((values.sofr - values.iorb) * 100); // bp 단위
+        }
+      });
+    
+    return {
+      dates,
+      sofr,
+      iorb,
+      spread
+    };
+  } catch (error) {
+    console.error("Failed to fetch SOFR-IORB spread chart data:", error);
+    return null;
+  }
+}
+
+/**
+ * SOFR-IORB 스프레드 상세 해석 생성
+ * 사용자 제공 개념 기반: 1차/2차 판독, 교차 판독, 포지션 판단
+ */
+export function generateSOFRIORBSpreadDetailedInterpretation(
+  spreadData: {
+    sofr: { value: number; previousValue: number; date: string } | null;
+    iorb: { value: number; previousValue: number; date: string } | null;
+    spread: { value: number; previousValue: number; date: string } | null;
+  },
+  chartData: {
+    dates: string[];
+    sofr: number[];
+    iorb: number[];
+    spread: number[];
+  } | null
+): {
+  currentState: "normal" | "warning" | "defensive";
+  primaryAnalysis: string;
+  secondaryAnalysis: string;
+  crossReading: string;
+  positionGuidance: string;
+  detailedExplanation: string;
+} {
+  if (!spreadData.spread || !spreadData.sofr || !spreadData.iorb) {
+    return {
+      currentState: "normal",
+      primaryAnalysis: "데이터 수집 중입니다.",
+      secondaryAnalysis: "",
+      crossReading: "",
+      positionGuidance: "",
+      detailedExplanation: ""
+    };
+  }
+  
+  const currentSpread = spreadData.spread.value;
+  const previousSpread = spreadData.spread.previousValue;
+  const spreadChange = currentSpread - previousSpread;
+  const absSpread = Math.abs(currentSpread);
+  
+  // 1차 판독: 괴리의 성격
+  let primaryAnalysis = "";
+  
+  // 괴리가 단발성인지 확인 (차트 데이터가 있으면 최근 30일 데이터로 확인)
+  let isTransient = false;
+  if (chartData && chartData.spread.length >= 30) {
+    const recentSpreads = chartData.spread.slice(-30);
+    const avgRecent = recentSpreads.reduce((a, b) => a + b, 0) / recentSpreads.length;
+    const maxRecent = Math.max(...recentSpreads);
+    const minRecent = Math.min(...recentSpreads);
+    
+    // 최근 30일 평균과 현재 값의 차이가 크면 단발성일 가능성
+    if (Math.abs(currentSpread - avgRecent) > Math.abs(avgRecent) * 0.5) {
+      isTransient = true;
+      primaryAnalysis += "⚠️ 단발성 변동 가능성: 최근 30일 평균과 비교하여 현재 값이 크게 벗어났습니다. 노이즈일 수 있으니 지속성을 관찰해야 합니다.\n\n";
+    } else {
+      primaryAnalysis += "✅ 지속적 패턴: 최근 30일 평균과 일치하는 패턴을 보이고 있습니다.\n\n";
+    }
+  }
+  
+  // 특별한 이벤트 없이 벌어졌는지 (현재는 데이터로 확인 불가, 추후 경제 이벤트 캘린더 연동 가능)
+  primaryAnalysis += "📅 이벤트 확인: 경제 지표 발표나 특별한 이벤트 없이 발생했다면 은행 내부 판단의 신호일 가능성이 높습니다.\n\n";
+  
+  // 며칠에서 몇주 동안 유지되는지 (차트 데이터로 확인)
+  if (chartData && chartData.spread.length >= 14) {
+    const recent14Days = chartData.spread.slice(-14);
+    const consistentDays = recent14Days.filter(s => Math.abs(s - currentSpread) < 5).length;
+    
+    if (consistentDays >= 7) {
+      primaryAnalysis += `⏱️ 지속성: 최근 14일 중 ${consistentDays}일 동안 유사한 수준을 유지하고 있습니다. 이는 은행들의 선택이 반복되고 있다는 의미입니다.`;
+    } else {
+      primaryAnalysis += `⏱️ 변동성: 최근 14일 동안 스프레드가 불안정하게 움직이고 있습니다.`;
+    }
+  }
+  
+  // 2차 판독: 지속성과 방향
+  let secondaryAnalysis = "";
+  let currentState: "normal" | "warning" | "defensive" = "normal";
+  
+  if (absSpread < 5) {
+    // 정상 상태: SOFR과 IORB가 붙었다가 다시 붙는 거고, 시스템 자율 유지 상태
+    currentState = "normal";
+    secondaryAnalysis = `✅ 정상 상태: SOFR(${spreadData.sofr.value.toFixed(2)}%)과 IORB(${spreadData.iorb.value.toFixed(2)}%) 간의 괴리가 미미합니다(${currentSpread.toFixed(2)}bp). 이는 시스템이 자율적으로 유지되고 있으며, 은행들이 서로를 신뢰하고 있다는 신호입니다.`;
+  } else if (absSpread < 20) {
+    // 경계 상태: SOFR과 IORB 간의 괴리가 발생한 거고, 다시 붙으려는 시도가 반복될 때
+    currentState = "warning";
+    secondaryAnalysis = `⚠️ 경계 상태: SOFR(${spreadData.sofr.value.toFixed(2)}%)과 IORB(${spreadData.iorb.value.toFixed(2)}%) 간의 괴리가 발생했습니다(${currentSpread.toFixed(2)}bp). 은행 간 선로의 신뢰 선별이 시작되었다는 뜻입니다. 다시 붙으려는 시도가 반복되는지 관찰해야 합니다.`;
+  } else {
+    // 방어 상태: 이미 괴리가 발생해서 붙지 않고 유지되는 상태, 간헐적으로 더 벌어지는거
+    currentState = "defensive";
+    secondaryAnalysis = `🚨 방어 상태: SOFR(${spreadData.sofr.value.toFixed(2)}%)과 IORB(${spreadData.iorb.value.toFixed(2)}%) 간의 괴리가 고착되었습니다(${currentSpread.toFixed(2)}bp). 은행은 이미 중앙은행을 기본 선택지로 고정했다는 뜻입니다. 간헐적으로 더 벌어질 수 있으니 주의가 필요합니다.`;
+  }
+  
+  // 교차 판독 방법
+  let crossReading = "📊 교차 판독 방법:\n\n";
+  crossReading += "1️⃣ 은행 준비금의 속도: 준비금 속도 둔화와 SOFR-IORB 괴리를 더블체크하세요. 준비금으로 자본의 태도에서 SOFR-IORB 간극으로 행동 전환되는지 확인하면 뻔한 긴장은 끝납니다.\n\n";
+  crossReading += "2️⃣ RRP와 MMF 함께보기: SOFR-IORB 괴리와 RRP 사용증가, MMF 자금유입이 동시에 이뤄지면 민간 신뢰 회피가 구조적으로 진행되고 있다는 뜻입니다.\n\n";
+  crossReading += "3️⃣ SLOOS 후행확인: 분기 차로 대출 기준 강화 응답이 증가하는지 확인하세요. 은행 내부 판단이 공식 문서로 확정되는 개념입니다.\n\n";
+  crossReading += "⚠️ 중요: 절대 SOFR과 IORB를 각각 단독 사용/해석은 금지입니다. 반드시 교차 판독을 병행해야 합니다.";
+  
+  // 포지션 판단
+  let positionGuidance = "";
+  if (currentState === "normal") {
+    positionGuidance = "💼 포지션 유지 판단: SOFR-IORB 괴리가 미미한 상태입니다. 현재 포지션을 유지하되, 지속적으로 모니터링하세요.";
+  } else if (currentState === "warning") {
+    positionGuidance = "💼 포지션 축소 판단: SOFR-IORB 괴리가 발생하거나 반복될 때입니다. 리스크가 큰 우선순서대로 정리하세요 (공격적 투자 중단).";
+  } else {
+    positionGuidance = "💼 포지션 대기 판단: SOFR-IORB 괴리가 고착될 때입니다. 현금 확보로 선택지를 넓히세요.";
+  }
+  
+  // 상세 설명
+  let detailedExplanation = `## SOFR과 IORB의 본질\n\n`;
+  detailedExplanation += `**SOFR 본질**: 민간 신뢰의 가격이기 때문에 은행이 은행을 얼마나 믿는지의 가격입니다. 시스템이 건강하다는 증거입니다. 정상적인 시스템에서는 은행은 서로를 믿습니다.\n\n`;
+  detailedExplanation += `**IORB 본질**: 자본의 최후 피난처입니다. 중앙은행은 파산하지 않아 적어도 시스템이 유지되는 한 안전합니다. 마치 은행에게 "여기서는 의심하지 않아도 된다"고 말하는 것과 같은 개념입니다. 문제는 은행이 이 선택지를 평소보다 자주 사용하기 시작할 때 시작됩니다.\n\n`;
+  detailedExplanation += `## 현재 상태\n\n`;
+  detailedExplanation += `- 현재 SOFR: ${spreadData.sofr.value.toFixed(2)}%\n`;
+  detailedExplanation += `- 현재 IORB: ${spreadData.iorb.value.toFixed(2)}%\n`;
+  detailedExplanation += `- 스프레드: ${currentSpread.toFixed(2)}bp (${spreadChange > 0 ? '+' : ''}${spreadChange.toFixed(2)}bp)\n\n`;
+  detailedExplanation += `## 해석 가이드\n\n`;
+  detailedExplanation += `이 지표는 예측을 위한 것이 아닙니다. 자본주의 내부에서 이미 시작된 변화를 가장 먼저 확인하는 지표입니다. 위기가 터진 뒤 대응하는 것이 아닌, 위기가 준비되는 과정을 가장 먼저 알아차리고 그 시야를 갖게 하는 것이 목적입니다.`;
+  
+  return {
+    currentState,
+    primaryAnalysis,
+    secondaryAnalysis,
+    crossReading,
+    positionGuidance,
+    detailedExplanation
+  };
+}
+
+/**
  * 지표별 해석 생성
  */
 function generateInterpretation(
@@ -510,7 +776,13 @@ export async function fetchAllSecretIndicators(): Promise<SecretIndicator[]> {
     try {
       let data: { value: number; previousValue: number; date: string } | null = null;
       
-      if (indicator.fredSeriesId) {
+      if (indicator.id === "sofr_iorb_spread") {
+        // SOFR-IORB 스프레드는 별도 함수 사용
+        const spreadData = await fetchSOFRIORBSpread();
+        if (spreadData.spread) {
+          data = spreadData.spread;
+        }
+      } else if (indicator.fredSeriesId) {
         // FRED API 사용
         data = await fetchFRED(indicator.fredSeriesId);
       } else if (indicator.id === "cross_currency_basis") {
@@ -528,7 +800,7 @@ export async function fetchAllSecretIndicators(): Promise<SecretIndicator[]> {
         indicator.value = data.value;
         indicator.previousValue = data.previousValue;
         indicator.change = data.value - data.previousValue;
-        indicator.changePercent = ((data.value - data.previousValue) / data.previousValue) * 100;
+        indicator.changePercent = ((data.value - data.previousValue) / Math.abs(data.previousValue)) * 100;
         indicator.lastUpdated = data.date;
         indicator.trend = indicator.change > 0 ? "up" : indicator.change < 0 ? "down" : "neutral";
         indicator.riskLevel = determineRiskLevel(indicator, indicator.change, indicator.changePercent);
