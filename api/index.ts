@@ -4140,12 +4140,19 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     
     .interpretation-box{background:#252525;border-left:4px solid #8b5cf6;border-radius:8px;padding:20px;margin-top:16px}
     
+    /* 모바일 전용 차트 최적화 (≤640px) */
+    @media (max-width: 640px) {
+      .chart-container{padding:16px;margin-bottom:16px}
+      .chart-title{font-size:16px;margin-bottom:12px}
+      .chart-wrapper{
+        height:clamp(320px, 60vh, 520px);
+        min-height:320px;
+      }
+    }
+    
     @media (max-width: 768px) {
       .value-grid{grid-template-columns:1fr}
       .main-content{padding:16px}
-      .chart-container{padding:12px;margin-bottom:16px}
-      .chart-title{font-size:16px;margin-bottom:12px}
-      .chart-wrapper{height:250px}
       .value-section{padding:16px}
       .analysis-section{padding:16px;margin-bottom:16px}
       .page-header{padding:16px}
@@ -4257,11 +4264,38 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
   <script>
     const chartData = ${chartDataJson};
     if (chartData) {
-      const ctx = document.getElementById('spreadChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: chartData,
-        options: {
+      // 모바일 감지 (≤640px)
+      const mobileMediaQuery = window.matchMedia('(max-width: 640px)');
+      let isMobile = mobileMediaQuery.matches;
+      
+      // 차트 인스턴스 변수
+      let chartInstance = null;
+      
+      // 리사이즈 이벤트 핸들러 (디바운싱)
+      let resizeTimer;
+      const handleResize = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const wasMobile = isMobile;
+          isMobile = window.matchMedia('(max-width: 640px)').matches;
+          if (wasMobile !== isMobile && chartInstance) {
+            chartInstance.destroy();
+            chartInstance = initChart();
+          } else if (chartInstance) {
+            chartInstance.resize();
+          }
+        }, 250);
+      };
+      
+      // 차트 초기화 함수
+      const initChart = () => {
+        const canvas = document.getElementById('spreadChart');
+        if (!canvas) return null;
+        
+        const ctx = canvas.getContext('2d');
+        
+        // PC 기본 옵션 (기존 설정 유지)
+        const baseOptions = {
           responsive: true,
           maintainAspectRatio: true,
           interaction: {
@@ -4284,7 +4318,13 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               titleColor: '#ffffff',
               bodyColor: '#e8e8e8',
               borderColor: '#2d2d2d',
-              borderWidth: 1
+              borderWidth: 1,
+              titleFont: {
+                size: 12
+              },
+              bodyFont: {
+                size: 11
+              }
             }
           },
           scales: {
@@ -4292,7 +4332,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               ticks: {
                 color: '#9ca3af',
                 maxRotation: 45,
-                minRotation: 45
+                minRotation: 45,
+                font: {
+                  size: 11
+                }
               },
               grid: {
                 color: '#2d2d2d'
@@ -4305,10 +4348,16 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               title: {
                 display: true,
                 text: '금리 (%)',
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: 12
+                }
               },
               ticks: {
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: 11
+                }
               },
               grid: {
                 color: '#2d2d2d'
@@ -4321,18 +4370,88 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               title: {
                 display: true,
                 text: '스프레드 (bp)',
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: 12
+                }
               },
               ticks: {
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: 11
+                }
               },
               grid: {
                 drawOnChartArea: false
               }
             }
+          },
+          layout: {
+            padding: {
+              top: 10,
+              right: 10,
+              bottom: 10,
+              left: 10
+            }
           }
+        };
+        
+        // 모바일 전용 옵션 (PC에는 영향 없음)
+        if (isMobile) {
+          baseOptions.maintainAspectRatio = false;
+          baseOptions.plugins.legend.position = 'bottom';
+          baseOptions.plugins.legend.labels.font.size = 13;
+          baseOptions.plugins.legend.labels.boxWidth = 14;
+          baseOptions.plugins.legend.labels.padding = 12;
+          baseOptions.plugins.tooltip.titleFont.size = 14;
+          baseOptions.plugins.tooltip.bodyFont.size = 13;
+          baseOptions.plugins.tooltip.padding = 12;
+          baseOptions.plugins.tooltip.titleSpacing = 8;
+          baseOptions.plugins.tooltip.bodySpacing = 6;
+          baseOptions.scales.x.ticks.maxRotation = 0;
+          baseOptions.scales.x.ticks.minRotation = 0;
+          baseOptions.scales.x.ticks.font.size = 11;
+          baseOptions.scales.x.ticks.autoSkip = true;
+          baseOptions.scales.x.ticks.maxTicksLimit = 6;
+          baseOptions.scales.x.ticks.padding = 8;
+          baseOptions.scales.y.title.font.size = 13;
+          baseOptions.scales.y.ticks.font.size = 12;
+          baseOptions.scales.y.ticks.padding = 8;
+          baseOptions.scales.y1.title.font.size = 13;
+          baseOptions.scales.y1.ticks.font.size = 12;
+          baseOptions.scales.y1.ticks.padding = 8;
+          baseOptions.layout.padding = {
+            top: 16,
+            right: 16,
+            bottom: 16,
+            left: 16
+          };
+          baseOptions.elements = {
+            point: {
+              radius: 3,
+              hoverRadius: 5
+            },
+            line: {
+              borderWidth: 2
+            }
+          };
         }
-      });
+        
+        return new Chart(ctx, {
+          type: 'line',
+          data: chartData,
+          options: baseOptions
+        });
+      };
+      
+      // 차트 초기화
+      chartInstance = initChart();
+      
+      // 리사이즈 이벤트 리스너 등록
+      window.addEventListener('resize', handleResize);
+      
+      // 미디어 쿼리 변경 리스너
+      mobileMediaQuery.addEventListener('change', handleResize);
     }
   </script>
   ` : ''}
