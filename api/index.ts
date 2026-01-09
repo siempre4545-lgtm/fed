@@ -4127,8 +4127,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     .value-number{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:4px}
     .value-unit{font-size:12px;color:#808080}
     
-    .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px;overflow-x:auto}
     .chart-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .chart-wrapper{position:relative;width:100%;min-height:300px}
+    #spreadChart{width:100%!important;height:auto!important;max-width:100%}
     
     .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
@@ -4140,6 +4142,19 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     @media (max-width: 768px) {
       .value-grid{grid-template-columns:1fr}
       .main-content{padding:16px}
+      .chart-container{padding:12px;margin-bottom:16px}
+      .chart-title{font-size:16px;margin-bottom:12px}
+      .chart-wrapper{min-height:250px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+      #spreadChart{min-width:600px;min-height:250px}
+      .value-section{padding:16px}
+      .analysis-section{padding:16px;margin-bottom:16px}
+      .page-header{padding:16px}
+      .page-header h1{font-size:20px}
+    }
+    
+    @media (max-width: 480px) {
+      .chart-wrapper{min-height:200px}
+      #spreadChart{min-width:500px;min-height:200px}
     }
   </style>
 </head>
@@ -4191,7 +4206,9 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     ${chartData ? `
     <div class="chart-container">
       <div class="chart-title">SOFR-IORB 스프레드 차트 (최근 1년)</div>
-      <canvas id="spreadChart" style="max-height:400px"></canvas>
+      <div class="chart-wrapper">
+        <canvas id="spreadChart"></canvas>
+      </div>
     </div>
     ` : ''}
     
@@ -4251,7 +4268,8 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
         data: chartData,
         options: {
           responsive: true,
-          maintainAspectRatio: true,
+          maintainAspectRatio: false,
+          aspectRatio: window.innerWidth < 768 ? 2 : 2.5,
           interaction: {
             mode: 'index',
             intersect: false,
@@ -4263,8 +4281,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               labels: {
                 color: '#e8e8e8',
                 font: {
-                  size: 12
-                }
+                  size: window.innerWidth < 768 ? 10 : 12
+                },
+                boxWidth: window.innerWidth < 768 ? 10 : 12,
+                padding: window.innerWidth < 768 ? 8 : 10
               }
             },
             tooltip: {
@@ -4279,8 +4299,11 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
             x: {
               ticks: {
                 color: '#9ca3af',
-                maxRotation: 45,
-                minRotation: 45
+                maxRotation: window.innerWidth < 768 ? 90 : 45,
+                minRotation: window.innerWidth < 768 ? 90 : 45,
+                font: {
+                  size: window.innerWidth < 768 ? 9 : 11
+                }
               },
               grid: {
                 color: '#2d2d2d'
@@ -4296,7 +4319,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
                 color: '#9ca3af'
               },
               ticks: {
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: window.innerWidth < 768 ? 9 : 11
+                }
               },
               grid: {
                 color: '#2d2d2d'
@@ -4309,10 +4335,16 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               title: {
                 display: true,
                 text: '스프레드 (bp)',
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: window.innerWidth < 768 ? 10 : 12
+                }
               },
               ticks: {
-                color: '#9ca3af'
+                color: '#9ca3af',
+                font: {
+                  size: window.innerWidth < 768 ? 9 : 11
+                }
               },
               grid: {
                 drawOnChartArea: false
