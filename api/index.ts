@@ -4130,7 +4130,7 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     
     .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
     .chart-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
-    .chart-wrapper{position:relative;width:100%;height:400px;overflow-x:auto;overflow-y:hidden}
+    .chart-wrapper{position:relative;width:100%;height:400px}
     #spreadChart{width:100%!important;height:100%!important}
     
     .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
@@ -4145,17 +4145,11 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
       .main-content{padding:16px}
       .chart-container{padding:12px;margin-bottom:16px}
       .chart-title{font-size:16px;margin-bottom:12px}
-      .chart-wrapper{height:300px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
-      #spreadChart{min-width:600px;height:100%!important}
+      .chart-wrapper{height:250px}
       .value-section{padding:16px}
       .analysis-section{padding:16px;margin-bottom:16px}
       .page-header{padding:16px}
       .page-header h1{font-size:20px}
-    }
-    
-    @media (max-width: 480px) {
-      .chart-wrapper{height:250px}
-      #spreadChart{min-width:500px;height:100%!important}
     }
   </style>
 </head>
@@ -4263,17 +4257,13 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
   <script>
     const chartData = ${chartDataJson};
     if (chartData) {
-      const isMobile = window.innerWidth < 768;
-      const canvas = document.getElementById('spreadChart');
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      const chart = new Chart(ctx, {
+      const ctx = document.getElementById('spreadChart').getContext('2d');
+      new Chart(ctx, {
         type: 'line',
         data: chartData,
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
           interaction: {
             mode: 'index',
             intersect: false,
@@ -4285,10 +4275,8 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               labels: {
                 color: '#e8e8e8',
                 font: {
-                  size: isMobile ? 10 : 12
-                },
-                boxWidth: isMobile ? 10 : 12,
-                padding: isMobile ? 8 : 10
+                  size: 12
+                }
               }
             },
             tooltip: {
@@ -4303,11 +4291,8 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
             x: {
               ticks: {
                 color: '#9ca3af',
-                maxRotation: isMobile ? 90 : 45,
-                minRotation: isMobile ? 90 : 45,
-                font: {
-                  size: isMobile ? 9 : 11
-                }
+                maxRotation: 45,
+                minRotation: 45
               },
               grid: {
                 color: '#2d2d2d'
@@ -4320,16 +4305,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               title: {
                 display: true,
                 text: '금리 (%)',
-                color: '#9ca3af',
-                font: {
-                  size: isMobile ? 10 : 12
-                }
+                color: '#9ca3af'
               },
               ticks: {
-                color: '#9ca3af',
-                font: {
-                  size: isMobile ? 9 : 11
-                }
+                color: '#9ca3af'
               },
               grid: {
                 color: '#2d2d2d'
@@ -4342,16 +4321,10 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
               title: {
                 display: true,
                 text: '스프레드 (bp)',
-                color: '#9ca3af',
-                font: {
-                  size: isMobile ? 10 : 12
-                }
+                color: '#9ca3af'
               },
               ticks: {
-                color: '#9ca3af',
-                font: {
-                  size: isMobile ? 9 : 11
-                }
+                color: '#9ca3af'
               },
               grid: {
                 drawOnChartArea: false
@@ -4359,15 +4332,6 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
             }
           }
         }
-      });
-      
-      // 리사이즈 이벤트 핸들러
-      let resizeTimer;
-      window.addEventListener('resize', function() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function() {
-          chart.resize();
-        }, 250);
       });
     }
   </script>
