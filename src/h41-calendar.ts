@@ -49,9 +49,10 @@ export async function fetchH41CalendarDates(): Promise<string[]> {
   try {
     const response = await fetch(H41_CALENDAR_URL, {
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "user-agent": "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+        "accept": "text/html,application/xhtml+xml",
         "accept-language": "en-US,en;q=0.9",
+        "cache-control": "no-cache",
       },
       cache: "no-store" as RequestCache,
     });
@@ -61,12 +62,19 @@ export async function fetchH41CalendarDates(): Promise<string[]> {
     }
 
     const html = await response.text();
+    const finalUrl = response.url;
+    
+    // HTML 길이 검증 (너무 짧으면 실패)
+    if (html.length < 10000) {
+      throw new Error(`Calendar HTML too short (${html.length} bytes). Possible bot blocking or redirect.`);
+    }
 
-    // 정규식으로 /releases/h41/YYYYMMDD/ 패턴 추출
+    // 정규식으로 /releases/h41/YYYYMMDD/ 패턴 추출 (전역 정규식)
     const datePattern = /\/releases\/h41\/(\d{8})\//g;
     const dateSet = new Set<string>();
     let match;
 
+    // 1차: HTML 문자열 전체에서 정규식으로 추출 (이중화)
     while ((match = datePattern.exec(html)) !== null) {
       const ymd = match[1];
       // 유효성 검증: 2023년 이후만 (아카이브 제외)
@@ -76,11 +84,16 @@ export async function fetchH41CalendarDates(): Promise<string[]> {
       }
     }
 
-    // Set을 배열로 변환 후 최신순 정렬 (숫자 내림차순)
+    // 추출 결과 검증 (최소 10개는 있어야 함)
     const dates = Array.from(dateSet);
+    if (dates.length === 0) {
+      throw new Error(`No dates extracted from calendar HTML. HTML length: ${html.length}, first 200 chars: ${html.substring(0, 200)}`);
+    }
+
+    // Set을 배열로 변환 후 최신순 정렬 (숫자 내림차순)
     dates.sort((a, b) => Number(b) - Number(a));
 
-    console.log(`[H.4.1 Calendar] Collected ${dates.length} release dates from calendar`);
+    console.log(`[H.4.1 Calendar] Collected ${dates.length} release dates from calendar (HTML length: ${html.length}, finalUrl: ${finalUrl})`);
 
     // 최소 검증: 상위 30개 중에 20260102, 20251229 포함 여부 확인
     const top30 = dates.slice(0, 30);
