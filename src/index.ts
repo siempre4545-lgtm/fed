@@ -2,6 +2,7 @@ import express from "express";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "./h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "./economic-indicators.js";
 import { fetchEconomicNews } from "./news.js";
+import { fetchAllSecretIndicators } from "./secret-indicators.js";
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 8787;
@@ -1018,10 +1019,10 @@ app.get("/economic-indicators", async (_req, res) => {
     const otherCategories = Object.keys(indicatorsByCategory).filter(cat => !categoryOrder.includes(cat));
     const finalCategoryOrder = [...orderedCategories, ...otherCategories];
     
-    const categorySections = finalCategoryOrder.map((category) => {
+    const categorySections = finalCategoryOrder.map((category: string) => {
       const items = indicatorsByCategory[category];
-      return [category, items];
-    }).map(([category, items]) => {
+      return [category, items] as [string, typeof indicators];
+    }).map(([category, items]: [string, typeof indicators]) => {
       // FED 자산/부채는 특별 처리
       if (category === "FED자산/부채") {
         return `
@@ -1566,11 +1567,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       liabilities: { currency: number; rrp: number; tga: number; reserves: number };
     }> = [];
     
-    // releaseDates가 비어있으면 fallback 사용
+    // releaseDates가 비어있으면 경고만 출력 (fallback 제거)
     if (releaseDates.length === 0) {
-      console.warn(`[Assets/Liabilities] No release dates available, using fallback`);
-      const { getFedReleaseDatesFallback } = await import("./h41.js");
-      releaseDates = getFedReleaseDatesFallback();
+      console.warn(`[Assets/Liabilities] No release dates available from calendar`);
     }
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
