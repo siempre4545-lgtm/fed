@@ -2043,13 +2043,15 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     const foundCriticalDates = criticalDates.filter(d => releaseDates.includes(d));
     console.log(`[Assets/Liabilities] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !releaseDates.includes(d)).join(', ')}]`);
     
-    // 초기 로딩 최적화: 표시 7개 + Δ 계산용 1개 = 8개 fetch
-    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 8개 사용
+    // 초기 로딩 최적화: 초기 표시 7개 + 더보기 2회(14개) + Δ 계산용 1개 = 22개 fetch
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 22개 사용
     const initialVisible = 7; // 초기 표시 개수
-    const initialFetchCount = initialVisible + 1; // Δ 계산을 위해 +1
-    const datesToFetch = releaseDates.slice(0, Math.min(initialFetchCount, releaseDates.length));
+    const loadMoreBatchSize = 7; // 더보기 배치 크기
+    const maxVisibleForMore = initialVisible + (loadMoreBatchSize * 2); // 초기 + 더보기 2회 = 21개
+    const maxFetchCount = maxVisibleForMore + 1; // Δ 계산을 위해 +1 = 22개
+    const datesToFetch = releaseDates.slice(0, Math.min(maxFetchCount, releaseDates.length));
     
-    console.log(`[Assets/Liabilities] Initial fetch: ${datesToFetch.length} dates (visible: ${initialVisible}, for delta calc: +1)`);
+      console.log(`[Assets/Liabilities] Fetching ${datesToFetch.length} dates (initial visible: ${initialVisible}, max visible for more: ${maxVisibleForMore}, for delta calc: +1)`);
     
     if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
@@ -2719,9 +2721,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       
       // fullRows: 전체 데이터 (delta 계산용)
       const fullRows = ${JSON.stringify(historicalData)};
-      let allHistoryData = fullRows.slice(0, 7); // 초기 7행만 표시
-      let currentOffset = 7; // 초기 7행 표시
+      let visibleCount = 7; // 초기 표시 개수
       let isLoadingMore = false;
+      
+      // 디버깅 출력
+      console.log('[Assets/Liabilities] fullRows.length:', fullRows.length);
+      console.log('[Assets/Liabilities] visibleCount:', visibleCount);
+      console.log('[Assets/Liabilities] fullRows[0].date ~ fullRows[10].date:', fullRows.slice(0, 11).map(item => item.date));
       
       // 상위 10개 ISO 날짜 출력 (검증용)
       console.log('[Assets/Liabilities] Top 10 ISO dates in fullRows:', fullRows.slice(0, 10).map(item => item.date));
@@ -2786,7 +2792,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         
         try {
           // fullRows에서 다음 배치 가져오기 (이미 모든 데이터가 있으므로 API 호출 불필요)
-          const nextBatch = fullRows.slice(currentOffset, currentOffset + 7);
+          const nextBatchSize = 7;
+          const nextBatch = fullRows.slice(visibleCount, visibleCount + nextBatchSize);
           
           if (nextBatch.length === 0) {
             btn.style.display = 'none';
@@ -2799,10 +2806,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
             
             // fullRows 기준으로 index 찾기 (delta 계산용)
-            const fullIndex = currentOffset + batchIndex;
+            const fullIndex = visibleCount + batchIndex;
             // 이전 날짜 데이터 (fullRows 기준, 다음 인덱스, 더 오래된 날짜)
             const prevItem = fullIndex < fullRows.length - 1 ? fullRows[fullIndex + 1] : null;
-            allHistoryData.push(item);
               
               // 자산 합계 계산
               const totalAssets = item.assets.treasury + item.assets.mbs + item.assets.repo + item.assets.loans;
@@ -2860,10 +2866,10 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               tbody.appendChild(row);
             });
             
-            currentOffset += nextBatch.length;
+            visibleCount += nextBatch.length;
             
             // 더 가져올 데이터가 있는지 확인
-            if (currentOffset >= fullRows.length) {
+            if (visibleCount >= fullRows.length) {
               btn.style.display = 'none';
             } else {
               btn.disabled = false;
