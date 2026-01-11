@@ -23,7 +23,7 @@ export type SecretIndicator = {
 /**
  * FRED API에서 데이터 가져오기
  */
-async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: number; previousValue: number; date: string } | null> {
+export async function fetchFRED(seriesId: string, limit: number = 2): Promise<{ value: number; previousValue: number; date: string } | null> {
   try {
     // FRED API 키가 없으면 demo 키 사용 (제한적)
     const apiKey = process.env.FRED_API_KEY || "demo";
