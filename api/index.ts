@@ -2,7 +2,7 @@ import express from "express";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
-import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation } from "../src/secret-indicators.js";
+import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation, fetchWRESBALChartData, fetchFRED } from "../src/secret-indicators.js";
 
 const app = express();
 
@@ -3897,10 +3897,6 @@ app.get("/secret-indicators", async (req, res) => {
     .page-header a{color:#a78bfa;text-decoration:none;font-weight:500}
     .page-header a:hover{text-decoration:underline;color:#c4b5fd}
     
-    .intro-section{background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%);border-radius:12px;padding:32px;margin:24px;max-width:1400px;margin-left:auto;margin-right:auto;margin-bottom:32px}
-    .intro-title{font-size:28px;font-weight:700;color:#ffffff;margin-bottom:16px}
-    .intro-description{font-size:16px;line-height:1.8;color:#f3f4f6;margin-bottom:12px}
-    .intro-note{font-size:14px;line-height:1.6;color:#e0e7ff;margin-top:16px;padding:16px;background:rgba(255,255,255,0.1);border-radius:8px}
     
     .main-content{padding:24px;max-width:1400px;margin:0 auto}
     
@@ -3942,8 +3938,6 @@ app.get("/secret-indicators", async (req, res) => {
     
     @media (max-width: 768px) {
       .indicator-value-section{grid-template-columns:1fr}
-      .intro-section{padding:24px;margin:16px}
-      .intro-title{font-size:24px}
     }
   </style>
 </head>
@@ -3955,27 +3949,17 @@ app.get("/secret-indicators", async (req, res) => {
     </div>
   </div>
   
-  <div class="intro-section">
-    <div class="intro-title">위기가 준비되는 과정을 가장 먼저 알아차리는 지표</div>
-    <div class="intro-description">
-      이 지표들은 예측을 위한 것이 아닙니다. 자본주의 내부에서 이미 시작된 변화를 가장 먼저 확인하는 지표입니다.<br/>
-      위기가 터진 뒤 대응하는 것이 아닌, 위기가 준비되는 과정을 가장 먼저 알아차리고 그 시야를 갖게 하는 것이 목적입니다.
-    </div>
-    <div class="intro-note">
-      <strong>💡 거대 자본가들의 관점:</strong> 이 지표들은 자본주의가 실제로 움직이는 내부 신경계를 마인드맵으로 그리듯 해부하는 원리를 보여줍니다. 
-      뱅가드, 블랙록 같은 거대 자본가들이 가장 먼저 주시하는 선행 지표들입니다.
-    </div>
-  </div>
-  
   <div class="main-content">
     ${indicators.map((ind, idx) => {
       const changeColor = ind.change && ind.change > 0 ? "positive" : ind.change && ind.change < 0 ? "negative" : "neutral";
       const changeSign = ind.change && ind.change > 0 ? "+" : "";
       const changePercentSign = ind.changePercent && ind.changePercent > 0 ? "+" : "";
-      const hasDetailPage = ind.id === "sofr_iorb_spread";
+      const hasDetailPage = ind.id === "sofr_iorb_spread" || ind.id === "bank_reserves_velocity";
+      const detailPageUrl = ind.id === "sofr_iorb_spread" ? "/secret-indicators/sofr-iorb-spread" : 
+                           ind.id === "bank_reserves_velocity" ? "/secret-indicators/bank-reserves-velocity" : "";
       
       return `
-    <div class="indicator-card" ${hasDetailPage ? 'style="cursor:pointer" onclick="window.location.href=\'/secret-indicators/sofr-iorb-spread\'"' : ''}>
+    <div class="indicator-card" ${hasDetailPage ? `style="cursor:pointer" onclick="window.location.href='${detailPageUrl}'"` : ''}>
       <div class="indicator-header">
         <div style="flex:1">
           <div class="indicator-title">
@@ -4458,6 +4442,270 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
 </body>
 </html>
     `);
+  } catch (e: any) {
+    res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
+  }
+});
+
+// 은행 준비금의 속도 상세 페이지
+app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
+  try {
+    const [currentData, chartData] = await Promise.all([
+      fetchFRED("WRESBAL", 2),
+      fetchWRESBALChartData(365)
+    ]);
+    
+    const escapeHtml = (text: string) => {
+      const map: { [key: string]: string } = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, (m) => map[m]);
+    };
+    
+    // 차트 데이터 JSON 변환
+    const chartDataJson = chartData ? JSON.stringify({
+      labels: chartData.dates,
+      datasets: [
+        {
+          label: "은행 준비금 (억 달러)",
+          data: chartData.values,
+          borderColor: "#8b5cf6",
+          backgroundColor: "rgba(139, 92, 246, 0.1)",
+          tension: 0.1,
+          fill: true
+        }
+      ]
+    }) : "null";
+    
+    // 현재 값과 이전 값
+    const currentValue = currentData ? currentData.value / 1000 : null; // 십억 달러로 변환
+    const previousValue = currentData ? currentData.previousValue / 1000 : null;
+    const change = currentValue && previousValue ? currentValue - previousValue : null;
+    const changePercent = change && previousValue ? (change / previousValue) * 100 : null;
+    
+    // 판독 분석
+    let readingAnalysis = "";
+    if (chartData && chartData.values.length > 0) {
+      const recentValues = chartData.values.slice(-30); // 최근 30개 데이터
+      const olderValues = chartData.values.slice(-60, -30); // 그 이전 30개
+      
+      if (recentValues.length > 0 && olderValues.length > 0) {
+        const recentSlope = (recentValues[recentValues.length - 1] - recentValues[0]) / recentValues.length;
+        const olderSlope = (olderValues[olderValues.length - 1] - olderValues[0]) / olderValues.length;
+        
+        if (Math.abs(recentSlope) < Math.abs(olderSlope) * 0.3) {
+          // 증가 속도가 크게 둔화됨
+          readingAnalysis = "⚠️ 증가 속도 둔화 (1차 경고): 최근 30일간 증가 속도가 이전 기간 대비 크게 둔화되었습니다. 은행 신뢰의 척도가 변화하고 멈추는 신호일 수 있습니다.";
+        } else if (Math.abs(recentSlope) < 10) {
+          // 거의 수평
+          readingAnalysis = "⚠️ 거의 수평: 준비금이 거의 변동하지 않고 있습니다. 이는 뉴스가 아무 말도 하지 않는 시기로, 은행 간 신뢰가 정체 상태임을 의미합니다.";
+        } else if (recentSlope < 0) {
+          // 하락 전환
+          const declineSpeed = Math.abs(recentSlope);
+          if (declineSpeed > Math.abs(olderSlope) * 1.5) {
+            readingAnalysis = "🚨 하락 속도 가속 (경고): 은행 간 신뢰가 후퇴하고 있으며, 하락 속도가 빨라지고 있습니다. 언제 터질까의 문제입니다.";
+          } else {
+            readingAnalysis = "⚠️ 하락 전환: 은행 간 신뢰가 후퇴하기 시작했습니다. 지속적인 관찰이 필요합니다.";
+          }
+        } else {
+          readingAnalysis = "✅ 정상 증가: 은행 준비금이 안정적으로 증가하고 있습니다. 은행 간 신뢰가 유지되고 있습니다.";
+        }
+      }
+    }
+    
+    // 종합 코멘트
+    let overallComment = "";
+    if (currentValue && previousValue && change) {
+      if (change > 0 && changePercent && changePercent > 1) {
+        overallComment = `은행 준비금이 ${change.toFixed(1)}억 달러 증가했습니다(${changePercent.toFixed(2)}%). 이는 은행들이 서로를 신뢰하고 자금을 순환시키고 있다는 긍정적인 신호입니다. 유동성 환경이 개선되고 있으며, 신용 창출이 활발해질 수 있습니다. 거대 자본가들은 이런 시점에 성장 자산의 비중을 늘립니다.`;
+      } else if (change > 0) {
+        overallComment = `은행 준비금이 ${change.toFixed(1)}억 달러 소폭 증가했습니다. 증가 속도가 둔화되고 있다면 주의가 필요합니다. 은행 신뢰의 척도가 변화하고 멈추는 순간을 관찰해야 합니다.`;
+      } else if (change < 0 && changePercent && Math.abs(changePercent) > 1) {
+        overallComment = `은행 준비금이 ${Math.abs(change).toFixed(1)}억 달러 감소했습니다(${Math.abs(changePercent).toFixed(2)}%). 은행 간 신뢰가 후퇴하고 있다는 신호입니다. 하락 속도가 빨라지고 있다면 경고 상태입니다. 거대 자본가들은 이런 시점에 방어적 포지션으로 전환합니다.`;
+      } else {
+        overallComment = `은행 준비금이 ${Math.abs(change).toFixed(1)}억 달러 소폭 감소했습니다. 지속적인 관찰이 필요하며, 하락 전환이 지속되는지 확인해야 합니다.`;
+      }
+    }
+    
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    res.send(`<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>은행 준비금의 속도 상세 분석</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    html, body { overflow-x: hidden; overflow-y: auto; margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#e8e8e8}
+    .page-header{background:#1a1a1a;border-bottom:1px solid #2d2d2d;padding:24px;margin-bottom:24px}
+    .page-header h1{font-size:24px;font-weight:700;color:#ffffff;margin:0 0 8px 0}
+    .page-header .sub{font-size:14px;color:#9ca3af}
+    .page-header .sub a{color:#a78bfa;text-decoration:none}
+    .page-header .sub a:hover{text-decoration:underline}
+    .main-content{max-width:1400px;margin:0 auto;padding:24px}
+    .value-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px}
+    .value-item{background:#252525;border-radius:8px;padding:16px}
+    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px}
+    .value-number{font-size:24px;font-weight:700;color:#ffffff}
+    .value-unit{font-size:14px;color:#9ca3af;margin-left:4px}
+    .value-change{font-size:14px;margin-top:8px}
+    .value-change.positive{color:#10b981}
+    .value-change.negative{color:#ef4444}
+    .value-change.neutral{color:#9ca3af}
+    .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .chart-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .chart-wrapper{position:relative;width:100%;height:400px}
+    #reservesChart{width:100%!important;height:100%!important}
+    .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .section-content{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:pre-line}
+    .section-content strong{color:#ffffff;font-weight:700}
+    .interpretation-box{background:#252525;border-left:4px solid #8b5cf6;border-radius:8px;padding:20px;margin-top:16px}
+    @media (max-width: 640px) {
+      .chart-container{padding:16px;margin-bottom:16px}
+      .chart-title{font-size:16px;margin-bottom:12px}
+      .chart-wrapper{height:clamp(320px, 60vh, 520px);min-height:320px}
+    }
+    @media (max-width: 768px) {
+      .value-grid{grid-template-columns:1fr}
+      .main-content{padding:16px}
+      .value-section{padding:16px}
+      .analysis-section{padding:16px;margin-bottom:16px}
+      .page-header{padding:16px}
+      .page-header h1{font-size:20px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>📊 은행 준비금의 속도 상세 분석</h1>
+    <div class="sub"><a href="/secret-indicators">← 비밀지표로 돌아가기</a></div>
+  </div>
+  <div class="main-content">
+    ${currentData ? `<div class="value-section">
+      <div class="value-grid">
+        <div class="value-item">
+          <div class="value-label">현재 값</div>
+          <div class="value-number">${currentValue ? currentValue.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) : 'N/A'}<span class="value-unit">억 달러</span></div>
+          ${change !== null ? `<div class="value-change ${change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'}">${change > 0 ? '+' : ''}${change.toFixed(1)}억 달러${changePercent !== null ? `(${changePercent > 0 ? '+' : ''}${changePercent.toFixed(2)}%)` : ''}</div>` : ''}
+        </div>
+        ${previousValue ? `<div class="value-item">
+          <div class="value-label">이전 값</div>
+          <div class="value-number">${previousValue.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}<span class="value-unit">억 달러</span></div>
+        </div>` : ''}
+        <div class="value-item">
+          <div class="value-label">업데이트</div>
+          <div class="value-number" style="font-size:16px">${currentData.date}</div>
+        </div>
+      </div>
+    </div>` : `<div class="value-section"><div style="text-align:center;padding:40px;color:#9ca3af"><div style="font-size:24px;margin-bottom:16px">⚠️</div><div>데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div></div></div>`}
+    ${chartData ? `<div class="chart-container">
+      <div class="chart-title">은행 준비금 차트 (최근 1년)</div>
+      <div class="chart-wrapper"><canvas id="reservesChart"></canvas></div>
+    </div>` : ''}
+    <div class="analysis-section">
+      <div class="section-title"><span>📚 개념</span></div>
+      <div class="section-content">WRESBAL은 연준(Fed)에 예치된 '은행 준비금(reserve balances)'의 주간 잔액입니다. 상업은행들이 연준에 보유한 준비금 총액을 나타냅니다.</div>
+    </div>
+    <div class="analysis-section">
+      <div class="section-title"><span>🎯 목적</span></div>
+      <div class="section-content">은행 신뢰의 척도가 변화하고 멈추는 순간을 보는 것입니다. 돈의 양이 아니라 은행들이 서로를 얼마나 신뢰하는지, 그리고 그 신뢰가 어떻게 변화하는지를 관찰하는 지표입니다.</div>
+    </div>
+    <div class="analysis-section">
+      <div class="section-title"><span>📊 판독</span></div>
+      <div class="section-content"><strong>1. 증가 속도 둔화 (기울기 완만)</strong> - 1차 경고
+은행 준비금이 증가는 하지만 증가 속도가 둔화되고 있다면, 은행 간 신뢰가 약화되기 시작하는 신호입니다.
+
+<strong>2. 거의 수평</strong> - 뉴스가 아무 말도 안하는 시기
+준비금이 거의 변동하지 않고 수평선에 가까워지면, 은행들이 서로를 신뢰하지 않으면서도 위기라고 판단하지 않는 상태입니다. 이는 뉴스가 아무 말도 하지 않는 시기로, 조용한 변화가 일어나고 있음을 의미합니다.
+
+<strong>3. 하락 전환</strong> - 은행 간 신뢰 후퇴
+준비금이 감소하기 시작하면, 은행들이 서로를 신뢰하지 않고 중앙은행으로 돌아가기 시작했다는 신호입니다.
+
+<strong>4. 하락 속도 빨라졌는가</strong> - 경고. 언제 터질까의 문제
+하락이 시작된 후 속도가 빨라지면, 은행 간 신뢰가 급격히 후퇴하고 있다는 의미입니다. 이는 언제 터질까의 문제로, 위기 전조 신호입니다.</div>
+      ${readingAnalysis ? `<div class="interpretation-box"><div class="section-content"><strong>현재 판독:</strong><br/>${escapeHtml(readingAnalysis)}</div></div>` : ''}
+    </div>
+    ${overallComment ? `<div class="analysis-section">
+      <div class="section-title"><span>💼 경제 코치 종합 코멘트</span></div>
+      <div class="interpretation-box"><div class="section-content">${escapeHtml(overallComment)}</div></div>
+    </div>` : ''}
+  </div>
+  ${chartData ? `<script>
+    const chartData = ${chartDataJson};
+    if (chartData) {
+      const mobileMediaQuery = window.matchMedia('(max-width: 640px)');
+      let isMobile = mobileMediaQuery.matches;
+      let chartInstance = null;
+      let resizeTimer;
+      const handleResize = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const wasMobile = isMobile;
+          isMobile = window.matchMedia('(max-width: 640px)').matches;
+          if (wasMobile !== isMobile && chartInstance) {
+            chartInstance.destroy();
+            chartInstance = initChart();
+          } else if (chartInstance) {
+            chartInstance.resize();
+          }
+        }, 250);
+      };
+      const initChart = () => {
+        const canvas = document.getElementById('reservesChart');
+        if (!canvas) return null;
+        const ctx = canvas.getContext('2d');
+        const baseOptions = {
+          responsive: true,
+          maintainAspectRatio: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: '#e8e8e8', font: { size: 12 } } },
+            tooltip: { backgroundColor: 'rgba(0, 0, 0, 0.8)', titleColor: '#ffffff', bodyColor: '#e8e8e8', borderColor: '#2d2d2d', borderWidth: 1, titleFont: { size: 12 }, bodyFont: { size: 11 } }
+          },
+          scales: {
+            x: { ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45, font: { size: 11 } }, grid: { color: '#2d2d2d' } },
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '억 달러', color: '#9ca3af', font: { size: 12 } }, ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: '#2d2d2d' } }
+          },
+          layout: { padding: { top: 10, right: 10, bottom: 10, left: 10 } }
+        };
+        if (isMobile) {
+          baseOptions.maintainAspectRatio = false;
+          baseOptions.plugins.legend.position = 'bottom';
+          baseOptions.plugins.legend.labels.font.size = 13;
+          baseOptions.plugins.legend.labels.boxWidth = 14;
+          baseOptions.plugins.legend.labels.padding = 12;
+          baseOptions.plugins.tooltip.titleFont.size = 14;
+          baseOptions.plugins.tooltip.bodyFont.size = 13;
+          baseOptions.plugins.tooltip.padding = 12;
+          baseOptions.plugins.tooltip.titleSpacing = 8;
+          baseOptions.plugins.tooltip.bodySpacing = 6;
+          baseOptions.scales.x.ticks.maxRotation = 0;
+          baseOptions.scales.x.ticks.minRotation = 0;
+          baseOptions.scales.x.ticks.font.size = 11;
+          baseOptions.scales.x.ticks.autoSkip = true;
+          baseOptions.scales.x.ticks.maxTicksLimit = 6;
+          baseOptions.scales.x.ticks.padding = 8;
+          baseOptions.scales.y.title.font.size = 13;
+          baseOptions.scales.y.ticks.font.size = 12;
+          baseOptions.scales.y.ticks.padding = 8;
+          baseOptions.layout.padding = { top: 16, right: 16, bottom: 16, left: 16 };
+          baseOptions.elements = { point: { radius: 3, hoverRadius: 5 }, line: { borderWidth: 2 } };
+        }
+        return new Chart(ctx, { type: 'line', data: chartData, options: baseOptions });
+      };
+      chartInstance = initChart();
+      window.addEventListener('resize', handleResize);
+      mobileMediaQuery.addEventListener('change', handleResize);
+    }
+  </script>` : ''}
+</body>
+</html>`);
   } catch (e: any) {
     res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
   }
