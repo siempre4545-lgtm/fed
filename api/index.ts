@@ -2002,6 +2002,12 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     }
     
     console.log(`[Assets/Liabilities] Got ${releaseDates.length} release dates (for historical data)`);
+    console.log(`[Assets/Liabilities] Top 15 release dates (source verification):`, releaseDates.slice(0, 15));
+    
+    // 연도 경계 날짜 확인
+    const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+    const foundCriticalDates = criticalDates.filter(d => releaseDates.includes(d));
+    console.log(`[Assets/Liabilities] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !releaseDates.includes(d)).join(', ')}]`);
     
     // 초기 로딩 최적화: 최근 데이터를 충분히 가져오기 (누락 방지를 위해 더 많이)
     // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 20개 사용 (누락 방지)
@@ -2109,7 +2115,17 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     // 정렬 후 로그 출력 및 상위 10개 날짜 출력 (디버깅용)
     if (historicalData.length > 0) {
       console.log(`[Assets/Liabilities] Historical data sorted - First date: ${historicalData[0].date}, Last date: ${historicalData[historicalData.length - 1].date}`);
-      console.log(`[Assets/Liabilities] Top 10 ISO dates:`, historicalData.slice(0, 10).map(item => item.date));
+      console.log(`[Assets/Liabilities] Top 15 ISO dates (final result):`, historicalData.slice(0, 15).map(item => item.date));
+      
+      // 연도 경계 날짜 최종 확인
+      const finalCriticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+      const finalFoundCriticalDates = finalCriticalDates.filter(d => historicalData.some(item => item.date === d));
+      const finalMissingCriticalDates = finalCriticalDates.filter(d => !historicalData.some(item => item.date === d));
+      console.log(`[Assets/Liabilities] Final critical dates check - Found: [${finalFoundCriticalDates.join(', ')}], Missing: [${finalMissingCriticalDates.join(', ')}]`);
+      
+      if (finalMissingCriticalDates.length > 0) {
+        console.warn(`[Assets/Liabilities] ⚠️ WARNING: Missing critical dates in final historical data!`);
+      }
     }
     
     // FED 자산 항목 추출

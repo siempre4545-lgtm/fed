@@ -830,6 +830,15 @@ export async function getFedReleaseDates(): Promise<string[]> {
     const uniqueDates = Array.from(new Set(dates));
     uniqueDates.sort((a, b) => b.localeCompare(a));
     
+    // 디버깅: 원천 스크래핑 결과 로깅
+    console.log(`[H.4.1] Scraped ${uniqueDates.length} unique dates from FED website`);
+    console.log(`[H.4.1] Top 15 scraped dates (for verification):`, uniqueDates.slice(0, 15));
+    
+    // 연도 경계 날짜 확인 (2026-01-02, 2025-12-29 등)
+    const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+    const foundCriticalDates = criticalDates.filter(d => uniqueDates.includes(d));
+    console.log(`[H.4.1] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !uniqueDates.includes(d)).join(', ')}]`);
+    
     // 날짜가 없거나 너무 적으면 fallback 사용
     if (uniqueDates.length === 0) {
       console.warn(`[H.4.1] No dates found from FED website, falling back to calculated dates`);
