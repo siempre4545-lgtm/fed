@@ -771,9 +771,79 @@ function findNearestThursday(targetDate: string): string {
 }
 
 /**
- * FED H.4.1 발표 날짜 목록 생성 (실제 FED 웹사이트에서 스크래핑)
+ * FED H.4.1 발표 날짜 목록 생성 (Feed 우선, HTML 스크래핑 fallback)
  */
-export async function getFedReleaseDates(): Promise<string[]> {
+async function getFedReleaseDatesFromFeed(): Promise<string[]> {
+  try {
+    const feedUrl = "https://www.federalreserve.gov/feeds/h41.html";
+    const response = await fetch(feedUrl, {
+      headers: { "User-Agent": "h41-dashboard/1.0 (+cursor)" },
+      cache: "no-store" // 캐시 방지
+    });
+    
+    if (!response.ok) {
+      console.warn(`[H.4.1] Failed to fetch feed from ${feedUrl}`);
+      return [];
+    }
+    
+    const feedText = await response.text();
+    const dates: string[] = [];
+    const dateSet = new Set<string>();
+    
+    // RSS/Atom Feed에서 /releases/h41/YYYYMMDD/ 패턴으로 날짜 추출
+    // 여러 패턴 시도: /releases/h41/YYYYMMDD/, /h41/YYYYMMDD/, h41/YYYYMMDD
+    const patterns = [
+      /\/releases\/h41\/(\d{8})\//g,
+      /\/h41\/(\d{8})\//g,
+      /h41\/(\d{8})\//g,
+      /h41\/(\d{8})/g,
+    ];
+    
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(feedText)) !== null) {
+        const dateStr = match[1];
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        const isoDate = `${year}-${month}-${day}`;
+        
+        // 유효한 날짜인지 확인 (1900-2100 범위)
+        const yearNum = parseInt(year);
+        if (yearNum >= 1900 && yearNum <= 2100 && !dateSet.has(isoDate)) {
+          dates.push(isoDate);
+          dateSet.add(isoDate);
+        }
+      }
+    }
+    
+    // ISO 형식으로 정규화 및 정렬
+    const normalizedDates = dates.filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
+    normalizedDates.sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      return dateB - dateA; // 최신순 내림차순
+    });
+    
+    console.log(`[H.4.1] Feed extracted ${normalizedDates.length} dates`);
+    console.log(`[H.4.1] Top 20 feed dates:`, normalizedDates.slice(0, 20));
+    
+    // 연도 경계 날짜 확인
+    const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+    const foundCriticalDates = criticalDates.filter(d => normalizedDates.includes(d));
+    console.log(`[H.4.1] Feed critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !normalizedDates.includes(d)).join(', ')}]`);
+    
+    return normalizedDates;
+  } catch (e) {
+    console.warn(`[H.4.1] Error fetching feed:`, e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
+/**
+ * FED H.4.1 발표 날짜 목록 생성 (HTML 스크래핑 - Fallback)
+ */
+async function getFedReleaseDatesFromHTML(): Promise<string[]> {
   try {
     const url = "https://www.federalreserve.gov/releases/h41/";
     const response = await fetch(url, { 
@@ -918,9 +988,78 @@ export async function getFedReleaseDates(): Promise<string[]> {
     // 최대 52주치만 반환
     return uniqueDates.slice(0, 52);
   } catch (e) {
-    console.warn(`[H.4.1] Error fetching release dates from FED website: ${e}, falling back to calculated dates`);
+    console.warn(`[H.4.1] Error fetching release dates from HTML:`, e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
+/**
+ * FED H.4.1 발표 날짜 목록 생성 (Feed 우선, HTML fallback)
+ */
+export async function getFedReleaseDates(): Promise<string[]> {
+  // 1차: Feed에서 날짜 추출
+  const feedDates = await getFedReleaseDatesFromFeed();
+  
+  // Feed에서 충분한 날짜를 얻었는지 확인 (최소 10개 이상)
+  if (feedDates.length >= 10) {
+    console.log(`[H.4.1] Using feed dates (${feedDates.length} dates)`);
+    
+    // 연도 경계 검증: 12월/1월에서 2주 내 데이터가 최소 3개 이상 존재하는지 확인
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const yearBoundaryDates = feedDates.filter(date => {
+      const dateObj = new Date(date);
+      const month = dateObj.getMonth() + 1; // 1-12
+      const year = dateObj.getFullYear();
+      // 12월 또는 1월이고, 현재 연도 기준 2주 내
+      return (month === 12 || month === 1) && 
+             (year === currentYear || year === currentYear - 1 || year === currentYear + 1);
+    });
+    
+    if (yearBoundaryDates.length >= 3) {
+      console.log(`[H.4.1] Year boundary validation passed (${yearBoundaryDates.length} dates found)`);
+      return feedDates;
+    } else {
+      console.warn(`[H.4.1] Year boundary validation failed (${yearBoundaryDates.length} dates found), merging HTML dates`);
+    }
+  } else {
+    console.warn(`[H.4.1] Feed returned insufficient dates (${feedDates.length}), trying HTML fallback`);
+  }
+  
+  // 2차: HTML 스크래핑 (fallback)
+  const htmlDates = await getFedReleaseDatesFromHTML();
+  
+  // Feed와 HTML 날짜 병합 (Set으로 중복 제거)
+  const dateSet = new Set<string>();
+  feedDates.forEach(date => dateSet.add(date));
+  htmlDates.forEach(date => dateSet.add(date));
+  
+  const mergedDates = Array.from(dateSet);
+  
+  // ISO 형식으로 정규화 및 정렬
+  const normalizedDates = mergedDates.filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
+  normalizedDates.sort((a, b) => {
+    const dateA = new Date(a).getTime();
+    const dateB = new Date(b).getTime();
+    return dateB - dateA; // 최신순 내림차순
+  });
+  
+  console.log(`[H.4.1] Merged dates: ${normalizedDates.length} (Feed: ${feedDates.length}, HTML: ${htmlDates.length})`);
+  console.log(`[H.4.1] Top 20 merged dates:`, normalizedDates.slice(0, 20));
+  
+  // 연도 경계 날짜 최종 확인
+  const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+  const foundCriticalDates = criticalDates.filter(d => normalizedDates.includes(d));
+  console.log(`[H.4.1] Final critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !normalizedDates.includes(d)).join(', ')}]`);
+  
+  // 최종 결과가 비어있으면 fallback 사용
+  if (normalizedDates.length === 0) {
+    console.warn(`[H.4.1] No dates found from feed or HTML, falling back to calculated dates`);
     return getFedReleaseDatesFallback();
   }
+  
+  // 최대 52주치만 반환
+  return normalizedDates.slice(0, 52);
 }
 
 /**

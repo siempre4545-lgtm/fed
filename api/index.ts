@@ -2009,9 +2009,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
     const foundCriticalDates = criticalDates.filter(d => releaseDates.includes(d));
     console.log(`[Assets/Liabilities] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !releaseDates.includes(d)).join(', ')}]`);
     
-    // 초기 로딩 최적화: 최근 데이터를 충분히 가져오기 (누락 방지를 위해 더 많이)
-    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 20개 사용 (누락 방지)
-    const datesToFetch = releaseDates.slice(0, Math.min(20, releaseDates.length));
+    // 초기 로딩 최적화: 표시 7개 + Δ 계산용 1개 = 8개 fetch
+    // getFedReleaseDates()가 이미 최신부터 정렬된 날짜를 반환하므로, 처음 8개 사용
+    const initialVisible = 7; // 초기 표시 개수
+    const initialFetchCount = initialVisible + 1; // Δ 계산을 위해 +1
+    const datesToFetch = releaseDates.slice(0, Math.min(initialFetchCount, releaseDates.length));
+    
+    console.log(`[Assets/Liabilities] Initial fetch: ${datesToFetch.length} dates (visible: ${initialVisible}, for delta calc: +1)`);
     
     if (datesToFetch.length > 0) {
       console.log(`[Assets/Liabilities] Fetching historical data for ${datesToFetch.length} dates:`, datesToFetch);
