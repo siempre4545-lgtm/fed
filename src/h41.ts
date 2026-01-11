@@ -956,8 +956,10 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
           const day = String(date.getDate()).padStart(2, '0');
           const isoDate = `${year}-${month}-${day}`;
           
-          // 유효한 날짜인지 확인
-          if (year >= 1900 && year <= 2100 && !dateSet.has(isoDate)) {
+          // 유효한 날짜인지 확인 (현재 연도 - 2년 이상만 허용, 아카이브 제외)
+          const currentYear = new Date().getFullYear();
+          const minYear = currentYear - 2; // 2024 이상만 허용 (2026 기준)
+          if (year >= minYear && year <= 2100 && !dateSet.has(isoDate)) {
             datesArray.push(isoDate);
             dateSet.add(isoDate);
           }
