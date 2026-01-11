@@ -852,8 +852,8 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
     });
     
     if (!response.ok) {
-      console.warn(`[H.4.1] Failed to fetch release dates from FED website, falling back to calculated dates`);
-      return getFedReleaseDatesFallback();
+      console.warn(`[H.4.1] Failed to fetch release dates from HTML`);
+      return [];
     }
     
     const html = await response.text();
@@ -979,10 +979,10 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
     const foundCriticalDates = criticalDates.filter(d => uniqueDates.includes(d));
     console.log(`[H.4.1] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !uniqueDates.includes(d)).join(', ')}]`);
     
-    // 날짜가 없거나 너무 적으면 fallback 사용
+    // 날짜가 없거나 너무 적으면 빈 배열 반환 (최상위에서 fallback 처리)
     if (uniqueDates.length === 0) {
-      console.warn(`[H.4.1] No dates found from FED website, falling back to calculated dates`);
-      return getFedReleaseDatesFallback();
+      console.warn(`[H.4.1] No dates found from HTML scraping`);
+      return [];
     }
     
     // 최대 52주치만 반환
