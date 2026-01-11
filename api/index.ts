@@ -430,11 +430,25 @@ app.get("/api/h41/releases", async (req, res) => {
     // limit+1개를 가져와서 delta 계산에 사용 (마지막 행의 delta를 계산하기 위해)
     datesToFetch = allCalendarDates.slice(startIndex, startIndex + limit + 1);
 
+    console.log(`[API /h41/releases] Fetching ${datesToFetch.length} dates (startIndex: ${startIndex}, limit: ${limit})`);
+    console.log(`[API /h41/releases] Dates to fetch:`, datesToFetch.slice(0, 10));
+
     // 병렬로 아카이브 데이터 fetch & parse
     const fetchedRows = await fetchH41ArchivesBatch(datesToFetch, 4);
 
-    // Delta 계산
-    calculateDeltas(fetchedRows);
+    console.log(`[API /h41/releases] Fetched ${fetchedRows.length} rows out of ${datesToFetch.length} attempts`);
+
+    // 빈 결과 처리: 최소한 1개는 성공해야 함
+    if (fetchedRows.length === 0) {
+      console.error(`[API /h41/releases] No rows fetched successfully. All ${datesToFetch.length} dates failed.`);
+      // 부분 실패는 허용하되, 최소한 1개는 있어야 함
+      // 여기서는 에러를 반환하지 않고 빈 배열을 반환 (클라이언트에서 처리)
+    }
+
+    // Delta 계산 (빈 배열이어도 안전)
+    if (fetchedRows.length > 0) {
+      calculateDeltas(fetchedRows);
+    }
 
     // limit개만 반환 (마지막 것은 delta 계산용으로만 사용)
     const responseRows = fetchedRows.slice(0, limit);
@@ -2677,67 +2691,94 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       
       // 증감 계산 함수
       function getChangeDisplay(current, previous) {
-        if (previous === null || previous === 0) return '';
-        const change = current - previous;
-        const sign = change >= 0 ? '+' : '';
-        return '<div style="font-size:11px;color:' + (change >= 0 ? '#059669' : '#dc2626') + ';margin-top:2px">' + sign + (change / 1000).toFixed(1) + '</div>';
+        if (previous === null || previous === undefined) return '';
+        try {
+          const currentNum = typeof current === 'number' ? current : parseFloat(current);
+          const prevNum = typeof previous === 'number' ? previous : parseFloat(previous);
+          if (isNaN(currentNum) || isNaN(prevNum)) return '';
+          const change = currentNum - prevNum;
+          if (isNaN(change)) return '';
+          const sign = change >= 0 ? '+' : '';
+          return '<div style="font-size:11px;color:' + (change >= 0 ? '#059669' : '#dc2626') + ';margin-top:2px">' + sign + (change / 1000).toFixed(1) + '</div>';
+        } catch (e) {
+          console.warn('[History Table] Error calculating change display:', e);
+          return '';
+        }
       }
       
       // 테이블 렌더링 함수
       function renderTableRows() {
-        if (!tbody) return;
+        if (!tbody) {
+          console.error('[History Table] tbody element not found');
+          return;
+        }
         tbody.innerHTML = ''; // 기존 내용 지우기
         
+        if (allRows.length === 0) {
+          // 빈 상태 처리
+          const emptyRow = document.createElement('tr');
+          emptyRow.className = 'history-row';
+          emptyRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#6b7280">데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</td>';
+          tbody.appendChild(emptyRow);
+          console.warn('[History Table] No rows to render');
+          return;
+        }
+        
         allRows.forEach(function(item, index) {
-          const formattedDate = new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-          const prevItem = allRows[index + 1] || null; // 다음 항목이 이전 항목이 됨
-          
-          const row = document.createElement('tr');
-          row.className = 'history-row';
-          row.innerHTML = 
-            '<td class="sticky-col">' + formattedDate + '</td>' +
-            '<td class="asset-cell" data-value="' + item.assetTotal.value + '">' +
-              '$' + (item.assetTotal.value / 1000).toFixed(1) +
-              getChangeDisplay(item.assetTotal.value, prevItem?.assetTotal.value || null) +
-            '</td>' +
-            '<td class="asset-cell" data-value="' + item.treasury.value + '">' +
-              '$' + (item.treasury.value / 1000).toFixed(1) +
-              getChangeDisplay(item.treasury.value, prevItem?.treasury.value || null) +
-            '</td>' +
-            '<td class="asset-cell" data-value="' + item.mbs.value + '">' +
-              '$' + (item.mbs.value / 1000).toFixed(1) +
-              getChangeDisplay(item.mbs.value, prevItem?.mbs.value || null) +
-            '</td>' +
-            '<td class="asset-cell" data-value="' + item.repo.value + '">' +
-              '$' + (item.repo.value / 1000).toFixed(1) +
-              getChangeDisplay(item.repo.value, prevItem?.repo.value || null) +
-            '</td>' +
-            '<td class="asset-cell" data-value="' + item.loans.value + '">' +
-              '$' + (item.loans.value / 1000).toFixed(1) +
-              getChangeDisplay(item.loans.value, prevItem?.loans.value || null) +
-            '</td>' +
-            '<td class="liability-cell" data-value="' + item.liabilityTotal.value + '">' +
-              '$' + (item.liabilityTotal.value / 1000).toFixed(1) +
-              getChangeDisplay(item.liabilityTotal.value, prevItem?.liabilityTotal.value || null) +
-            '</td>' +
-            '<td class="liability-cell" data-value="' + item.currency.value + '">' +
-              '$' + (item.currency.value / 1000).toFixed(1) +
-              getChangeDisplay(item.currency.value, prevItem?.currency.value || null) +
-            '</td>' +
-            '<td class="liability-cell" data-value="' + item.rrp.value + '">' +
-              '$' + (item.rrp.value / 1000).toFixed(1) +
-              getChangeDisplay(item.rrp.value, prevItem?.rrp.value || null) +
-            '</td>' +
-            '<td class="liability-cell" data-value="' + item.tga.value + '">' +
-              '$' + (item.tga.value / 1000).toFixed(1) +
-              getChangeDisplay(item.tga.value, prevItem?.tga.value || null) +
-            '</td>' +
-            '<td class="liability-cell" data-value="' + item.reserves.value + '">' +
-              '$' + (item.reserves.value / 1000).toFixed(1) +
-              getChangeDisplay(item.reserves.value, prevItem?.reserves.value || null) +
-            '</td>';
-          
-          tbody.appendChild(row);
+          try {
+            const formattedDate = new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            const prevItem = allRows[index + 1] || null; // 다음 항목이 이전 항목이 됨
+            
+            const row = document.createElement('tr');
+            row.className = 'history-row';
+            row.innerHTML = 
+              '<td class="sticky-col">' + formattedDate + '</td>' +
+              '<td class="asset-cell" data-value="' + item.assetTotal.value + '">' +
+                '$' + (item.assetTotal.value / 1000).toFixed(1) +
+                getChangeDisplay(item.assetTotal.value, prevItem?.assetTotal.value || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.treasury.value + '">' +
+                '$' + (item.treasury.value / 1000).toFixed(1) +
+                getChangeDisplay(item.treasury.value, prevItem?.treasury.value || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.mbs.value + '">' +
+                '$' + (item.mbs.value / 1000).toFixed(1) +
+                getChangeDisplay(item.mbs.value, prevItem?.mbs.value || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.repo.value + '">' +
+                '$' + (item.repo.value / 1000).toFixed(1) +
+                getChangeDisplay(item.repo.value, prevItem?.repo.value || null) +
+              '</td>' +
+              '<td class="asset-cell" data-value="' + item.loans.value + '">' +
+                '$' + (item.loans.value / 1000).toFixed(1) +
+                getChangeDisplay(item.loans.value, prevItem?.loans.value || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.liabilityTotal.value + '">' +
+                '$' + (item.liabilityTotal.value / 1000).toFixed(1) +
+                getChangeDisplay(item.liabilityTotal.value, prevItem?.liabilityTotal.value || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.currency.value + '">' +
+                '$' + (item.currency.value / 1000).toFixed(1) +
+                getChangeDisplay(item.currency.value, prevItem?.currency.value || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.rrp.value + '">' +
+                '$' + (item.rrp.value / 1000).toFixed(1) +
+                getChangeDisplay(item.rrp.value, prevItem?.rrp.value || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.tga.value + '">' +
+                '$' + (item.tga.value / 1000).toFixed(1) +
+                getChangeDisplay(item.tga.value, prevItem?.tga.value || null) +
+              '</td>' +
+              '<td class="liability-cell" data-value="' + item.reserves.value + '">' +
+                '$' + (item.reserves.value / 1000).toFixed(1) +
+                getChangeDisplay(item.reserves.value, prevItem?.reserves.value || null) +
+              '</td>';
+            
+            tbody.appendChild(row);
+          } catch (e) {
+            console.error('[History Table] Error rendering row:', e, item);
+            // 에러가 발생한 행은 건너뛰고 계속 진행
+          }
         });
       }
       
@@ -2756,10 +2797,25 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           const data = await response.json();
           
           if (!data.ok) {
-            console.error('Failed to fetch history:', data.errors);
+            console.error('[History Table] API returned error:', data.errors);
+            if (tbody) {
+              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터를 불러오는 중 오류가 발생했습니다: ' + (Array.isArray(data.errors) ? data.errors.join(', ') : String(data.errors)) + '</td></tr>';
+            }
             if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
             return;
           }
+          
+          // data.rows가 배열인지 확인
+          if (!Array.isArray(data.rows)) {
+            console.error('[History Table] Invalid response: data.rows is not an array', data);
+            if (tbody) {
+              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터 형식 오류: 응답이 올바르지 않습니다.</td></tr>';
+            }
+            if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
+            return;
+          }
+          
+          console.log('[History Table] Received', data.rows.length, 'rows from API');
           
           // 새 데이터를 기존 데이터에 추가
           allRows = allRows.concat(data.rows);
