@@ -1193,51 +1193,44 @@ function getFedReleaseDatesFallback(): string[] {
  */
 export async function fetchH41Report(targetDate?: string, availableDates?: string[]): Promise<H41Report> {
   let url = SOURCE_URL;
-  let thursdayDate: string | undefined;
   
-  // 과거 날짜가 지정된 경우 가장 가까운 목요일 찾기
+  // 과거 날짜가 지정된 경우 선택한 날짜 그대로 사용 (타임존 안전)
   if (targetDate) {
     try {
-      // targetDate가 이미 목요일인지 확인 (getFedReleaseDates에서 온 경우)
-      const dateObj = new Date(targetDate);
-      const dayOfWeek = dateObj.getDay();
+      // ISO 형식(YYYY-MM-DD) 검증
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+        throw new Error(`Invalid date format: ${targetDate}. Expected YYYY-MM-DD.`);
+      }
       
-      // 아카이브 날짜 검증: 2023-01-01 이전 날짜는 파싱 금지
-      const archiveMinDate = new Date('2023-01-01');
-      if (dateObj < archiveMinDate) {
+      // 아카이브 검증 (문자열 기반)
+      const [yearStr] = targetDate.split('-');
+      const year = parseInt(yearStr, 10);
+      
+      if (year < 2023) {
         throw new Error(`Archive H.4.1 page detected (date: ${targetDate}) – parsing skipped. Only recent data (2023-01-01 or later) is supported.`);
       }
       
-      if (dayOfWeek === 4) {
-        // 이미 목요일이면 그대로 사용
-        thursdayDate = targetDate;
-      } else {
-        // 목요일이 아니면 가장 가까운 목요일 찾기
-        thursdayDate = findNearestThursday(targetDate);
-      }
-      
-      // 목요일 날짜도 아카이브 검증
-      const thursdayDateObj = new Date(thursdayDate);
-      if (thursdayDateObj < archiveMinDate) {
-        throw new Error(`Archive H.4.1 page detected (Thursday date: ${thursdayDate}) – parsing skipped. Only recent data (2023-01-01 or later) is supported.`);
-      }
-      
-      const date = new Date(thursdayDate);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전)
+      const ymd = isoToYyyymmdd(targetDate);
       
       // H.4.1 아카이브 URL 형식 시도:
       // 1. https://www.federalreserve.gov/releases/h41/YYYYMMDD/ (디렉토리)
       // 2. https://www.federalreserve.gov/releases/h41/YYYYMMDD/default.htm (HTML 파일)
       // 3. https://www.federalreserve.gov/releases/h41/YYYYMMDD/h41.txt (텍스트 파일)
-      const archiveUrl = `${ARCHIVE_BASE_URL}${year}${month}${day}/default.htm`;
+      const triedUrls = [
+        `${ARCHIVE_BASE_URL}${ymd}/`,
+        `${ARCHIVE_BASE_URL}${ymd}/default.htm`,
+        `${ARCHIVE_BASE_URL}${ymd}/h41.txt`,
+      ];
+      const archiveUrl = triedUrls[1]; // default.htm을 기본으로 시도
       url = archiveUrl;
-      console.log(`[H.4.1] Fetching archive for date: ${targetDate} (Thursday: ${thursdayDate}), URL: ${archiveUrl}`);
+      
+      // 디버그 로그 (개발 모드)
+      console.log(`[H.4.1] Fetching archive - selectedIso: ${targetDate}, computed ymd: ${ymd}, triedUrls: [${triedUrls.join(', ')}]`);
     } catch (e) {
-      console.error("Invalid date format or archive date detected, using current:", e);
+      console.error("Invalid date format or archive date detected:", e);
       // 아카이브 날짜인 경우 에러를 다시 throw하여 호출자가 처리할 수 있도록 함
-      if (e instanceof Error && e.message.includes('Archive H.4.1 page detected')) {
+      if (e instanceof Error && (e.message.includes('Archive H.4.1 page detected') || e.message.includes('Invalid date format'))) {
         throw e;
       }
     }
