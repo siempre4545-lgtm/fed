@@ -1159,12 +1159,24 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
       const dateObj = new Date(targetDate);
       const dayOfWeek = dateObj.getDay();
       
+      // 아카이브 날짜 검증: 2023-01-01 이전 날짜는 파싱 금지
+      const archiveMinDate = new Date('2023-01-01');
+      if (dateObj < archiveMinDate) {
+        throw new Error(`Archive H.4.1 page detected (date: ${targetDate}) – parsing skipped. Only recent data (2023-01-01 or later) is supported.`);
+      }
+      
       if (dayOfWeek === 4) {
         // 이미 목요일이면 그대로 사용
         thursdayDate = targetDate;
       } else {
         // 목요일이 아니면 가장 가까운 목요일 찾기
         thursdayDate = findNearestThursday(targetDate);
+      }
+      
+      // 목요일 날짜도 아카이브 검증
+      const thursdayDateObj = new Date(thursdayDate);
+      if (thursdayDateObj < archiveMinDate) {
+        throw new Error(`Archive H.4.1 page detected (Thursday date: ${thursdayDate}) – parsing skipped. Only recent data (2023-01-01 or later) is supported.`);
       }
       
       const date = new Date(thursdayDate);
@@ -1180,7 +1192,11 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
       url = archiveUrl;
       console.log(`[H.4.1] Fetching archive for date: ${targetDate} (Thursday: ${thursdayDate}), URL: ${archiveUrl}`);
     } catch (e) {
-      console.error("Invalid date format, using current:", e);
+      console.error("Invalid date format or archive date detected, using current:", e);
+      // 아카이브 날짜인 경우 에러를 다시 throw하여 호출자가 처리할 수 있도록 함
+      if (e instanceof Error && e.message.includes('Archive H.4.1 page detected')) {
+        throw e;
+      }
     }
   }
   
