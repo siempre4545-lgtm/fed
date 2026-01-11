@@ -4586,11 +4586,11 @@ app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
     .page-header .sub a:hover{text-decoration:underline}
     .main-content{max-width:1400px;margin:0 auto;padding:24px}
     .value-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
-    .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px}
+    .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px}
     .value-item{background:#252525;border-radius:8px;padding:16px}
-    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px}
-    .value-number{font-size:24px;font-weight:700;color:#ffffff}
-    .value-unit{font-size:14px;color:#9ca3af;margin-left:4px}
+    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .value-number{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:4px}
+    .value-unit{font-size:12px;color:#808080}
     .value-change{font-size:14px;margin-top:8px}
     .value-change.positive{color:#10b981}
     .value-change.negative{color:#ef4444}
@@ -4693,7 +4693,153 @@ app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
       <div class="section-title"><span>💼 경제 코치 종합 코멘트</span></div>
       <div class="interpretation-box"><div class="section-content">${escapeHtml(overallComment)}</div></div>
     </div>` : ''}
+    
+    <div class="memo-section">
+      <div class="memo-title">
+        <span>📝</span>
+        <span>개인 메모</span>
+      </div>
+      <div class="memo-form">
+        <textarea id="memoInput" class="memo-input" placeholder="이 지표에 대한 개인 메모를 작성하세요 (50자 내외 권장)"></textarea>
+        <div class="memo-actions">
+          <span class="memo-char-count"><span id="memoCharCount">0</span>자</span>
+          <button id="memoSubmitBtn" class="memo-submit-btn">추가</button>
+        </div>
+      </div>
+      <div class="memo-history">
+        <div class="memo-history-title">메모 히스토리</div>
+        <div id="memoHistoryList"></div>
+      </div>
+    </div>
   </div>
+  <script>
+    // 메모 기능
+    (function() {
+      const indicatorId = 'bank-reserves-velocity';
+      const memoStorageKey = 'secret-indicator-memos';
+      const memoInput = document.getElementById('memoInput');
+      const memoSubmitBtn = document.getElementById('memoSubmitBtn');
+      const memoCharCount = document.getElementById('memoCharCount');
+      const memoHistoryList = document.getElementById('memoHistoryList');
+      
+      // 로컬 스토리지에서 메모 불러오기
+      function loadMemos() {
+        try {
+          const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+          return allMemos[indicatorId] || [];
+        } catch (e) {
+          console.error('Failed to load memos:', e);
+          return [];
+        }
+      }
+      
+      // 로컬 스토리지에 메모 저장하기
+      function saveMemos(memos) {
+        try {
+          const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+          allMemos[indicatorId] = memos;
+          localStorage.setItem(memoStorageKey, JSON.stringify(allMemos));
+        } catch (e) {
+          console.error('Failed to save memos:', e);
+        }
+      }
+      
+      // 메모 히스토리 렌더링
+      function renderMemoHistory() {
+        const memos = loadMemos();
+        
+        if (memos.length === 0) {
+          memoHistoryList.innerHTML = '<div class="memo-history-empty">저장된 메모가 없습니다.</div>';
+          return;
+        }
+        
+        // 최신순으로 정렬
+        const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        memoHistoryList.innerHTML = sortedMemos.map((memo, index) => {
+          const date = new Date(memo.date);
+          const dateStr = date.toLocaleString('ko-KR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          
+          function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+          }
+          
+          const escapedText = escapeHtml(memo.text);
+          
+          return '<div class="memo-item">' +
+            '<div class="memo-item-header">' +
+            '<span class="memo-item-date">' + dateStr + '</span>' +
+            '<button class="memo-item-delete" onclick="deleteMemo(' + index + ')">삭제</button>' +
+            '</div>' +
+            '<div class="memo-item-text">' + escapedText + '</div>' +
+            '</div>';
+        }).join('');
+      }
+      
+      // 메모 추가
+      function addMemo() {
+        const text = memoInput.value.trim();
+        if (!text) {
+          alert('메모 내용을 입력해주세요.');
+          return;
+        }
+        
+        const memos = loadMemos();
+        const newMemo = {
+          text: text,
+          date: new Date().toISOString()
+        };
+        
+        memos.push(newMemo);
+        saveMemos(memos);
+        
+        memoInput.value = '';
+        updateCharCount();
+        renderMemoHistory();
+      }
+      
+      // 메모 삭제
+      window.deleteMemo = function(index) {
+        if (!confirm('이 메모를 삭제하시겠습니까?')) {
+          return;
+        }
+        
+        const memos = loadMemos();
+        const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+        sortedMemos.splice(index, 1);
+        
+        saveMemos(sortedMemos);
+        renderMemoHistory();
+      };
+      
+      // 글자수 업데이트
+      function updateCharCount() {
+        const length = memoInput.value.length;
+        memoCharCount.textContent = length;
+      }
+      
+      // 이벤트 리스너
+      memoInput.addEventListener('input', updateCharCount);
+      memoSubmitBtn.addEventListener('click', addMemo);
+      memoInput.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+          addMemo();
+        }
+      });
+      
+      // 초기화
+      updateCharCount();
+      renderMemoHistory();
+    })();
+  </script>
   ${chartData ? `<script>
     const chartData = ${chartDataJson};
     if (chartData) {
