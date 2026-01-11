@@ -2675,31 +2675,24 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         return;
       }
       
-      console.log('[Assets/Liabilities] Initializing new calendar-based API...');
+      console.log('[HistoryTable] init ok');
       
       // 새 API 기반 상태 관리
-      let allRows: Array<{
-        date: string;
-        assetTotal: { value: number; delta: number | null };
-        treasury: { value: number; delta: number | null };
-        mbs: { value: number; delta: number | null };
-        repo: { value: number; delta: number | null };
-        loans: { value: number; delta: number | null };
-        liabilityTotal: { value: number; delta: number | null };
-        currency: { value: number; delta: number | null };
-        rrp: { value: number; delta: number | null };
-        tga: { value: number; delta: number | null };
-        reserves: { value: number; delta: number | null };
-      }> = [];
-      let nextCursor: string | null = null;
+      // @type {Array<{date: string, assetTotal: {value: number, delta: number|null}, ...}>}
+      let allRows = [];
+      // @type {string|null}
+      let nextCursor = null;
       let isLoadingMore = false;
       const tbody = document.getElementById('historyTableBody');
       const loadMoreBtn = document.getElementById('loadMoreBtn');
       const debugBox = document.getElementById('historyTableDebug');
       let lastFetchUrl = '';
-      let lastResponse: { ok?: boolean; status?: number; statusText?: string } | null = null;
-      let lastData: any = null;
-      let lastError: string | null = null;
+      // @type {{ok?: boolean, status?: number, statusText?: string}|null}
+      let lastResponse = null;
+      // @type {any}
+      let lastData = null;
+      // @type {string|null}
+      let lastError = null;
       let visibleRowsCount = 0;
       
       // 디버그 UI 활성화 체크 (?debugUI=1 쿼리스트링)
@@ -3058,8 +3051,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           fetchUrl = '/api/h41/releases?limit=' + limit + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
           lastFetchUrl = fetchUrl;
           
+          console.log('[HistoryTable] fetching', fetchUrl);
+          
           if (debugUIEnabled) {
-            console.log('[History Table Debug] Fetching:', fetchUrl);
             updateDebugInfo();
           }
           
@@ -3088,16 +3082,17 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           lastData = data;
           lastError = null;
           
-          console.log('[History Table Debug] API Response:', {
-            ok: data.ok,
-            rowsLength: Array.isArray(data.rows) ? data.rows.length : 'not array',
-            nextCursor: data.nextCursor,
-            firstRowDate: Array.isArray(data.rows) && data.rows.length > 0 ? data.rows[0]?.date : 'N/A',
-            errors: data.errors,
-            meta: data.meta
-          });
+          console.log('[HistoryTable] rows', Array.isArray(data.rows) ? data.rows.length : 'not array');
           
           if (debugUIEnabled) {
+            console.log('[History Table Debug] API Response:', {
+              ok: data.ok,
+              rowsLength: Array.isArray(data.rows) ? data.rows.length : 'not array',
+              nextCursor: data.nextCursor,
+              firstRowDate: Array.isArray(data.rows) && data.rows.length > 0 ? (data.rows[0]?.date || 'N/A') : 'N/A',
+              errors: data.errors,
+              meta: data.meta
+            });
             updateDebugInfo();
           }
           
