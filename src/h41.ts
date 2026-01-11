@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { promises as fs } from "fs";
 import { join } from "path";
+import { discoverRecentReleaseDates } from "./h41-release-discovery.js";
 
 export type H41Card = {
   key: string;              // ⓐ, ⓑ ...
@@ -1017,10 +1018,63 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
 }
 
 /**
- * FED H.4.1 발표 날짜 목록 생성 (Feed 우선, HTML fallback)
+ * FED H.4.1 발표 날짜 목록 생성 (역탐색 우선, Feed/HTML fallback)
  */
 export async function getFedReleaseDates(): Promise<string[]> {
-  // 1차: Feed에서 날짜 추출
+  // 1차: 역탐색 방식으로 최근 발표일 수집
+  try {
+    // 최신 날짜를 시작점으로 얻기 (current 페이지에서 날짜 추출 시도)
+    let startDate: Date;
+    try {
+      // 최신 리포트를 가져와서 날짜 추출
+      const currentReport = await fetchH41Report(); // 최신 데이터
+      const releaseDateText = currentReport.releaseDateText; // "December 18, 2025"
+      
+      // 날짜 파싱
+      const parsedDate = new Date(releaseDateText);
+      if (!isNaN(parsedDate.getTime())) {
+        startDate = parsedDate;
+        console.log(`[H.4.1] Using current report date as start date: ${releaseDateText} (${startDate.toISOString().split('T')[0]})`);
+      } else {
+        throw new Error("Failed to parse current report date");
+      }
+    } catch (e) {
+      // current 리포트 파싱 실패 시 오늘 날짜 사용 (목요일 기준으로 조정)
+      const now = new Date();
+      // 가장 최근 목요일 찾기
+      const dayOfWeek = now.getDay();
+      const daysToSubtract = dayOfWeek <= 4 ? (dayOfWeek + 3) : (dayOfWeek - 4);
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - daysToSubtract);
+      console.log(`[H.4.1] Using calculated Thursday as start date: ${startDate.toISOString().split('T')[0]}`);
+    }
+    
+    // 역탐색으로 최근 40개 발표일 수집 (120일 lookback)
+    const discoveredDates = await discoverRecentReleaseDates({
+      startDate,
+      targetCount: 40,
+      lookbackDays: 120
+    });
+    
+    if (discoveredDates.length >= 15) {
+      console.log(`[H.4.1] Discovery method found ${discoveredDates.length} dates`);
+      
+      // 연도 경계 날짜 확인
+      const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+      const foundCriticalDates = criticalDates.filter(d => discoveredDates.includes(d));
+      console.log(`[H.4.1] Discovery critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !discoveredDates.includes(d)).join(', ')}]`);
+      
+      // 최대 52주치만 반환
+      return discoveredDates.slice(0, 52);
+    } else {
+      console.warn(`[H.4.1] Discovery method found insufficient dates (${discoveredDates.length}), falling back to Feed/HTML`);
+    }
+  } catch (e) {
+    console.warn(`[H.4.1] Discovery method failed:`, e instanceof Error ? e.message : String(e));
+    // 역탐색 실패 시 fallback 계속 진행
+  }
+  
+  // 2차: Feed에서 날짜 추출 (fallback)
   const feedDates = await getFedReleaseDatesFromFeed();
   
   // Feed에서 충분한 날짜를 얻었는지 확인 (최소 10개 이상)
