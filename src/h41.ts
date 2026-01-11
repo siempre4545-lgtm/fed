@@ -1018,46 +1018,19 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
 }
 
 /**
- * FED H.4.1 발표 날짜 목록 생성 (역탐색 우선, Feed/HTML fallback)
+ * FED H.4.1 발표 날짜 목록 생성 (current/ 기준점 역탐색 우선, Feed/HTML 최후 fallback)
  */
 export async function getFedReleaseDates(): Promise<string[]> {
-  // 1차: 역탐색 방식으로 최근 발표일 수집
+  // 1차: current/ 페이지 기준점 역탐색 방식으로 최근 발표일 수집 (우선)
   try {
-    // 최신 날짜를 시작점으로 얻기 (current 페이지에서 날짜 추출 시도)
-    let startDate: Date;
-    try {
-      // 최신 리포트를 가져와서 날짜 추출
-      const currentReport = await fetchH41Report(); // 최신 데이터
-      const releaseDateText = currentReport.releaseDateText; // "December 18, 2025"
-      
-      // 날짜 파싱
-      const parsedDate = new Date(releaseDateText);
-      if (!isNaN(parsedDate.getTime())) {
-        startDate = parsedDate;
-        console.log(`[H.4.1] Using current report date as start date: ${releaseDateText} (${startDate.toISOString().split('T')[0]})`);
-      } else {
-        throw new Error("Failed to parse current report date");
-      }
-    } catch (e) {
-      // current 리포트 파싱 실패 시 오늘 날짜 사용 (목요일 기준으로 조정)
-      const now = new Date();
-      // 가장 최근 목요일 찾기
-      const dayOfWeek = now.getDay();
-      const daysToSubtract = dayOfWeek <= 4 ? (dayOfWeek + 3) : (dayOfWeek - 4);
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - daysToSubtract);
-      console.log(`[H.4.1] Using calculated Thursday as start date: ${startDate.toISOString().split('T')[0]}`);
-    }
-    
-    // 역탐색으로 최근 40개 발표일 수집 (120일 lookback)
+    // discoverRecentReleaseDates가 내부에서 getAnchorReleaseDate()를 호출하여 current/ 페이지에서 기준점 파싱
     const discoveredDates = await discoverRecentReleaseDates({
-      startDate,
       targetCount: 40,
       lookbackDays: 120
     });
     
     if (discoveredDates.length >= 15) {
-      console.log(`[H.4.1] Discovery method found ${discoveredDates.length} dates`);
+      console.log(`[H.4.1] Discovery method (current/ anchor) found ${discoveredDates.length} dates`);
       
       // 연도 경계 날짜 확인
       const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
@@ -1070,7 +1043,8 @@ export async function getFedReleaseDates(): Promise<string[]> {
       console.warn(`[H.4.1] Discovery method found insufficient dates (${discoveredDates.length}), falling back to Feed/HTML`);
     }
   } catch (e) {
-    console.warn(`[H.4.1] Discovery method failed:`, e instanceof Error ? e.message : String(e));
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    console.warn(`[H.4.1] Discovery method (current/ anchor) failed: ${errorMsg}`);
     // 역탐색 실패 시 fallback 계속 진행
   }
   
