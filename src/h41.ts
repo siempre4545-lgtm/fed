@@ -790,45 +790,115 @@ export async function getFedReleaseDates(): Promise<string[]> {
     const $ = cheerio.load(html);
     
     const dates: string[] = [];
+    const dateSet = new Set<string>(); // 중복 방지용
     
-    // "Release Date" 테이블에서 날짜 추출
+    // 패턴 1: 테이블 내 링크에서 날짜 추출 (기존 방식)
     $('table.release-date-table td a, table td a[href*="/h41/"]').each((_idx, element) => {
       const href = $(element).attr('href');
       const dateText = $(element).text().trim();
-      let dateFound = false;
-      
-      // href에서 날짜 추출 (예: /releases/h41/20251229/)
-      if (href) {
-        const dateMatch = href.match(/\/h41\/(\d{8})\//);
+      extractDateFromHref(href, dates, dateSet);
+      if (!dateSet.has(dates[dates.length - 1])) {
+        extractDateFromText(dateText, dates, dateSet);
+      }
+    });
+    
+    // 패턴 2: 페이지 전체에서 /h41/YYYYMMDD/ 패턴 검색 (더 포괄적)
+    const allLinks = $('a[href*="/h41/"]');
+    if (allLinks.length > 0) {
+      allLinks.each((_idx, element) => {
+        const href = $(element).attr('href');
+        extractDateFromHref(href, dates, dateSet);
+      });
+    }
+    
+    // 패턴 3: HTML 전체에서 정규식으로 날짜 패턴 직접 검색 (최후의 수단)
+    const hrefMatches = html.match(/\/h41\/(\d{8})\//g);
+    if (hrefMatches) {
+      hrefMatches.forEach(match => {
+        const dateMatch = match.match(/(\d{8})/);
         if (dateMatch) {
           const dateStr = dateMatch[1];
           const year = dateStr.substring(0, 4);
           const month = dateStr.substring(4, 6);
           const day = dateStr.substring(6, 8);
-          dates.push(`${year}-${month}-${day}`);
-          dateFound = true;
-        }
-      }
-      
-      // 또는 텍스트에서 날짜 파싱
-      if (!dateFound && dateText) {
-        try {
-          const date = new Date(dateText);
-          if (!isNaN(date.getTime())) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            dates.push(`${year}-${month}-${day}`);
+          const isoDate = `${year}-${month}-${day}`;
+          if (!dateSet.has(isoDate)) {
+            dates.push(isoDate);
+            dateSet.add(isoDate);
           }
-        } catch (e) {
-          // 날짜 파싱 실패 시 무시
+        }
+      });
+    }
+    
+    // 날짜 추출 헬퍼 함수들
+    function extractDateFromHref(href: string | undefined, datesArray: string[], dateSet: Set<string>) {
+      if (!href) return;
+      
+      // 여러 패턴 시도: /h41/YYYYMMDD/, /releases/h41/YYYYMMDD/, h41/YYYYMMDD
+      const patterns = [
+        /\/h41\/(\d{8})\//,
+        /\/releases\/h41\/(\d{8})\//,
+        /h41\/(\d{8})\//,
+        /h41\/(\d{8})/,
+      ];
+      
+      for (const pattern of patterns) {
+        const match = href.match(pattern);
+        if (match) {
+          const dateStr = match[1];
+          const year = dateStr.substring(0, 4);
+          const month = dateStr.substring(4, 6);
+          const day = dateStr.substring(6, 8);
+          const isoDate = `${year}-${month}-${day}`;
+          
+          // 유효한 날짜인지 확인 (1900-2100 범위)
+          const yearNum = parseInt(year);
+          if (yearNum >= 1900 && yearNum <= 2100 && !dateSet.has(isoDate)) {
+            datesArray.push(isoDate);
+            dateSet.add(isoDate);
+            return;
+          }
         }
       }
+    }
+    
+    function extractDateFromText(dateText: string, datesArray: string[], dateSet: Set<string>) {
+      if (!dateText) return;
+      
+      try {
+        const date = new Date(dateText);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const isoDate = `${year}-${month}-${day}`;
+          
+          // 유효한 날짜인지 확인
+          if (year >= 1900 && year <= 2100 && !dateSet.has(isoDate)) {
+            datesArray.push(isoDate);
+            dateSet.add(isoDate);
+          }
+        }
+      } catch (e) {
+        // 날짜 파싱 실패 시 무시
+      }
+    }
+    
+    // 중복 제거 (이미 dateSet으로 처리했지만 이중 확인)
+    const uniqueDatesRaw = Array.from(new Set(dates));
+    
+    // ISO 형식으로 정규화 (유효한 ISO 형식만 유지)
+    const normalizedDates = uniqueDatesRaw.filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
+    
+    // ISO 형식 날짜를 Date 객체의 getTime()으로 정렬 (표시용 문자열이 아닌 숫자로 정렬)
+    normalizedDates.sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      // 최신 날짜가 위로 오도록 내림차순 정렬
+      return dateB - dateA;
     });
     
-    // 중복 제거 및 정렬 (최신부터)
-    const uniqueDates = Array.from(new Set(dates));
-    uniqueDates.sort((a, b) => b.localeCompare(a));
+    const uniqueDates = normalizedDates;
     
     // 디버깅: 원천 스크래핑 결과 로깅
     console.log(`[H.4.1] Scraped ${uniqueDates.length} unique dates from FED website`);
