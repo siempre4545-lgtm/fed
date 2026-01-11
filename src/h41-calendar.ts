@@ -16,13 +16,29 @@ export function ymdToIso(ymd: string): string {
 }
 
 /**
- * YYYY-MM-DD 형식을 YYYYMMDD로 변환 (문자열 기반)
+ * ISO 날짜 문자열(YYYY-MM-DD)을 YYYYMMDD 형식으로 변환 (타임존 안전, 문자열 split 방식)
+ * "2026-01-02" -> "20260102"
+ * 
+ * 중요: Date 객체를 사용하지 않고 순수 문자열 split으로 처리하여
+ * 타임존 변환으로 인한 하루 밀림 문제를 방지합니다.
  */
-export function isoToYmd(iso: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+export function yyyymmddFromISO(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) {
     throw new Error(`Invalid ISO date format: ${iso}. Expected YYYY-MM-DD.`);
   }
-  return iso.replace(/-/g, '');
+  const [y, m, d] = parts;
+  if (!y || !m || !d || y.length !== 4 || m.length !== 2 || d.length !== 2) {
+    throw new Error(`Invalid ISO date format: ${iso}. Expected YYYY-MM-DD.`);
+  }
+  return `${y}${m}${d}`;
+}
+
+/**
+ * @deprecated Use yyyymmddFromISO instead
+ */
+export function isoToYmd(iso: string): string {
+  return yyyymmddFromISO(iso);
 }
 
 /**

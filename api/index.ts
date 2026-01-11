@@ -403,6 +403,68 @@ app.get("/api/h41/history", async (req, res) => {
   }
 });
 
+// API: H.4.1 releases (캘린더 기반, 페이징 지원)
+app.get("/api/h41/releases", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 5;
+    const cursor = req.query.cursor as string | undefined; // YYYYMMDD 형식
+
+    // 캘린더에서 모든 발표 날짜 가져오기 (YYYYMMDD 형식)
+    const allCalendarDates = await fetchH41CalendarDates();
+
+    let datesToFetch: string[];
+    let startIndex = 0;
+
+    if (cursor) {
+      // cursor는 YYYYMMDD 형식이므로 직접 비교
+      startIndex = allCalendarDates.findIndex(d => d === cursor);
+      if (startIndex !== -1) {
+        // cursor 다음 날짜부터 시작
+        startIndex += 1;
+      } else {
+        // cursor를 찾지 못하면 최신부터 시작
+        startIndex = 0;
+      }
+    }
+
+    // limit+1개를 가져와서 delta 계산에 사용 (마지막 행의 delta를 계산하기 위해)
+    datesToFetch = allCalendarDates.slice(startIndex, startIndex + limit + 1);
+
+    // 병렬로 아카이브 데이터 fetch & parse
+    const fetchedRows = await fetchH41ArchivesBatch(datesToFetch, 4);
+
+    // Delta 계산
+    calculateDeltas(fetchedRows);
+
+    // limit개만 반환 (마지막 것은 delta 계산용으로만 사용)
+    const responseRows = fetchedRows.slice(0, limit);
+    const nextCursorYmd = responseRows.length === limit && startIndex + limit < allCalendarDates.length
+      ? allCalendarDates[startIndex + limit - 1] // 마지막으로 표시된 날짜
+      : null;
+
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    res.json({
+      ok: true,
+      dates: responseRows.map(r => r.date),
+      rows: responseRows,
+      nextCursor: nextCursorYmd,
+      errors: [],
+      meta: { source: 'calendar-api', totalAttempts: datesToFetch.length }
+    });
+
+  } catch (e: any) {
+    console.error("[API /h41/releases] Error:", e);
+    res.status(500).json({
+      ok: false,
+      dates: [],
+      rows: [],
+      nextCursor: null,
+      errors: [e?.message ?? String(e)],
+      meta: { source: 'calendar-api-error' }
+    });
+  }
+});
+
 // API: 텍스트(알림용)
 app.get("/api/h41.txt", async (_req, res) => {
   try {

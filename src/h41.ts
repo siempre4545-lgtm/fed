@@ -79,16 +79,30 @@ function toOkEusd(musd: number): number {
 }
 
 /**
- * ISO 날짜 문자열(YYYY-MM-DD)을 YYYYMMDD 형식으로 변환 (타임존 안전)
+ * ISO 날짜 문자열(YYYY-MM-DD)을 YYYYMMDD 형식으로 변환 (타임존 안전, 문자열 split 방식)
  * "2026-01-02" -> "20260102"
+ * 
+ * 중요: Date 객체를 사용하지 않고 순수 문자열 split으로 처리하여
+ * 타임존 변환으로 인한 하루 밀림 문제를 방지합니다.
  */
-function isoToYyyymmdd(iso: string): string {
+function yyyymmddFromISO(iso: string): string {
   // iso must be 'YYYY-MM-DD'
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) {
+  const parts = iso.split('-');
+  if (parts.length !== 3) {
     throw new Error(`Invalid ISO date format: ${iso}. Expected YYYY-MM-DD.`);
   }
-  return `${m[1]}${m[2]}${m[3]}`;
+  const [y, m, d] = parts;
+  if (!y || !m || !d || y.length !== 4 || m.length !== 2 || d.length !== 2) {
+    throw new Error(`Invalid ISO date format: ${iso}. Expected YYYY-MM-DD.`);
+  }
+  return `${y}${m}${d}`;
+}
+
+/**
+ * @deprecated Use yyyymmddFromISO instead
+ */
+function isoToYyyymmdd(iso: string): string {
+  return yyyymmddFromISO(iso);
 }
 
 /**
@@ -1210,8 +1224,8 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
         throw new Error(`Archive H.4.1 page detected (date: ${targetDate}) – parsing skipped. Only recent data (2023-01-01 or later) is supported.`);
       }
       
-      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전)
-      const ymd = isoToYyyymmdd(targetDate);
+      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전, split 방식)
+      const ymd = yyyymmddFromISO(targetDate);
       
       // H.4.1 아카이브 URL 형식 시도:
       // 1. https://www.federalreserve.gov/releases/h41/YYYYMMDD/ (디렉토리)
@@ -1246,8 +1260,8 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
     if (targetDate && url !== SOURCE_URL) {
       console.error(`[H.4.1] Failed to fetch archive for ${targetDate} (${url}), status: ${res.status}`);
       
-      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전)
-      const ymd = isoToYyyymmdd(targetDate);
+      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전, split 방식)
+      const ymd = yyyymmddFromISO(targetDate);
       const triedUrls = [
         `${ARCHIVE_BASE_URL}${ymd}/`,
         `${ARCHIVE_BASE_URL}${ymd}/default.htm`,
