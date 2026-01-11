@@ -353,17 +353,51 @@ app.get("/api/h41/history", async (req, res) => {
     
     historicalData.sort((a, b) => b.date.localeCompare(a.date));
     
+    // 에러가 있는 항목과 성공한 항목 분리
+    const rows = historicalData.filter(d => !d.error);
+    const errors = historicalData.filter(d => d.error).map(d => d.error || 'Unknown error');
+    const fetchedCount = rows.length;
+    const totalAttempts = historicalData.length;
+    
+    // 고정 스키마: 항상 동일한 형태로 반환 (undefined 금지)
+    const response = {
+      ok: true,
+      releaseDates: Array.isArray(releaseDates) ? releaseDates : [],
+      attemptedDates: Array.isArray(datesToFetch) ? datesToFetch : [],
+      fetchedCount: Number.isFinite(fetchedCount) ? fetchedCount : 0,
+      rows: Array.isArray(rows) ? rows : [],
+      errors: Array.isArray(errors) ? errors : [],
+      meta: {
+        source: 'feed',
+        offset: Number.isFinite(offset) ? offset : 0,
+        limit: Number.isFinite(limit) ? limit : 10,
+        hasMore: offset + limit < releaseDates.length,
+        totalAttempts: Number.isFinite(totalAttempts) ? totalAttempts : 0
+      }
+    };
+    
     // H.4.1 히스토리는 주간 업데이트이므로 10분 캐시
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
-    res.json({
-      releaseDatesCount: releaseDates.length,
-      offset: offset,
-      limit: limit,
-      hasMore: offset + limit < releaseDates.length,
-      history: historicalData.filter(d => !d.error)
-    });
+    res.json(response);
   } catch (e: any) {
-    res.status(500).json({ error: e?.message ?? String(e) });
+    // 에러 상황에서도 고정 스키마로 반환 (undefined 금지)
+    const errorMessage = e?.message ?? String(e);
+    const errorResponse = {
+      ok: false,
+      releaseDates: [] as string[],
+      attemptedDates: [] as string[],
+      fetchedCount: 0,
+      rows: [] as any[],
+      errors: [errorMessage],
+      meta: {
+        source: 'error',
+        offset: parseInt(req.query.offset as string) || 0,
+        limit: parseInt(req.query.limit as string) || 10,
+        hasMore: false,
+        totalAttempts: 0
+      }
+    };
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -2605,25 +2639,65 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               <div id="api-test-result" style="margin-top: 12px; padding: 12px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; display: none; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
             </div>
             <script>
+              // 안전한 join 유틸 함수
+              function safeJoin(value, separator) {
+                separator = separator || ', ';
+                return Array.isArray(value) ? value.join(separator) : '';
+              }
+              
+              // 응답 정규화 함수
+              function normalizeResponse(data) {
+                return {
+                  ok: !!data?.ok,
+                  releaseDates: Array.isArray(data?.releaseDates) ? data.releaseDates : [],
+                  attemptedDates: Array.isArray(data?.attemptedDates) ? data.attemptedDates : [],
+                  rows: Array.isArray(data?.rows) ? data.rows : [],
+                  fetchedCount: Number.isFinite(data?.fetchedCount) ? data.fetchedCount : (Array.isArray(data?.rows) ? data.rows.length : 0),
+                  errors: Array.isArray(data?.errors) ? data.errors.map(String) : (data?.error ? [String(data.error)] : []),
+                  meta: typeof data?.meta === 'object' && data?.meta ? data.meta : { source: 'unknown', totalAttempts: 0 }
+                };
+              }
+              
               async function testHistoryAPI() {
                 const resultDiv = document.getElementById('api-test-result');
+                if (!resultDiv) return;
+                
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = '데이터를 가져오는 중...';
                 
                 try {
                   const response = await fetch('/api/h41/history');
-                  const data = await response.json();
+                  const rawData = await response.json();
                   
-                  let html = '<div style="font-weight: 600; margin-bottom: 8px;">✅ API 응답 결과:</div>';
-                  html += '<div style="margin-bottom: 8px;"><strong>발표 날짜 개수:</strong> ' + data.releaseDatesCount + '</div>';
-                  html += '<div style="margin-bottom: 8px;"><strong>시도한 날짜:</strong> ' + data.datesToFetch.join(', ') + '</div>';
-                  html += '<div style="margin-bottom: 8px;"><strong>성공한 데이터:</strong> ' + data.fetchedCount + ' / ' + data.totalAttempts + '</div>';
+                  // 응답 정규화 (항상 안전한 형태로)
+                  const data = normalizeResponse(rawData);
+                  
+                  let html = '';
+                  if (data.ok) {
+                    html += '<div style="font-weight: 600; margin-bottom: 8px; color: #059669;">✅ API 응답 결과:</div>';
+                  } else {
+                    html += '<div style="font-weight: 600; margin-bottom: 8px; color: #dc2626;">⚠️ API 응답 (에러 포함):</div>';
+                  }
+                  
+                  html += '<div style="margin-bottom: 8px;"><strong>발표 날짜 개수:</strong> ' + (data.releaseDates?.length ?? 0) + '</div>';
+                  html += '<div style="margin-bottom: 8px;"><strong>시도한 날짜:</strong> ' + (safeJoin(data.attemptedDates, ', ') || '없음') + '</div>';
+                  html += '<div style="margin-bottom: 8px;"><strong>성공한 데이터:</strong> ' + data.fetchedCount + ' / ' + (data.meta?.totalAttempts ?? 0) + '</div>';
+                  
+                  // 에러 표시 (안전하게)
+                  if (data.errors && data.errors.length > 0) {
+                    const firstError = String(data.errors[0] || '알 수 없는 에러');
+                    html += '<div style="margin-bottom: 8px; padding: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #991b1b;"><strong>에러:</strong> ' + firstError + (data.errors.length > 1 ? ' (외 ' + (data.errors.length - 1) + '개)' : '') + '</div>';
+                  } else {
+                    html += '<div style="margin-bottom: 8px; color: #059669;">에러 없음</div>';
+                  }
+                  
                   html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db;"><strong>상세 데이터:</strong></div>';
-                  html += '<pre style="background: #f9fafb; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + JSON.stringify(data.data, null, 2) + '</pre>';
+                  html += '<pre style="background: #f9fafb; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + JSON.stringify(data.rows, null, 2) + '</pre>';
                   
                   resultDiv.innerHTML = html;
                 } catch (error) {
-                  resultDiv.innerHTML = '<div style="color: #dc2626;">❌ 에러 발생: ' + error.message + '</div>';
+                  const errorMessage = error?.message || String(error) || '알 수 없는 에러';
+                  resultDiv.innerHTML = '<div style="color: #dc2626; padding: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px;">❌ 에러 발생: ' + errorMessage + '</div>';
                 }
               }
             </script>
