@@ -3,8 +3,9 @@ import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDat
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
 import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation, fetchWRESBALChartData, fetchFRED } from "../src/secret-indicators.js";
-import { fetchH41CalendarDates, isoToYmd, ymdToIso } from "../src/h41-calendar.js";
+import { fetchH41CalendarDates, isoToYmd, ymdToIso, yyyymmddFromISO } from "../src/h41-calendar.js";
 import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
+import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
 
 const app = express();
 
@@ -403,35 +404,49 @@ app.get("/api/h41/history", async (req, res) => {
   }
 });
 
-// API: H.4.1 releases (캘린더 기반, 페이징 지원)
+// API: H.4.1 releases (역탐색 기반, 페이징 지원)
 app.get("/api/h41/releases", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 5;
-    const cursor = req.query.cursor as string | undefined; // YYYYMMDD 형식
+    const cursor = req.query.cursor as string | undefined; // ISO 형식 (YYYY-MM-DD) 또는 YYYYMMDD 형식
+    const debug = req.query.debug === '1' || req.query.debug === 'true';
 
-    // 캘린더에서 모든 발표 날짜 가져오기 (YYYYMMDD 형식)
-    const allCalendarDates = await fetchH41CalendarDates();
+    // 역탐색을 통해 실제 존재하는 릴리즈 날짜 수집
+    const discoveryResult = await discoverReleaseDates({
+      limit: limit + 1, // delta 계산을 위해 limit+1개 가져오기
+      startDateISO: cursor ? (cursor.includes('-') ? cursor : ymdToIso(cursor)) : undefined,
+      maxLookbackDays: 120,
+    });
 
-    let datesToFetch: string[];
-    let startIndex = 0;
+    const datesISO = discoveryResult.datesISO;
 
-    if (cursor) {
-      // cursor는 YYYYMMDD 형식이므로 직접 비교
-      startIndex = allCalendarDates.findIndex(d => d === cursor);
-      if (startIndex !== -1) {
-        // cursor 다음 날짜부터 시작
-        startIndex += 1;
-      } else {
-        // cursor를 찾지 못하면 최신부터 시작
-        startIndex = 0;
-      }
+    console.log(`[API /h41/releases] Discovered ${datesISO.length} dates (limit: ${limit}, cursor: ${cursor || 'none'})`);
+    console.log(`[API /h41/releases] Top 15 dates:`, datesISO.slice(0, 15));
+    
+    // 최소 검증: 상위 15개 중에 2026-01-02, 2025-12-29 포함 여부 확인
+    const criticalDates = ['2026-01-02', '2025-12-29'];
+    const foundCriticalDates = criticalDates.filter(d => datesISO.includes(d));
+    console.log(`[API /h41/releases] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !datesISO.includes(d)).join(', ')}]`);
+
+    if (datesISO.length === 0) {
+      console.error(`[API /h41/releases] No dates discovered from reverse probe`);
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.json({
+        ok: false,
+        dates: [],
+        rows: [],
+        nextCursor: null,
+        errors: ['No dates discovered from reverse probe'],
+        meta: { source: 'reverse-probe-error', ...(discoveryResult.debug || {}) }
+      });
+      return;
     }
 
-    // limit+1개를 가져와서 delta 계산에 사용 (마지막 행의 delta를 계산하기 위해)
-    datesToFetch = allCalendarDates.slice(startIndex, startIndex + limit + 1);
+    // ISO 형식을 YYYYMMDD 형식으로 변환하여 fetchH41ArchivesBatch에 전달
+    const datesToFetch = datesISO.slice(0, limit + 1).map(iso => yyyymmddFromISO(iso));
 
-    console.log(`[API /h41/releases] Fetching ${datesToFetch.length} dates (startIndex: ${startIndex}, limit: ${limit})`);
-    console.log(`[API /h41/releases] Dates to fetch:`, datesToFetch.slice(0, 10));
+    console.log(`[API /h41/releases] Fetching ${datesToFetch.length} dates for archive parsing`);
+    console.log(`[API /h41/releases] Dates to fetch (YYYYMMDD):`, datesToFetch.slice(0, 10));
 
     // 병렬로 아카이브 데이터 fetch & parse
     const fetchedRows = await fetchH41ArchivesBatch(datesToFetch, 4);
@@ -441,8 +456,16 @@ app.get("/api/h41/releases", async (req, res) => {
     // 빈 결과 처리: 최소한 1개는 성공해야 함
     if (fetchedRows.length === 0) {
       console.error(`[API /h41/releases] No rows fetched successfully. All ${datesToFetch.length} dates failed.`);
-      // 부분 실패는 허용하되, 최소한 1개는 있어야 함
-      // 여기서는 에러를 반환하지 않고 빈 배열을 반환 (클라이언트에서 처리)
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.json({
+        ok: false,
+        dates: [],
+        rows: [],
+        nextCursor: null,
+        errors: [`Failed to fetch archive data for all ${datesToFetch.length} dates`],
+        meta: { source: 'reverse-probe-error', totalAttempts: datesToFetch.length, ...(discoveryResult.debug || {}) }
+      });
+      return;
     }
 
     // Delta 계산 (빈 배열이어도 안전)
@@ -452,18 +475,20 @@ app.get("/api/h41/releases", async (req, res) => {
 
     // limit개만 반환 (마지막 것은 delta 계산용으로만 사용)
     const responseRows = fetchedRows.slice(0, limit);
-    const nextCursorYmd = responseRows.length === limit && startIndex + limit < allCalendarDates.length
-      ? allCalendarDates[startIndex + limit - 1] // 마지막으로 표시된 날짜
-      : null;
+    const nextCursorISO = discoveryResult.nextCursorISO;
 
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     res.json({
       ok: true,
       dates: responseRows.map(r => r.date),
       rows: responseRows,
-      nextCursor: nextCursorYmd,
+      nextCursor: nextCursorISO || null, // ISO 형식으로 반환
       errors: [],
-      meta: { source: 'calendar-api', totalAttempts: datesToFetch.length }
+      meta: { 
+        source: 'reverse-probe', 
+        totalAttempts: datesToFetch.length,
+        ...(debug && discoveryResult.debug ? discoveryResult.debug : {})
+      }
     });
 
   } catch (e: any) {
@@ -474,7 +499,7 @@ app.get("/api/h41/releases", async (req, res) => {
       rows: [],
       nextCursor: null,
       errors: [e?.message ?? String(e)],
-      meta: { source: 'calendar-api-error' }
+      meta: { source: 'reverse-probe-error' }
     });
   }
 });
