@@ -3,6 +3,8 @@ import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDat
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
 import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation, fetchWRESBALChartData, fetchFRED } from "../src/secret-indicators.js";
+import { fetchH41CalendarDates, isoToYmd, ymdToIso } from "../src/h41-calendar.js";
+import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
 
 const app = express();
 
@@ -2515,10 +2517,9 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       <div class="analysis-content">${escapeHtml(analysis)}</div>
     </div>
     
-    <!-- 최근 자산.부채 추이 테이블 -->
+    <!-- 최근 자산.부채 추이 테이블 (새 API 기반) -->
     <div class="history-table-section">
       <div class="history-table-title">최근 자산.부채 추이 📈</div>
-      ${historicalData.length > 0 ? `
       <div class="history-table-wrapper">
         <table class="history-table" id="historyTable">
           <thead>
@@ -2537,176 +2538,15 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             </tr>
           </thead>
           <tbody id="historyTableBody">
-            ${historicalData.slice(0, 7).map((item, visibleIndex) => {
-              // fullRows 기준으로 index 찾기 (delta 계산용)
-              const fullIndex = visibleIndex;
-              const dateObj = new Date(item.date);
-              const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              
-              // 이전 날짜 데이터 (fullRows 기준, 다음 인덱스, 더 오래된 날짜)
-              const prevItem = fullIndex < historicalData.length - 1 ? historicalData[fullIndex + 1] : null;
-              
-              // 자산 합계 계산
-              const totalAssets = item.assets.treasury + item.assets.mbs + item.assets.repo + item.assets.loans;
-              const prevTotalAssets = prevItem ? (prevItem.assets.treasury + prevItem.assets.mbs + prevItem.assets.repo + prevItem.assets.loans) : null;
-              
-              // 부채 합계 계산
-              const totalLiabilities = item.liabilities.currency + item.liabilities.rrp + item.liabilities.tga + item.liabilities.reserves;
-              const prevTotalLiabilities = prevItem ? (prevItem.liabilities.currency + prevItem.liabilities.rrp + prevItem.liabilities.tga + prevItem.liabilities.reserves) : null;
-              
-              // 증감 계산 함수 (퍼센테이지 제거, 숫자만 표시)
-              const getChangeDisplay = (current: number, previous: number | null) => {
-                if (previous === null) return '';
-                // previous가 0이어도 change 계산 가능 (0에서 변화한 것으로 처리)
-                const change = current - previous;
-                const sign = change >= 0 ? '+' : '';
-                return `<div style="font-size:11px;color:${change >= 0 ? '#059669' : '#dc2626'};margin-top:2px">${sign}${(change / 1000).toFixed(1)}</div>`;
-              };
-              
-              return `
-            <tr class="history-row">
-              <td class="sticky-col">${formattedDate}</td>
-              <td class="asset-cell" data-value="${totalAssets}">
-                $${(totalAssets / 1000).toFixed(1)}
-                ${getChangeDisplay(totalAssets, prevTotalAssets)}
-              </td>
-              <td class="asset-cell" data-value="${item.assets.treasury}">
-                $${(item.assets.treasury / 1000).toFixed(1)}
-                ${getChangeDisplay(item.assets.treasury, prevItem?.assets.treasury || null)}
-              </td>
-              <td class="asset-cell" data-value="${item.assets.mbs}">
-                $${(item.assets.mbs / 1000).toFixed(1)}
-                ${getChangeDisplay(item.assets.mbs, prevItem?.assets.mbs || null)}
-              </td>
-              <td class="asset-cell" data-value="${item.assets.repo}">
-                $${(item.assets.repo / 1000).toFixed(1)}
-                ${getChangeDisplay(item.assets.repo, prevItem?.assets.repo || null)}
-              </td>
-              <td class="asset-cell" data-value="${item.assets.loans}">
-                $${(item.assets.loans / 1000).toFixed(1)}
-                ${getChangeDisplay(item.assets.loans, prevItem?.assets.loans || null)}
-              </td>
-              <td class="liability-cell" data-value="${totalLiabilities}">
-                $${(totalLiabilities / 1000).toFixed(1)}
-                ${getChangeDisplay(totalLiabilities, prevTotalLiabilities)}
-              </td>
-              <td class="liability-cell" data-value="${item.liabilities.currency}">
-                $${(item.liabilities.currency / 1000).toFixed(1)}
-                ${getChangeDisplay(item.liabilities.currency, prevItem?.liabilities.currency || null)}
-              </td>
-              <td class="liability-cell" data-value="${item.liabilities.rrp}">
-                $${(item.liabilities.rrp / 1000).toFixed(1)}
-                ${getChangeDisplay(item.liabilities.rrp, prevItem?.liabilities.rrp || null)}
-              </td>
-              <td class="liability-cell" data-value="${item.liabilities.tga}">
-                $${(item.liabilities.tga / 1000).toFixed(1)}
-                ${getChangeDisplay(item.liabilities.tga, prevItem?.liabilities.tga || null)}
-              </td>
-              <td class="liability-cell" data-value="${item.liabilities.reserves}">
-                $${(item.liabilities.reserves / 1000).toFixed(1)}
-                ${getChangeDisplay(item.liabilities.reserves, prevItem?.liabilities.reserves || null)}
-              </td>
-            </tr>
-              `;
-            }).join('')}
+            <!-- 초기 로딩 중... (클라이언트 사이드에서 새 API로 로드) -->
           </tbody>
         </table>
       </div>
       <div style="text-align:center;margin-top:20px">
-        <button id="loadMoreBtn" onclick="handleTrendMore()" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        <button id="loadMoreBtn" onclick="handleTrendMore()" style="padding:12px 24px;background:#3b82f6;color:#ffffff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;display:none">
           더보기
         </button>
       </div>
-      ` : `
-      <div style="padding: 40px; text-align: center; color: #6b7280; font-size: 14px;">
-        데이터를 불러오는 중입니다...<br/>
-        <small style="color: #9ca3af; margin-top: 8px; display: block;">최신 FED H.4.1 데이터를 가져오는 중입니다.</small>
-        <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
-          <div style="font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">🔍 디버깅 정보 (개발자 도구에서 확인):</div>
-          <div style="font-size: 12px; color: #4b5563; line-height: 1.6;">
-            <div>• 발표 날짜 개수: ${releaseDates.length}</div>
-            <div>• 가져온 데이터 개수: ${historicalData.length}</div>
-            <div>• 시도한 날짜: ${datesToFetch ? datesToFetch.slice(0, 5).join(', ') : 'N/A'}${datesToFetch && datesToFetch.length > 5 ? '...' : ''}</div>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db;">
-              <strong>🔧 브라우저 개발자 도구로 확인하는 방법:</strong><br/>
-              <ol style="margin: 8px 0; padding-left: 20px; font-size: 12px;">
-                <li>F12 키를 눌러 개발자 도구 열기</li>
-                <li><strong>Network 탭</strong>에서 페이지 새로고침 (Ctrl+R 또는 F5)</li>
-                <li><strong>Console 탭</strong>에서 에러 메시지 확인</li>
-                <li>아래 버튼을 클릭하여 API 직접 테스트:</li>
-              </ol>
-              <button onclick="testHistoryAPI()" style="margin-top: 8px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                📊 최근 10회분 데이터 API 테스트
-              </button>
-              <div id="api-test-result" style="margin-top: 12px; padding: 12px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; display: none; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
-            </div>
-            <script>
-              // 안전한 join 유틸 함수
-              function safeJoin(value, separator) {
-                separator = separator || ', ';
-                return Array.isArray(value) ? value.join(separator) : '';
-              }
-              
-              // 응답 정규화 함수
-              function normalizeResponse(data) {
-                return {
-                  ok: !!data?.ok,
-                  releaseDates: Array.isArray(data?.releaseDates) ? data.releaseDates : [],
-                  attemptedDates: Array.isArray(data?.attemptedDates) ? data.attemptedDates : [],
-                  rows: Array.isArray(data?.rows) ? data.rows : [],
-                  fetchedCount: Number.isFinite(data?.fetchedCount) ? data.fetchedCount : (Array.isArray(data?.rows) ? data.rows.length : 0),
-                  errors: Array.isArray(data?.errors) ? data.errors.map(String) : (data?.error ? [String(data.error)] : []),
-                  meta: typeof data?.meta === 'object' && data?.meta ? data.meta : { source: 'unknown', totalAttempts: 0 }
-                };
-              }
-              
-              async function testHistoryAPI() {
-                const resultDiv = document.getElementById('api-test-result');
-                if (!resultDiv) return;
-                
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = '데이터를 가져오는 중...';
-                
-                try {
-                  const response = await fetch('/api/h41/history');
-                  const rawData = await response.json();
-                  
-                  // 응답 정규화 (항상 안전한 형태로)
-                  const data = normalizeResponse(rawData);
-                  
-                  let html = '';
-                  if (data.ok) {
-                    html += '<div style="font-weight: 600; margin-bottom: 8px; color: #059669;">✅ API 응답 결과:</div>';
-                  } else {
-                    html += '<div style="font-weight: 600; margin-bottom: 8px; color: #dc2626;">⚠️ API 응답 (에러 포함):</div>';
-                  }
-                  
-                  html += '<div style="margin-bottom: 8px;"><strong>발표 날짜 개수:</strong> ' + (data.releaseDates?.length ?? 0) + '</div>';
-                  html += '<div style="margin-bottom: 8px;"><strong>시도한 날짜:</strong> ' + (safeJoin(data.attemptedDates, ', ') || '없음') + '</div>';
-                  html += '<div style="margin-bottom: 8px;"><strong>성공한 데이터:</strong> ' + data.fetchedCount + ' / ' + (data.meta?.totalAttempts ?? 0) + '</div>';
-                  
-                  // 에러 표시 (안전하게)
-                  if (data.errors && data.errors.length > 0) {
-                    const firstError = String(data.errors[0] || '알 수 없는 에러');
-                    html += '<div style="margin-bottom: 8px; padding: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #991b1b;"><strong>에러:</strong> ' + firstError + (data.errors.length > 1 ? ' (외 ' + (data.errors.length - 1) + '개)' : '') + '</div>';
-                  } else {
-                    html += '<div style="margin-bottom: 8px; color: #059669;">에러 없음</div>';
-                  }
-                  
-                  html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db;"><strong>상세 데이터:</strong></div>';
-                  html += '<pre style="background: #f9fafb; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + JSON.stringify(data.rows, null, 2) + '</pre>';
-                  
-                  resultDiv.innerHTML = html;
-                } catch (error) {
-                  const errorMessage = error?.message || String(error) || '알 수 없는 에러';
-                  resultDiv.innerHTML = '<div style="color: #dc2626; padding: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px;">❌ 에러 발생: ' + errorMessage + '</div>';
-                }
-              }
-            </script>
-          </div>
-        </div>
-      </div>
-      `}
     </div>
   </div>
   
@@ -2717,20 +2557,26 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         return;
       }
       
-      console.log('BIND_INIT_OK');
+      console.log('[Assets/Liabilities] Initializing new calendar-based API...');
       
-      // fullRows: 전체 데이터 (delta 계산용)
-      const fullRows = ${JSON.stringify(historicalData)};
-      let visibleCount = 7; // 초기 표시 개수
+      // 새 API 기반 상태 관리
+      let allRows: Array<{
+        date: string;
+        assetTotal: { value: number; delta: number | null };
+        treasury: { value: number; delta: number | null };
+        mbs: { value: number; delta: number | null };
+        repo: { value: number; delta: number | null };
+        loans: { value: number; delta: number | null };
+        liabilityTotal: { value: number; delta: number | null };
+        currency: { value: number; delta: number | null };
+        rrp: { value: number; delta: number | null };
+        tga: { value: number; delta: number | null };
+        reserves: { value: number; delta: number | null };
+      }> = [];
+      let nextCursor: string | null = null;
       let isLoadingMore = false;
-      
-      // 디버깅 출력
-      console.log('[Assets/Liabilities] fullRows.length:', fullRows.length);
-      console.log('[Assets/Liabilities] visibleCount:', visibleCount);
-      console.log('[Assets/Liabilities] fullRows[0].date ~ fullRows[10].date:', fullRows.slice(0, 11).map(item => item.date));
-      
-      // 상위 10개 ISO 날짜 출력 (검증용)
-      console.log('[Assets/Liabilities] Top 10 ISO dates in fullRows:', fullRows.slice(0, 10).map(item => item.date));
+      const tbody = document.getElementById('historyTableBody');
+      const loadMoreBtn = document.getElementById('loadMoreBtn');
       
       // Canonicalize 함수 (클라이언트 사이드) - 서버와 동일한 로직
       function canonicalizeItemKey(label) {
@@ -2775,113 +2621,115 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         return '<div style="font-size:11px;color:' + (change >= 0 ? '#059669' : '#dc2626') + ';margin-top:2px">' + sign + (change / 1000).toFixed(1) + '</div>';
       }
       
-      // 더보기 히스토리 로드 함수
-      async function loadMoreHistory() {
-        if (isLoadingMore) return;
+      // 테이블 렌더링 함수
+      function renderTableRows() {
+        if (!tbody) return;
+        tbody.innerHTML = ''; // 기존 내용 지우기
         
-        const btn = document.getElementById('loadMoreBtn');
-        const tbody = document.getElementById('historyTableBody');
-        if (!tbody || !btn) {
-          console.warn('TRENDS_TARGET_MISSING: btn or tbody not found');
-          return;
+        allRows.forEach(function(item, index) {
+          const formattedDate = new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          const prevItem = allRows[index + 1] || null; // 다음 항목이 이전 항목이 됨
+          
+          const row = document.createElement('tr');
+          row.className = 'history-row';
+          row.innerHTML = 
+            '<td class="sticky-col">' + formattedDate + '</td>' +
+            '<td class="asset-cell" data-value="' + item.assetTotal.value + '">' +
+              '$' + (item.assetTotal.value / 1000).toFixed(1) +
+              getChangeDisplay(item.assetTotal.value, prevItem?.assetTotal.value || null) +
+            '</td>' +
+            '<td class="asset-cell" data-value="' + item.treasury.value + '">' +
+              '$' + (item.treasury.value / 1000).toFixed(1) +
+              getChangeDisplay(item.treasury.value, prevItem?.treasury.value || null) +
+            '</td>' +
+            '<td class="asset-cell" data-value="' + item.mbs.value + '">' +
+              '$' + (item.mbs.value / 1000).toFixed(1) +
+              getChangeDisplay(item.mbs.value, prevItem?.mbs.value || null) +
+            '</td>' +
+            '<td class="asset-cell" data-value="' + item.repo.value + '">' +
+              '$' + (item.repo.value / 1000).toFixed(1) +
+              getChangeDisplay(item.repo.value, prevItem?.repo.value || null) +
+            '</td>' +
+            '<td class="asset-cell" data-value="' + item.loans.value + '">' +
+              '$' + (item.loans.value / 1000).toFixed(1) +
+              getChangeDisplay(item.loans.value, prevItem?.loans.value || null) +
+            '</td>' +
+            '<td class="liability-cell" data-value="' + item.liabilityTotal.value + '">' +
+              '$' + (item.liabilityTotal.value / 1000).toFixed(1) +
+              getChangeDisplay(item.liabilityTotal.value, prevItem?.liabilityTotal.value || null) +
+            '</td>' +
+            '<td class="liability-cell" data-value="' + item.currency.value + '">' +
+              '$' + (item.currency.value / 1000).toFixed(1) +
+              getChangeDisplay(item.currency.value, prevItem?.currency.value || null) +
+            '</td>' +
+            '<td class="liability-cell" data-value="' + item.rrp.value + '">' +
+              '$' + (item.rrp.value / 1000).toFixed(1) +
+              getChangeDisplay(item.rrp.value, prevItem?.rrp.value || null) +
+            '</td>' +
+            '<td class="liability-cell" data-value="' + item.tga.value + '">' +
+              '$' + (item.tga.value / 1000).toFixed(1) +
+              getChangeDisplay(item.tga.value, prevItem?.tga.value || null) +
+            '</td>' +
+            '<td class="liability-cell" data-value="' + item.reserves.value + '">' +
+              '$' + (item.reserves.value / 1000).toFixed(1) +
+              getChangeDisplay(item.reserves.value, prevItem?.reserves.value || null) +
+            '</td>';
+          
+          tbody.appendChild(row);
+        });
+      }
+      
+      // API에서 데이터 가져오기 및 렌더링
+      async function fetchAndRenderHistory(limit, cursor) {
+        if (isLoadingMore) return;
+        isLoadingMore = true;
+        if (loadMoreBtn) {
+          loadMoreBtn.disabled = true;
+          loadMoreBtn.textContent = '로딩 중...';
         }
         
-        isLoadingMore = true;
-        btn.disabled = true;
-        btn.textContent = '로딩 중...';
-        
         try {
-          // fullRows에서 다음 배치 가져오기 (이미 모든 데이터가 있으므로 API 호출 불필요)
-          const nextBatchSize = 7;
-          const nextBatch = fullRows.slice(visibleCount, visibleCount + nextBatchSize);
+          const url = '/api/h41/releases?limit=' + limit + (cursor ? '&cursor=' + cursor : '');
+          const response = await fetch(url);
+          const data = await response.json();
           
-          if (nextBatch.length === 0) {
-            btn.style.display = 'none';
+          if (!data.ok) {
+            console.error('Failed to fetch history:', data.errors);
+            if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
             return;
           }
           
-          // 새 데이터를 테이블에 추가
-          nextBatch.forEach(function(item, batchIndex) {
-            const dateObj = new Date(item.date);
-            const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            
-            // fullRows 기준으로 index 찾기 (delta 계산용)
-            const fullIndex = visibleCount + batchIndex;
-            // 이전 날짜 데이터 (fullRows 기준, 다음 인덱스, 더 오래된 날짜)
-            const prevItem = fullIndex < fullRows.length - 1 ? fullRows[fullIndex + 1] : null;
-              
-              // 자산 합계 계산
-              const totalAssets = item.assets.treasury + item.assets.mbs + item.assets.repo + item.assets.loans;
-              const prevTotalAssets = prevItem ? (prevItem.assets.treasury + prevItem.assets.mbs + prevItem.assets.repo + prevItem.assets.loans) : null;
-              
-              // 부채 합계 계산
-              const totalLiabilities = item.liabilities.currency + item.liabilities.rrp + item.liabilities.tga + item.liabilities.reserves;
-              const prevTotalLiabilities = prevItem ? (prevItem.liabilities.currency + prevItem.liabilities.rrp + prevItem.liabilities.tga + prevItem.liabilities.reserves) : null;
-              
-              const row = document.createElement('tr');
-              row.className = 'history-row';
-              row.innerHTML = 
-                '<td class="sticky-col">' + formattedDate + '</td>' +
-                '<td class="asset-cell" data-value="' + totalAssets + '">' +
-                  '$' + (totalAssets / 1000).toFixed(1) +
-                  getChangeDisplay(totalAssets, prevTotalAssets) +
-                '</td>' +
-                '<td class="asset-cell" data-value="' + item.assets.treasury + '">' +
-                  '$' + (item.assets.treasury / 1000).toFixed(1) +
-                  getChangeDisplay(item.assets.treasury, prevItem?.assets.treasury || null) +
-                '</td>' +
-                '<td class="asset-cell" data-value="' + item.assets.mbs + '">' +
-                  '$' + (item.assets.mbs / 1000).toFixed(1) +
-                  getChangeDisplay(item.assets.mbs, prevItem?.assets.mbs || null) +
-                '</td>' +
-                '<td class="asset-cell" data-value="' + item.assets.repo + '">' +
-                  '$' + (item.assets.repo / 1000).toFixed(1) +
-                  getChangeDisplay(item.assets.repo, prevItem?.assets.repo || null) +
-                '</td>' +
-                '<td class="asset-cell" data-value="' + item.assets.loans + '">' +
-                  '$' + (item.assets.loans / 1000).toFixed(1) +
-                  getChangeDisplay(item.assets.loans, prevItem?.assets.loans || null) +
-                '</td>' +
-                '<td class="liability-cell" data-value="' + totalLiabilities + '">' +
-                  '$' + (totalLiabilities / 1000).toFixed(1) +
-                  getChangeDisplay(totalLiabilities, prevTotalLiabilities) +
-                '</td>' +
-                '<td class="liability-cell" data-value="' + item.liabilities.currency + '">' +
-                  '$' + (item.liabilities.currency / 1000).toFixed(1) +
-                  getChangeDisplay(item.liabilities.currency, prevItem?.liabilities.currency || null) +
-                '</td>' +
-                '<td class="liability-cell" data-value="' + item.liabilities.rrp + '">' +
-                  '$' + (item.liabilities.rrp / 1000).toFixed(1) +
-                  getChangeDisplay(item.liabilities.rrp, prevItem?.liabilities.rrp || null) +
-                '</td>' +
-                '<td class="liability-cell" data-value="' + item.liabilities.tga + '">' +
-                  '$' + (item.liabilities.tga / 1000).toFixed(1) +
-                  getChangeDisplay(item.liabilities.tga, prevItem?.liabilities.tga || null) +
-                '</td>' +
-                '<td class="liability-cell" data-value="' + item.liabilities.reserves + '">' +
-                  '$' + (item.liabilities.reserves / 1000).toFixed(1) +
-                  getChangeDisplay(item.liabilities.reserves, prevItem?.liabilities.reserves || null) +
-                '</td>';
-              
-              tbody.appendChild(row);
-            });
-            
-            visibleCount += nextBatch.length;
-            
-            // 더 가져올 데이터가 있는지 확인
-            if (visibleCount >= fullRows.length) {
-              btn.style.display = 'none';
+          // 새 데이터를 기존 데이터에 추가
+          allRows = allRows.concat(data.rows);
+          nextCursor = data.nextCursor;
+          
+          // 테이블 렌더링
+          renderTableRows();
+          
+          if (loadMoreBtn) {
+            if (nextCursor) {
+              loadMoreBtn.style.display = 'block';
+              loadMoreBtn.disabled = false;
+              loadMoreBtn.textContent = '더보기';
             } else {
-              btn.disabled = false;
-              btn.textContent = '더보기';
+              loadMoreBtn.style.display = 'none';
             }
+          }
         } catch (e) {
-          console.error('Failed to load more history:', e);
-          btn.textContent = '로드 실패';
-          btn.disabled = false;
+          console.error('Failed to fetch history:', e);
+          if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
         } finally {
           isLoadingMore = false;
         }
+      }
+      
+      // 더보기 히스토리 로드 함수
+      async function loadMoreHistory() {
+        if (!nextCursor) {
+          if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+          return;
+        }
+        await fetchAndRenderHistory(5, nextCursor);
       }
       
       // 날짜 조회 핸들러 (직접 바인딩 - 전역 이벤트 위임 제거)
@@ -2913,13 +2761,11 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       // 더보기 핸들러 (직접 바인딩 - 전역 이벤트 위임 제거)
       window.handleTrendMore = function() {
         console.log('TREND_MORE_CLICK');
-        if (typeof loadMoreHistory === 'function') {
-          loadMoreHistory();
-        } else {
-          console.error('loadMoreHistory function not found');
-          alert('더보기 기능을 불러올 수 없습니다. 페이지를 새로고침해주세요.');
-        }
+        loadMoreHistory();
       };
+      
+      // 초기 로드
+      fetchAndRenderHistory(5, null);
       
       console.log('RELEASE_BIND_OK');
     })();
