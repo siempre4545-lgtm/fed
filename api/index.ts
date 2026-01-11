@@ -4123,6 +4123,26 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
     .section-content strong{color:#ffffff;font-weight:700}
     
     .interpretation-box{background:#252525;border-left:4px solid #8b5cf6;border-radius:8px;padding:20px;margin-top:16px}
+    .memo-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .memo-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .memo-form{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+    .memo-input{width:100%;min-height:80px;padding:12px;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;color:#ffffff;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color 0.2s}
+    .memo-input:focus{border-color:#4dabf7}
+    .memo-input::placeholder{color:#808080}
+    .memo-actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .memo-char-count{font-size:12px;color:#808080}
+    .memo-submit-btn{padding:10px 20px;background:#4dabf7;border:none;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s}
+    .memo-submit-btn:hover{background:#339af0}
+    .memo-submit-btn:disabled{background:#3d3d3d;color:#808080;cursor:not-allowed}
+    .memo-history{display:flex;flex-direction:column;gap:12px}
+    .memo-history-title{font-size:16px;font-weight:600;color:#ffffff;margin-bottom:8px}
+    .memo-history-empty{text-align:center;padding:24px;color:#808080;font-size:14px}
+    .memo-item{background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px}
+    .memo-item-header{display:flex;justify-content:space-between;align-items:center}
+    .memo-item-date{font-size:12px;color:#808080}
+    .memo-item-delete{background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background 0.2s}
+    .memo-item-delete:hover{background:rgba(239,68,68,0.1)}
+    .memo-item-text{font-size:14px;line-height:1.6;color:#c0c0c0;white-space:pre-wrap;word-break:break-word}
     
     /* 모바일 전용 차트 최적화 (≤640px) */
     @media (max-width: 640px) {
@@ -4233,6 +4253,24 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
         <span>📚 상세 설명</span>
       </div>
       <div class="section-content">${escapeHtml(interpretation.detailedExplanation)}</div>
+    </div>
+    
+    <div class="memo-section">
+      <div class="memo-title">
+        <span>📝</span>
+        <span>개인 메모</span>
+      </div>
+      <div class="memo-form">
+        <textarea id="memoInput" class="memo-input" placeholder="이 지표에 대한 개인 메모를 작성하세요 (50자 내외 권장)"></textarea>
+        <div class="memo-actions">
+          <span class="memo-char-count"><span id="memoCharCount">0</span>자</span>
+          <button id="memoSubmitBtn" class="memo-submit-btn">추가</button>
+        </div>
+      </div>
+      <div class="memo-history">
+        <div class="memo-history-title">메모 히스토리</div>
+        <div id="memoHistoryList"></div>
+      </div>
     </div>
     ` : `
     <div class="value-section">
@@ -4566,6 +4604,26 @@ app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
     .section-content{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:pre-line}
     .section-content strong{color:#ffffff;font-weight:700}
     .interpretation-box{background:#252525;border-left:4px solid #8b5cf6;border-radius:8px;padding:20px;margin-top:16px}
+    .memo-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .memo-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .memo-form{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+    .memo-input{width:100%;min-height:80px;padding:12px;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;color:#ffffff;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color 0.2s}
+    .memo-input:focus{border-color:#4dabf7}
+    .memo-input::placeholder{color:#808080}
+    .memo-actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .memo-char-count{font-size:12px;color:#808080}
+    .memo-submit-btn{padding:10px 20px;background:#4dabf7;border:none;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s}
+    .memo-submit-btn:hover{background:#339af0}
+    .memo-submit-btn:disabled{background:#3d3d3d;color:#808080;cursor:not-allowed}
+    .memo-history{display:flex;flex-direction:column;gap:12px}
+    .memo-history-title{font-size:16px;font-weight:600;color:#ffffff;margin-bottom:8px}
+    .memo-history-empty{text-align:center;padding:24px;color:#808080;font-size:14px}
+    .memo-item{background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px}
+    .memo-item-header{display:flex;justify-content:space-between;align-items:center}
+    .memo-item-date{font-size:12px;color:#808080}
+    .memo-item-delete{background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background 0.2s}
+    .memo-item-delete:hover{background:rgba(239,68,68,0.1)}
+    .memo-item-text{font-size:14px;line-height:1.6;color:#c0c0c0;white-space:pre-wrap;word-break:break-word}
     @media (max-width: 640px) {
       .chart-container{padding:16px;margin-bottom:16px}
       .chart-title{font-size:16px;margin-bottom:12px}
