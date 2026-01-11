@@ -79,6 +79,19 @@ function toOkEusd(musd: number): number {
 }
 
 /**
+ * ISO 날짜 문자열(YYYY-MM-DD)을 YYYYMMDD 형식으로 변환 (타임존 안전)
+ * "2026-01-02" -> "20260102"
+ */
+function isoToYyyymmdd(iso: string): string {
+  // iso must be 'YYYY-MM-DD'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) {
+    throw new Error(`Invalid ISO date format: ${iso}. Expected YYYY-MM-DD.`);
+  }
+  return `${m[1]}${m[2]}${m[3]}`;
+}
+
+/**
  * 날짜를 yyyy-mm-dd 형식으로 변환
  * "December 18, 2025" -> "2025-12-18"
  * "Dec 17, 2025" -> "2025-12-17"
@@ -1237,51 +1250,44 @@ export async function fetchH41Report(targetDate?: string, availableDates?: strin
   
   if (!res.ok) {
     // 아카이브 URL이 실패하면 대체 URL 형식 시도
-    if (targetDate && url !== SOURCE_URL && thursdayDate) {
+    if (targetDate && url !== SOURCE_URL) {
       console.error(`[H.4.1] Failed to fetch archive for ${targetDate} (${url}), status: ${res.status}`);
-      // 여러 URL 형식 시도
-      const date = new Date(thursdayDate);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
       
-      // 대체 URL 형식 시도: https://www.federalreserve.gov/releases/h41/YYYYMMDD/h41.txt
-      const altUrl1 = `${ARCHIVE_BASE_URL}${year}${month}${day}/h41.txt`;
-      console.log(`[H.4.1] Trying alternative URL format 1: ${altUrl1}`);
-      const altRes1 = await fetch(altUrl1, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
-        cache: "no-store" // 캐시 방지
-      });
+      // 문자열 기반으로 YYYYMMDD 생성 (타임존 안전)
+      const ymd = isoToYyyymmdd(targetDate);
+      const triedUrls = [
+        `${ARCHIVE_BASE_URL}${ymd}/`,
+        `${ARCHIVE_BASE_URL}${ymd}/default.htm`,
+        `${ARCHIVE_BASE_URL}${ymd}/h41.txt`,
+      ];
       
-      if (altRes1.ok) {
-        const html = await altRes1.text();
-        if (html.length > 500) {
-          const $ = cheerio.load(html);
-          const report = await parseH41Report($, altUrl1);
-          console.log(`[H.4.1] Successfully fetched using alternative URL format`);
-          return report;
+      // 첫 번째 URL(default.htm)은 이미 시도했으므로 나머지 시도
+      for (const altUrl of [triedUrls[0], triedUrls[2]]) {
+        if (altUrl === url) continue; // 이미 시도한 URL은 건너뛰기
+        
+        console.log(`[H.4.1] Trying alternative URL format: ${altUrl}`);
+        try {
+          const altRes = await fetch(altUrl, {
+            headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
+            cache: "no-store" // 캐시 방지
+          });
+          
+          if (altRes.ok) {
+            const html = await altRes.text();
+            if (html.length > 500) {
+              const $ = cheerio.load(html);
+              const report = await parseH41Report($, altUrl);
+              console.log(`[H.4.1] Successfully fetched using alternative URL format: ${altUrl}`);
+              return report;
+            }
+          }
+        } catch (e) {
+          // 다음 URL 시도
+          continue;
         }
       }
       
-      // 또 다른 대체 URL 형식: https://www.federalreserve.gov/releases/h41/YYYYMMDD/default.htm
-      const altUrl2 = `${ARCHIVE_BASE_URL}${year}${month}${day}/default.htm`;
-      console.log(`[H.4.1] Trying alternative URL format 2: ${altUrl2}`);
-      const altRes2 = await fetch(altUrl2, {
-        headers: { "user-agent": "h41-dashboard/1.0 (+cursor)" },
-        cache: "no-store" // 캐시 방지
-      });
-      
-      if (altRes2.ok) {
-        const html = await altRes2.text();
-        if (html.length > 500) {
-          const $ = cheerio.load(html);
-          const report = await parseH41Report($, altUrl2);
-          console.log(`[H.4.1] Successfully fetched using alternative URL format 2`);
-          return report;
-        }
-      }
-      
-      throw new Error(`Failed to fetch H.4.1 archive for date ${targetDate}. Tried URLs: ${url}, ${altUrl1}, ${altUrl2}`);
+      throw new Error(`Failed to fetch H.4.1 archive for date ${targetDate}. Tried URLs: ${triedUrls.join(', ')}`);
     }
     throw new Error(`Failed to fetch H.4.1: ${res.status} ${res.statusText}`);
   }
