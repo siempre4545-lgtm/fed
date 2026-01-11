@@ -2060,9 +2060,15 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           })
         );
         
-        batchResults.forEach(result => {
+        batchResults.forEach((result, batchIndex) => {
           if (result.status === 'fulfilled' && result.value) {
             historicalData.push(result.value);
+          } else if (result.status === 'rejected') {
+            const dateStr = batch[batchIndex];
+            console.error(`[Assets/Liabilities] Failed to fetch data for ${dateStr}:`, result.reason);
+          } else if (result.status === 'fulfilled' && !result.value) {
+            const dateStr = batch[batchIndex];
+            console.warn(`[Assets/Liabilities] No valid data returned for ${dateStr} (returned null)`);
           }
         });
       }
@@ -2470,7 +2476,8 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               
               // 증감 계산 함수 (퍼센테이지 제거, 숫자만 표시)
               const getChangeDisplay = (current: number, previous: number | null) => {
-                if (previous === null || previous === 0) return '';
+                if (previous === null) return '';
+                // previous가 0이어도 change 계산 가능 (0에서 변화한 것으로 처리)
                 const change = current - previous;
                 const sign = change >= 0 ? '+' : '';
                 return `<div style="font-size:11px;color:${change >= 0 ? '#059669' : '#dc2626'};margin-top:2px">${sign}${(change / 1000).toFixed(1)}</div>`;
