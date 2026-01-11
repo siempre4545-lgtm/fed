@@ -2642,10 +2642,22 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             <!-- 초기 로딩 중... (클라이언트 사이드에서 새 API로 로드) -->
           </tbody>
         </table>
-        <!-- 개발 모드 디버깅 정보 (프로덕션에서 자동 숨김) -->
-        <div id="historyTableDebug" style="margin-top:12px;padding:8px 12px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;font-family:monospace;color:#6b7280;display:none">
-          <strong style="color:#374151">[Debug]</strong> 
-          <span id="debugInfo">Initializing...</span>
+        <!-- 디버그 UI (쿼리스트링 ?debugUI=1로 활성화) -->
+        <div id="historyTableDebug" style="margin-top:12px;padding:12px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;font-family:monospace;color:#6b7280;display:none">
+          <div style="margin-bottom:8px">
+            <strong style="color:#374151">[Debug Panel]</strong>
+            <button id="debugToggleBtn" onclick="toggleDebugPanel()" style="margin-left:8px;padding:4px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">Toggle</button>
+          </div>
+          <div id="debugContent" style="display:none">
+            <div style="margin-bottom:6px"><strong>Fetch URL:</strong> <span id="debugFetchUrl">-</span></div>
+            <div style="margin-bottom:6px"><strong>Response:</strong> <span id="debugResponse">-</span></div>
+            <div style="margin-bottom:6px"><strong>Data:</strong> <span id="debugData">-</span></div>
+            <div style="margin-bottom:6px"><strong>State:</strong> <span id="debugState">-</span></div>
+            <div style="margin-bottom:6px"><strong>DOM:</strong> <span id="debugDOM">-</span></div>
+            <div style="margin-bottom:6px"><strong>Last Error:</strong> <span id="debugError" style="color:#dc2626">-</span></div>
+            <div style="margin-top:12px;margin-bottom:6px"><strong>RAW rows[0] JSON:</strong></div>
+            <pre id="debugRawJson" style="background:#ffffff;padding:8px;border:1px solid #d1d5db;border-radius:4px;overflow-x:auto;font-size:10px;max-height:200px;overflow-y:auto">-</pre>
+          </div>
         </div>
       </div>
       <div style="text-align:center;margin-top:20px">
@@ -2685,25 +2697,86 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       const loadMoreBtn = document.getElementById('loadMoreBtn');
       const debugBox = document.getElementById('historyTableDebug');
       let lastFetchUrl = '';
+      let lastResponse: { ok?: boolean; status?: number; statusText?: string } | null = null;
+      let lastData: any = null;
+      let lastError: string | null = null;
+      let visibleRowsCount = 0;
       
-      // 개발 모드 체크 (localhost 또는 127.0.0.1)
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1');
+      // 디버그 UI 활성화 체크 (?debugUI=1 쿼리스트링)
+      const urlParams = new URLSearchParams(window.location.search);
+      const debugUIEnabled = urlParams.get('debugUI') === '1';
+      
+      // 디버그 패널 토글 함수
+      window.toggleDebugPanel = function() {
+        const debugContent = document.getElementById('debugContent');
+        if (debugContent) {
+          debugContent.style.display = debugContent.style.display === 'none' ? 'block' : 'none';
+        }
+      };
       
       // 디버깅 정보 업데이트 함수
       function updateDebugInfo() {
-        if (!isDev || !debugBox) return;
+        if (!debugUIEnabled || !debugBox) return;
         
-        const debugInfo = document.getElementById('debugInfo');
-        if (debugInfo) {
-          const info = [
-            'rows.length: ' + (Array.isArray(allRows) ? allRows.length : 'not array'),
-            'firstRowDate: ' + (Array.isArray(allRows) && allRows.length > 0 ? (allRows[0]?.date || 'N/A') : 'N/A'),
-            'typeof data.rows: ' + (Array.isArray(allRows) ? 'array' : typeof allRows),
-            'nextCursor: ' + (nextCursor || 'null'),
-            'lastFetchUrl: ' + (lastFetchUrl || 'N/A')
-          ].join(' | ');
-          debugInfo.textContent = info;
-          debugBox.style.display = 'block';
+        debugBox.style.display = 'block';
+        
+        // Fetch URL
+        const debugFetchUrl = document.getElementById('debugFetchUrl');
+        if (debugFetchUrl) {
+          debugFetchUrl.textContent = lastFetchUrl || '-';
+        }
+        
+        // Response
+        const debugResponse = document.getElementById('debugResponse');
+        if (debugResponse) {
+          if (lastResponse) {
+            debugResponse.textContent = 'ok: ' + (lastResponse.ok ? 'true' : 'false') + ', status: ' + (lastResponse.status || 'N/A') + ', statusText: ' + (lastResponse.statusText || 'N/A');
+          } else {
+            debugResponse.textContent = '-';
+          }
+        }
+        
+        // Data
+        const debugData = document.getElementById('debugData');
+        if (debugData) {
+          if (lastData) {
+            debugData.textContent = 'ok: ' + (lastData.ok ? 'true' : 'false') + ', rows.length: ' + (Array.isArray(lastData.rows) ? lastData.rows.length : 'not array') + ', rows[0]?.date: ' + (Array.isArray(lastData.rows) && lastData.rows.length > 0 ? (lastData.rows[0]?.date || 'N/A') : 'N/A');
+          } else {
+            debugData.textContent = '-';
+          }
+        }
+        
+        // State
+        const debugState = document.getElementById('debugState');
+        if (debugState) {
+          debugState.textContent = 'allRows.length: ' + (Array.isArray(allRows) ? allRows.length : 'not array') + ', visibleRows.length: ' + visibleRowsCount + ', nextCursor: ' + (nextCursor || 'null');
+        }
+        
+        // DOM
+        const debugDOM = document.getElementById('debugDOM');
+        if (debugDOM) {
+          const tbodyRows = document.querySelectorAll('#historyTableBody tr').length;
+          debugDOM.textContent = 'tbody tr count: ' + tbodyRows;
+        }
+        
+        // Last Error
+        const debugError = document.getElementById('debugError');
+        if (debugError) {
+          debugError.textContent = lastError || '-';
+        }
+        
+        // RAW JSON
+        const debugRawJson = document.getElementById('debugRawJson');
+        if (debugRawJson) {
+          if (Array.isArray(allRows) && allRows.length > 0) {
+            try {
+              debugRawJson.textContent = JSON.stringify(allRows[0], null, 2);
+            } catch (e) {
+              debugRawJson.textContent = 'Error stringifying: ' + (e instanceof Error ? e.message : String(e));
+            }
+          } else {
+            debugRawJson.textContent = 'No rows available';
+          }
         }
       }
       
@@ -2783,34 +2856,51 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
         }
       }
       
-      // 테이블 렌더링 함수 (강화된 예외 처리)
+      // 테이블 렌더링 함수 (강화된 예외 처리 및 단순화)
       function renderTableRows() {
         if (!tbody) {
           console.error('[History Table] tbody element not found');
+          lastError = 'tbody element not found';
+          if (debugUIEnabled) updateDebugInfo();
           return;
         }
         
         try {
           tbody.innerHTML = ''; // 기존 내용 지우기
+          visibleRowsCount = 0;
           
-          if (!Array.isArray(allRows) || allRows.length === 0) {
-            // 빈 상태 처리
-            const emptyRow = document.createElement('tr');
-            emptyRow.className = 'history-row';
-            emptyRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#6b7280">데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</td>';
-            tbody.appendChild(emptyRow);
-            console.warn('[History Table] No rows to render. allRows:', allRows);
+          if (!Array.isArray(allRows)) {
+            // 배열이 아닌 경우
+            const errorRow = document.createElement('tr');
+            errorRow.className = 'history-row';
+            errorRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터 형식 오류: rows가 배열이 아닙니다. (typeof: ' + typeof allRows + ')</td>';
+            tbody.appendChild(errorRow);
+            lastError = 'allRows is not an array (typeof: ' + typeof allRows + ')';
+            if (debugUIEnabled) updateDebugInfo();
             return;
           }
           
-          // 디버깅 정보 (개발 모드에서만)
-          if (isDev) {
-            console.log('[History Table Debug] Rendering rows:', {
-              rowsLength: allRows.length,
-              firstRowDate: allRows[0]?.date,
-              lastRowDate: allRows[allRows.length - 1]?.date,
-              firstRowSample: allRows[0]
-            });
+          if (allRows.length === 0) {
+            // 빈 상태 처리 (헤더만 보이는 UI 금지)
+            const emptyRow = document.createElement('tr');
+            emptyRow.className = 'history-row';
+            emptyRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#6b7280">표시할 데이터가 없습니다. ' + (debugUIEnabled ? '(디버그 UI 활성화: ?debugUI=1)' : '(디버그 UI로 확인: ?debugUI=1)') + '</td>';
+            tbody.appendChild(emptyRow);
+            console.warn('[History Table] No rows to render. allRows:', allRows);
+            lastError = 'allRows.length === 0';
+            if (debugUIEnabled) updateDebugInfo();
+            return;
+          }
+          
+          // 디버깅 정보
+          console.log('[History Table Debug] Rendering rows:', {
+            rowsLength: allRows.length,
+            firstRowDate: allRows[0]?.date,
+            lastRowDate: allRows[allRows.length - 1]?.date,
+            firstRowSample: allRows[0]
+          });
+          
+          if (debugUIEnabled) {
             updateDebugInfo();
           }
           
@@ -2903,9 +2993,11 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
               
               tbody.appendChild(row);
               successCount++;
+              visibleRowsCount++;
             } catch (e) {
               console.error('[History Table] Error rendering row at index', index, ':', e, item);
               errorCount++;
+              lastError = 'Row ' + index + ' render error: ' + (e instanceof Error ? e.message : String(e));
               
               // 에러 행도 placeholder로 표시 (렌더링 중단 방지)
               try {
@@ -2913,27 +3005,37 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
                 errorRow.className = 'history-row error-row';
                 errorRow.innerHTML = '<td colspan="11" style="text-align:center;padding:8px;color:#dc2626;font-size:12px">Row ' + (index + 1) + ': Error rendering (' + (item?.date || 'unknown date') + ')</td>';
                 tbody.appendChild(errorRow);
+                visibleRowsCount++;
               } catch (err2) {
                 console.error('[History Table] Failed to create error row:', err2);
               }
             }
           });
           
-          if (isDev) {
-            console.log('[History Table Debug] Render complete:', { successCount, errorCount, total: allRows.length });
-          }
+          console.log('[History Table Debug] Render complete:', { successCount, errorCount, total: allRows.length, visibleRowsCount });
           
-          // 성공한 행이 하나도 없으면 에러 메시지 표시
+          // 성공한 행이 하나도 없으면 에러 메시지 표시 (헤더만 보이는 UI 금지)
           if (successCount === 0 && errorCount > 0) {
             const errorRow = document.createElement('tr');
             errorRow.className = 'history-row';
-            errorRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#dc2626">모든 행 렌더링 실패. 콘솔을 확인하세요.</td>';
+            errorRow.innerHTML = '<td colspan="11" style="text-align:center;padding:24px;color:#dc2626">모든 행 렌더링 실패. ' + (debugUIEnabled ? '디버그 패널을 확인하세요.' : '?debugUI=1로 디버그 정보를 확인하세요.') + '</td>';
             tbody.appendChild(errorRow);
+            visibleRowsCount++;
+          }
+          
+          // 디버그 정보 업데이트 (DOM 카운트 포함)
+          if (debugUIEnabled) {
+            updateDebugInfo();
           }
         } catch (e) {
           console.error('[History Table] Critical error in renderTableRows:', e);
+          lastError = 'Critical render error: ' + (e instanceof Error ? e.message : String(e));
           if (tbody) {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">테이블 렌더링 중 오류가 발생했습니다: ' + (e?.message || String(e)) + '</td></tr>';
+            visibleRowsCount = 1;
+          }
+          if (debugUIEnabled) {
+            updateDebugInfo();
           }
         }
       }
@@ -2956,7 +3058,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           fetchUrl = '/api/h41/releases?limit=' + limit + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
           lastFetchUrl = fetchUrl;
           
-          if (isDev) {
+          if (debugUIEnabled) {
             console.log('[History Table Debug] Fetching:', fetchUrl);
             updateDebugInfo();
           }
@@ -2970,55 +3072,75 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
             }
           });
           
+          // Response 정보 저장 (디버그용)
+          lastResponse = {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText
+          };
+          
           if (!response.ok) {
-            throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            lastError = 'HTTP ' + response.status + ': ' + response.statusText;
+            throw new Error(lastError);
           }
           
           const data = await response.json();
+          lastData = data;
+          lastError = null;
           
-          if (isDev) {
-            console.log('[History Table Debug] API Response:', {
-              ok: data.ok,
-              rowsLength: Array.isArray(data.rows) ? data.rows.length : 'not array',
-              nextCursor: data.nextCursor,
-              firstRowDate: Array.isArray(data.rows) && data.rows.length > 0 ? data.rows[0]?.date : 'N/A',
-              errors: data.errors,
-              meta: data.meta
-            });
+          console.log('[History Table Debug] API Response:', {
+            ok: data.ok,
+            rowsLength: Array.isArray(data.rows) ? data.rows.length : 'not array',
+            nextCursor: data.nextCursor,
+            firstRowDate: Array.isArray(data.rows) && data.rows.length > 0 ? data.rows[0]?.date : 'N/A',
+            errors: data.errors,
+            meta: data.meta
+          });
+          
+          if (debugUIEnabled) {
+            updateDebugInfo();
           }
           
+          // 안전장치 1: fetch 실패/에러
           if (!data.ok) {
             console.error('[History Table] API returned error:', data.errors);
+            lastError = 'API error: ' + (Array.isArray(data.errors) ? data.errors.join(', ') : (data.errors ? String(data.errors) : 'Unknown error'));
             if (tbody) {
-              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터를 불러오는 중 오류가 발생했습니다: ' + (Array.isArray(data.errors) ? data.errors.join(', ') : (data.errors ? String(data.errors) : 'Unknown error')) + '</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">API 요청 실패: ' + lastError + '</td></tr>';
             }
             if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
+            if (debugUIEnabled) updateDebugInfo();
             return;
           }
           
-          // data.rows가 배열인지 강력하게 확인
+          // 안전장치 2: data.rows가 배열이 아님
           if (!Array.isArray(data.rows)) {
             console.error('[History Table] Invalid response: data.rows is not an array', {
               dataType: typeof data.rows,
               dataRows: data.rows,
               fullData: data
             });
+            lastError = '응답 포맷 오류: data.rows is not an array (typeof: ' + typeof data.rows + ')';
             if (tbody) {
-              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터 형식 오류: 응답이 올바르지 않습니다. (typeof data.rows: ' + typeof data.rows + ')</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">' + lastError + '</td></tr>';
             }
             if (loadMoreBtn) loadMoreBtn.textContent = '로드 실패';
+            if (debugUIEnabled) updateDebugInfo();
             return;
           }
           
+          // 안전장치 3: rows.length === 0
           if (data.rows.length === 0) {
             console.warn('[History Table] API returned empty rows array');
+            lastError = 'rows.length === 0';
             if (allRows.length === 0 && tbody) {
-              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#6b7280">데이터가 없습니다.</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#6b7280">표시할 데이터가 없습니다. ' + (debugUIEnabled ? '디버그 패널을 확인하세요.' : '(디버그 UI로 확인: ?debugUI=1)') + '</td></tr>';
             }
             if (loadMoreBtn) {
               loadMoreBtn.style.display = 'none';
               loadMoreBtn.disabled = false;
             }
+            if (debugUIEnabled) updateDebugInfo();
             return;
           }
           
@@ -3044,7 +3166,7 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           renderTableRows();
           
           // 디버깅 정보 업데이트
-          if (isDev) {
+          if (debugUIEnabled) {
             updateDebugInfo();
           }
           
@@ -3060,12 +3182,16 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
           }
         } catch (e) {
           console.error('[History Table] Failed to fetch history:', e, { fetchUrl, limit, cursor });
+          lastError = 'Fetch error: ' + (e instanceof Error ? e.message : String(e));
           if (tbody && allRows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">데이터를 불러오는 중 오류가 발생했습니다: ' + (e?.message || String(e)) + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#dc2626">API 요청 실패: ' + lastError + '</td></tr>';
           }
           if (loadMoreBtn) {
             loadMoreBtn.textContent = '로드 실패';
             loadMoreBtn.disabled = false;
+          }
+          if (debugUIEnabled) {
+            updateDebugInfo();
           }
         } finally {
           isLoadingMore = false;
@@ -3118,9 +3244,13 @@ app.get("/economic-indicators/fed-assets-liabilities", async (req, res) => {
       // 화면에는 5개만 보여주되, 6개를 가져와서 5번째 행의 delta 계산에 사용
       fetchAndRenderHistory(5, null);
       
-      // 디버깅 박스 초기화
-      if (isDev && debugBox) {
+      // 디버깅 박스 초기화 (?debugUI=1일 때만)
+      if (debugUIEnabled && debugBox) {
         debugBox.style.display = 'block';
+        const debugContent = document.getElementById('debugContent');
+        if (debugContent) {
+          debugContent.style.display = 'block';
+        }
         updateDebugInfo();
       }
       
