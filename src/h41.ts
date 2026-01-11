@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { discoverRecentReleaseDates } from "./h41-release-discovery.js";
+import { fetchH41CalendarDates } from "./h41-calendar.js";
 
 export type H41Card = {
   key: string;              // ⓐ, ⓑ ...
@@ -1045,113 +1046,63 @@ async function getFedReleaseDatesFromHTML(): Promise<string[]> {
 }
 
 /**
- * FED H.4.1 발표 날짜 목록 생성 (current/ 기준점 역탐색 우선, Feed/HTML 최후 fallback)
+ * FED H.4.1 발표 날짜 목록 생성 (Calendar 기반 - 단일 진실 소스)
+ * 
+ * 중요: Fed H.4.1 calendar 페이지의 링크(/releases/h41/YYYYMMDD/)에서
+ * YYYYMMDD를 직접 추출하여 사용합니다. Date 객체를 사용하지 않고
+ * 문자열 기반으로만 처리합니다.
+ * 
+ * @returns ISO 형식(YYYY-MM-DD) 날짜 배열 (최신순)
  */
 export async function getFedReleaseDates(): Promise<string[]> {
-  // 1차: current/ 페이지 기준점 역탐색 방식으로 최근 발표일 수집 (우선)
   try {
-    // discoverRecentReleaseDates가 내부에서 getAnchorReleaseDate()를 호출하여 current/ 페이지에서 기준점 파싱
-    const discoveredDates = await discoverRecentReleaseDates({
-      targetCount: 40,
-      lookbackDays: 120
+    // Calendar에서 YYYYMMDD 형식으로 날짜 수집 (문자열 기반, Date 객체 미사용)
+    const calendarYmdDates = await fetchH41CalendarDates();
+    
+    if (calendarYmdDates.length === 0) {
+      console.warn(`[H.4.1] Calendar returned no dates, returning empty array`);
+      return [];
+    }
+    
+    // YYYYMMDD를 ISO 형식(YYYY-MM-DD)으로 변환 (문자열 split 방식)
+    const isoDates = calendarYmdDates.map(ymd => {
+      // ymd: "20260102" -> "2026-01-02"
+      if (!/^\d{8}$/.test(ymd)) {
+        console.warn(`[H.4.1] Invalid YYYYMMDD format: ${ymd}, skipping`);
+        return null;
+      }
+      return `${ymd.substring(0, 4)}-${ymd.substring(4, 6)}-${ymd.substring(6, 8)}`;
+    }).filter((date): date is string => date !== null);
+    
+    // 연도 필터링 (문자열 기반, Date 객체 미사용)
+    const currentYearStr = new Date().getFullYear().toString(); // 연도만 추출 (문자열 비교용)
+    const minYear = parseInt(currentYearStr) - 2; // 2024 이상 (2026 기준)
+    const filteredDates = isoDates.filter(isoDate => {
+      const yearStr = isoDate.substring(0, 4);
+      const year = parseInt(yearStr, 10);
+      return year >= minYear && year <= 2100;
     });
     
-    if (discoveredDates.length >= 15) {
-      console.log(`[H.4.1] Discovery method (current/ anchor) found ${discoveredDates.length} dates`);
-      
-      // 연도 경계 날짜 확인
-      const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
-      const foundCriticalDates = criticalDates.filter(d => discoveredDates.includes(d));
-      console.log(`[H.4.1] Discovery critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !discoveredDates.includes(d)).join(', ')}]`);
-      
-      // 최대 52주치만 반환
-      return discoveredDates.slice(0, 52);
-    } else {
-      console.warn(`[H.4.1] Discovery method found insufficient dates (${discoveredDates.length}), falling back to Feed/HTML`);
-    }
+    // 정렬: ISO 형식이므로 문자열 내림차순 정렬로 최신순 정렬 가능 (YYYY-MM-DD는 사전순==시간순)
+    filteredDates.sort((a, b) => b.localeCompare(a));
+    
+    console.log(`[H.4.1] Calendar collected ${calendarYmdDates.length} YYYYMMDD dates, converted to ${filteredDates.length} ISO dates (minYear: ${minYear})`);
+    console.log(`[H.4.1] Top 20 calendar dates (ISO):`, filteredDates.slice(0, 20));
+    
+    // 연도 경계 날짜 검증
+    const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
+    const foundCriticalDates = criticalDates.filter(d => filteredDates.includes(d));
+    console.log(`[H.4.1] Calendar critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !filteredDates.includes(d)).join(', ')}]`);
+    
+    // 최대 52주치만 반환 (약 1년)
+    return filteredDates.slice(0, 52);
+    
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : String(e);
-    console.warn(`[H.4.1] Discovery method (current/ anchor) failed: ${errorMsg}`);
-    // 역탐색 실패 시 fallback 계속 진행
+    console.error(`[H.4.1] Failed to get release dates from calendar: ${errorMsg}`);
+    // Calendar 실패 시 빈 배열 반환 (과거 아카이브나 계산식 fallback 사용하지 않음)
+    return [];
   }
-  
-  // 2차: Feed에서 날짜 추출 (fallback)
-  const feedDates = await getFedReleaseDatesFromFeed();
-  
-  // Feed에서 충분한 날짜를 얻었는지 확인 (최소 10개 이상)
-  if (feedDates.length >= 10) {
-    console.log(`[H.4.1] Using feed dates (${feedDates.length} dates)`);
-    
-    // 연도 경계 검증: 12월/1월에서 2주 내 데이터가 최소 3개 이상 존재하는지 확인
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const yearBoundaryDates = feedDates.filter(date => {
-      const dateObj = new Date(date);
-      const month = dateObj.getMonth() + 1; // 1-12
-      const year = dateObj.getFullYear();
-      // 12월 또는 1월이고, 현재 연도 기준 2주 내
-      return (month === 12 || month === 1) && 
-             (year === currentYear || year === currentYear - 1 || year === currentYear + 1);
-    });
-    
-    if (yearBoundaryDates.length >= 3) {
-      console.log(`[H.4.1] Year boundary validation passed (${yearBoundaryDates.length} dates found)`);
-      return feedDates;
-    } else {
-      console.warn(`[H.4.1] Year boundary validation failed (${yearBoundaryDates.length} dates found), merging HTML dates`);
-    }
-  } else {
-    console.warn(`[H.4.1] Feed returned insufficient dates (${feedDates.length}), trying HTML fallback`);
-  }
-  
-  // 2차: HTML 스크래핑 (fallback)
-  const htmlDates = await getFedReleaseDatesFromHTML();
-  
-  // Feed와 HTML 날짜 병합 (Set으로 중복 제거)
-  const dateSet = new Set<string>();
-  feedDates.forEach(date => dateSet.add(date));
-  htmlDates.forEach(date => dateSet.add(date));
-  
-  const mergedDates = Array.from(dateSet);
-  
-  // ISO 형식으로 정규화 및 정렬
-  const normalizedDates = mergedDates.filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
-  
-  // 현재 연도 - 2년 이상만 필터링 (아카이브 제외)
-  const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 2; // 2024 이상만 허용 (2026 기준)
-  const filteredDates = normalizedDates.filter(date => {
-    const year = new Date(date).getFullYear();
-    return year >= minYear;
-  });
-  
-  filteredDates.sort((a, b) => {
-    const dateA = new Date(a).getTime();
-    const dateB = new Date(b).getTime();
-    return dateB - dateA; // 최신순 내림차순
-  });
-  
-  console.log(`[H.4.1] Merged dates: ${normalizedDates.length} (filtered to ${filteredDates.length} recent dates, minYear: ${minYear}) (Feed: ${feedDates.length}, HTML: ${htmlDates.length})`);
-  console.log(`[H.4.1] Top 20 merged dates:`, filteredDates.slice(0, 20));
-  
-  // 연도 경계 날짜 최종 확인
-  const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
-  const foundCriticalDates = criticalDates.filter(d => filteredDates.includes(d));
-  console.log(`[H.4.1] Final critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !filteredDates.includes(d)).join(', ')}]`);
-  
-  // 최종 결과가 비어있으면 fallback 사용 (fallback도 최신 날짜만 반환)
-  if (filteredDates.length === 0) {
-    console.warn(`[H.4.1] No recent dates found from feed or HTML (minYear: ${minYear}), falling back to calculated dates`);
-    const fallbackDates = getFedReleaseDatesFallback();
-    if (fallbackDates.length === 0) {
-      console.error(`[H.4.1] Fallback also returned no dates. This indicates no recent H.4.1 data is available.`);
-      return []; // 빈 배열 반환 (과거 아카이브로 fallback하지 않음)
-    }
-    return fallbackDates;
-  }
-  
-  // 최대 52주치만 반환
-  return filteredDates.slice(0, 52);
 }
 
 /**
