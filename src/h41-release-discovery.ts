@@ -1,6 +1,6 @@
 /**
  * H.4.1 릴리즈 날짜 역탐색 유틸리티
- * current/ 페이지를 기준점으로 하여 역추적 방식으로 개별 릴리즈 URL 존재 여부 확인
+ * current/ 페이지를 기준점으로 하여 일 단위 연속 스캔으로 개별 릴리즈 URL 존재 여부 확인
  */
 
 const ARCHIVE_BASE_URL = "https://www.federalreserve.gov/releases/h41/";
@@ -22,12 +22,11 @@ function buildReleaseUrl(date: Date, useDefaultHtm: boolean = false): string {
 }
 
 /**
- * 타임아웃이 있는 fetch (캐시 사용 가능)
+ * 타임아웃이 있는 fetch (캐시 no-store)
  */
 async function fetchWithTimeout(
   url: string, 
-  timeoutMs: number = 2500,
-  useCache: boolean = false
+  timeoutMs: number = 2500
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -41,7 +40,7 @@ async function fetchWithTimeout(
         "accept-language": "en-US,en;q=0.9",
       },
       redirect: "follow" as RequestRedirect,
-      cache: useCache ? ("force-cache" as RequestCache) : ("no-store" as RequestCache),
+      cache: "no-store" as RequestCache, // 원천 HTML은 no-store
     });
     clearTimeout(timeoutId);
     return response;
@@ -78,24 +77,28 @@ function isValidH41ReleaseHtml(html: string): boolean {
     return false;
   }
   
-  // 유효한 H.4.1 페이지 검증 (최소 2개 조건 통과 필요)
+  // 유효한 H.4.1 페이지 검증 (시그니처 2종 이상)
   let validCount = 0;
   
-  // 조건 1: "Factors Affecting Reserve Balances" 또는 "H.4.1" 또는 "FRB: H.4.1" 키워드
+  // 조건 1: "H.4.1" 키워드 (필수)
+  if (htmlLower.includes("h.4.1") || htmlLower.includes("frb: h.4.1")) {
+    validCount++;
+  }
+  
+  // 조건 2: "Factors Affecting Reserve Balances" 또는 "FRB: H.4.1"
   if (
     htmlLower.includes("factors affecting reserve balances") || 
-    htmlLower.includes("h.4.1") ||
     htmlLower.includes("frb: h.4.1")
   ) {
     validCount++;
   }
   
-  // 조건 2: "Table 1" 또는 "<table" 태그
+  // 조건 3: "Table 1" 또는 "<table" 태그
   if (htmlLower.includes("table 1") || htmlLower.includes("<table")) {
     validCount++;
   }
   
-  // 조건 3: 핵심 항목 텍스트 존재
+  // 조건 4: 핵심 항목 텍스트 존재
   const coreItems = [
     "u.s. treasury securities",
     "mortgage-backed securities",
@@ -110,7 +113,64 @@ function isValidH41ReleaseHtml(html: string): boolean {
     validCount++;
   }
   
+  // 시그니처 2종 이상 통과 필요
   return validCount >= 2;
+}
+
+/**
+ * 파싱 결과 검증 (핵심 필드 3개 이상이 0이면 INVALID)
+ * 실제 파싱은 하지 않고 HTML만으로 간접 검증
+ */
+function isValidH41ReleaseByHtml(html: string): boolean {
+  if (!isValidH41ReleaseHtml(html)) {
+    return false;
+  }
+  
+  const htmlLower = html.toLowerCase();
+  
+  // 숫자 패턴이 충분히 많은지 확인 (최소 10개 이상의 큰 숫자)
+  const largeNumberPattern = /\d{1,3}(?:,\d{3})+(?:\.\d+)?/g;
+  const numbers = htmlLower.match(largeNumberPattern);
+  
+  // 최소 10개 이상의 큰 숫자가 있어야 유효한 데이터로 간주
+  if (!numbers || numbers.length < 10) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * 단일 날짜 후보 검증 (2가지 URL 패턴 시도)
+ */
+async function checkDateCandidate(date: Date): Promise<string | null> {
+  const urlPatterns = [
+    buildReleaseUrl(date, false), // /YYYYMMDD/
+    buildReleaseUrl(date, true),  // /YYYYMMDD/default.htm
+  ];
+  
+  for (const url of urlPatterns) {
+    try {
+      const response = await fetchWithTimeout(url, 2500);
+      
+      if (response.ok && response.status === 200) {
+        const html = await response.text();
+        
+        if (isValidH41ReleaseByHtml(html)) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const isoDate = `${year}-${month}-${day}`;
+          return isoDate;
+        }
+      }
+    } catch (e) {
+      // 타임아웃이나 네트워크 에러는 무시하고 다음 패턴 시도
+      continue;
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -119,7 +179,7 @@ function isValidH41ReleaseHtml(html: string): boolean {
 export async function getAnchorReleaseDate(): Promise<Date> {
   try {
     // current/ 페이지에서 최신 릴리즈 날짜 파싱
-    const response = await fetchWithTimeout(CURRENT_URL, 3000, true); // 캐시 사용
+    const response = await fetchWithTimeout(CURRENT_URL, 3000);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch current/ page: ${response.status} ${response.statusText}`);
@@ -168,59 +228,33 @@ export async function getAnchorReleaseDate(): Promise<Date> {
 }
 
 /**
- * 특정 날짜 주변(±offsetDays)에서 유효한 릴리즈 페이지 찾기
- * ±3일 범위 보정 탐색으로 연휴/일정 변경 대응
+ * 슬라이딩 윈도우 병렬화: 날짜 블록을 병렬로 검증
  */
-async function findValidReleaseAroundDate(
-  targetDate: Date,
-  offsetDays: number = 3
-): Promise<string | null> {
-  const offsets = [0, -1, 1, -2, 2, -3, 3]; // 0부터 ±1, ±2, ±3 순서로 시도
+async function checkDateBlock(
+  dates: Date[],
+  concurrency: number = 5
+): Promise<string[]> {
+  const results: string[] = [];
   
-  for (const offset of offsets) {
-    if (Math.abs(offset) > offsetDays) continue;
+  // concurrency만큼 동시에 처리
+  for (let i = 0; i < dates.length; i += concurrency) {
+    const block = dates.slice(i, i + concurrency);
+    const blockResults = await Promise.allSettled(
+      block.map(date => checkDateCandidate(date))
+    );
     
-    const candidateDate = new Date(targetDate);
-    candidateDate.setDate(targetDate.getDate() + offset);
-    
-    // 2가지 URL 패턴 시도
-    const urlPatterns = [
-      buildReleaseUrl(candidateDate, false), // /YYYYMMDD/
-      buildReleaseUrl(candidateDate, true),  // /YYYYMMDD/default.htm
-    ];
-    
-    for (const url of urlPatterns) {
-      try {
-        const response = await fetchWithTimeout(url, 2500);
-        
-        if (response.ok) {
-          const html = await response.text();
-          
-          if (isValidH41ReleaseHtml(html)) {
-            const year = candidateDate.getFullYear();
-            const month = String(candidateDate.getMonth() + 1).padStart(2, '0');
-            const day = String(candidateDate.getDate()).padStart(2, '0');
-            const isoDate = `${year}-${month}-${day}`;
-            
-            if (offset !== 0) {
-              console.log(`[H.4.1 Discovery] Found valid release at ${isoDate} (offset: ${offset} days from target)`);
-            }
-            
-            return isoDate;
-          }
-        }
-      } catch (e) {
-        // 타임아웃이나 네트워크 에러는 무시하고 다음 후보 시도
-        continue;
+    blockResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        results.push(result.value);
       }
-    }
+    });
   }
   
-  return null;
+  return results;
 }
 
 /**
- * 최근 발표일 역탐색 (current/ 기준점 + ±3일 보정 탐색)
+ * 최근 발표일 역탐색 (일 단위 연속 스캔)
  */
 export async function discoverRecentReleaseDates(options: {
   anchorDate?: Date;
@@ -245,40 +279,35 @@ export async function discoverRecentReleaseDates(options: {
   
   const dates: string[] = [];
   const dateSet = new Set<string>();
-  let currentTargetDate = new Date(startDate);
-  let scannedDays = 0;
-  const maxLookbackDays = lookbackDays;
-  let consecutiveFailures = 0;
-  const maxConsecutiveFailures = 14; // 2주간 연속 실패 시 중단
   
-  // 최신 발표일부터 역순으로 탐색
-  while (dates.length < targetCount && scannedDays < maxLookbackDays) {
-    // ±3일 범위 보정 탐색
-    const foundDate = await findValidReleaseAroundDate(currentTargetDate, 3);
+  // anchor부터 하루씩 감소시키며 검사할 날짜 목록 생성
+  const dateCandidates: Date[] = [];
+  let currentDate = new Date(startDate);
+  
+  for (let i = 0; i < lookbackDays && dates.length < targetCount; i++) {
+    dateCandidates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  // 슬라이딩 윈도우 병렬화: 14일 블록, concurrency 5
+  const windowSize = 14;
+  const concurrency = 5;
+  
+  for (let i = 0; i < dateCandidates.length && dates.length < targetCount; i += windowSize) {
+    const window = dateCandidates.slice(i, i + windowSize);
+    const windowResults = await checkDateBlock(window, concurrency);
     
-    if (foundDate && !dateSet.has(foundDate)) {
-      dates.push(foundDate);
-      dateSet.add(foundDate);
-      consecutiveFailures = 0; // 성공 시 실패 카운터 리셋
-      
-      // 다음 탐색 목표: 찾은 날짜에서 -7일 (주간 릴리즈 가정)
-      const foundDateObj = new Date(foundDate);
-      currentTargetDate = new Date(foundDateObj);
-      currentTargetDate.setDate(foundDateObj.getDate() - 7);
-    } else {
-      consecutiveFailures++;
-      
-      // 연속 실패가 너무 많으면 중단 (더 이상 유효한 릴리즈가 없을 가능성)
-      if (consecutiveFailures >= maxConsecutiveFailures) {
-        console.log(`[H.4.1 Discovery] Stopping after ${consecutiveFailures} consecutive failures`);
-        break;
+    windowResults.forEach(isoDate => {
+      if (!dateSet.has(isoDate)) {
+        dates.push(isoDate);
+        dateSet.add(isoDate);
       }
-      
-      // 다음 탐색 목표: 현재 목표에서 -7일
-      currentTargetDate.setDate(currentTargetDate.getDate() - 7);
-    }
+    });
     
-    scannedDays += 7; // 주간 단위로 진행
+    // 목표 수량에 도달하면 중단
+    if (dates.length >= targetCount) {
+      break;
+    }
   }
   
   // 최신순 정렬 (내림차순)
@@ -288,12 +317,17 @@ export async function discoverRecentReleaseDates(options: {
     return dateB - dateA;
   });
   
-  console.log(`[H.4.1 Discovery] Discovered ${dates.length} release dates (anchor: ${startDate.toISOString().split('T')[0]}, target: ${targetCount}, scanned: ${scannedDays} days)`);
+  console.log(`[H.4.1 Discovery] Discovered ${dates.length} release dates (anchor: ${startDate.toISOString().split('T')[0]}, target: ${targetCount}, lookback: ${lookbackDays} days)`);
   
   // 연도 경계 날짜 확인
   const criticalDates = ['2026-01-02', '2025-12-29', '2026-01-08', '2025-12-18'];
   const foundCriticalDates = criticalDates.filter(d => dates.includes(d));
   console.log(`[H.4.1 Discovery] Critical dates check - Found: [${foundCriticalDates.join(', ')}], Missing: [${criticalDates.filter(d => !dates.includes(d)).join(', ')}]`);
+  
+  // 상위 15개 날짜 출력 (디버그)
+  if (dates.length > 0) {
+    console.log(`[H.4.1 Discovery] Top 15 dates:`, dates.slice(0, 15));
+  }
   
   return dates;
 }
