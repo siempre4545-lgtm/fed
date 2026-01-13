@@ -98,7 +98,7 @@ export function TrendTab({ baseDate }: TrendTabProps) {
         </div>
       )}
 
-      {fromReport && toReport && (
+      {fromReport && toReport && fromReport.meta && toReport.meta && fromReport.overview && toReport.overview && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-gray-800 rounded-lg">
