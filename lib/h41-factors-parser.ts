@@ -529,6 +529,15 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
       const wow = numbers.length >= 2 ? numbers[1] : 0;
       const yoy = numbers.length >= 3 ? numbers[2] : 0;
       
+      // NaN 체크: NaN이면 즉시 throw (조용히 0 처리 금지)
+      if (!Number.isFinite(value) || !Number.isFinite(wow) || !Number.isFinite(yoy)) {
+        const errorMsg = `Failed to parse numbers for "${label}" at line ${labelIdx}: value=${value}, wow=${wow}, yoy=${yoy}`;
+        console.error(`[parseFactorsTable1] ${errorMsg}`);
+        console.error(`[parseFactorsTable1] Line text:`, lines[labelIdx]);
+        console.error(`[parseFactorsTable1] Extracted numbers:`, numbers);
+        throw new Error(errorMsg);
+      }
+      
       supplying.push({
         key: label,
         labelKo: translateLabel(label),
@@ -654,8 +663,23 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   console.log(`[parseFactorsTable1] Filtered supplying: ${filteredSupplying.length} items (expected: 13)`);
-  if (unmatchedSupplying.length > 0 && process.env.NODE_ENV === 'development') {
-    console.log(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
+  
+  // 화이트리스트 매칭 실패 항목 로깅 (개발 환경에서만)
+  if (unmatchedSupplying.length > 0) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
+      console.warn(`[parseFactorsTable1] Total unmatched supplying: ${unmatchedSupplying.length}`);
+    }
+  }
+  
+  // 항목 수 검증: 13개가 아니면 경고
+  if (filteredSupplying.length !== 13) {
+    console.error(`[parseFactorsTable1] ERROR: Supplying items count mismatch! Expected 13, got ${filteredSupplying.length}`);
+    console.error(`[parseFactorsTable1] Filtered supplying keys:`, filteredSupplying.map(r => r.key));
+    if (filteredSupplying.length < 13) {
+      const missingKeys = supplyingWhitelistKeys.filter(k => !filteredSupplying.some(r => r.key === k));
+      console.error(`[parseFactorsTable1] Missing keys:`, missingKeys);
+    }
   }
   
   /**
@@ -935,6 +959,15 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
       const wow = numbers.length >= 2 ? numbers[1] : 0;
       const yoy = numbers.length >= 3 ? numbers[2] : 0;
       
+      // NaN 체크: NaN이면 즉시 throw (조용히 0 처리 금지)
+      if (!Number.isFinite(value) || !Number.isFinite(wow) || !Number.isFinite(yoy)) {
+        const errorMsg = `Failed to parse numbers for "${label}" at line ${labelIdx}: value=${value}, wow=${wow}, yoy=${yoy}`;
+        console.error(`[parseFactorsTable1] ${errorMsg}`);
+        console.error(`[parseFactorsTable1] Line text:`, lines[labelIdx]);
+        console.error(`[parseFactorsTable1] Extracted numbers:`, numbers);
+        throw new Error(errorMsg);
+      }
+      
       absorbing.push({
         key: label,
         labelKo: translateLabel(label),
@@ -1069,6 +1102,14 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   console.log(`[parseFactorsTable1] Filtered absorbing: ${filteredAbsorbing.length} items (expected: 4, including RRP)`);
   console.log(`[parseFactorsTable1] Filtered absorbing items:`, filteredAbsorbing.map(r => ({ key: r.key, label: r.labelKo, value: r.value })));
   
+  // 화이트리스트 매칭 실패 항목 로깅 (개발 환경에서만)
+  if (unmatchedAbsorbing.length > 0) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
+      console.warn(`[parseFactorsTable1] Total unmatched absorbing: ${unmatchedAbsorbing.length}`);
+    }
+  }
+  
   // RRP가 포함되어 있는지 확인
   const hasRRP = filteredAbsorbing.some(r => r.key === 'RRP' || r.labelKo === '역레포');
   if (!hasRRP) {
@@ -1076,8 +1117,14 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     console.warn('[parseFactorsTable1] All absorbing items before filtering:', absorbing.map(r => ({ key: r.key, value: r.value })));
   }
   
-  if (unmatchedAbsorbing.length > 0 && process.env.NODE_ENV === 'development') {
-    console.log(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
+  // 항목 수 검증: 4개가 아니면 경고
+  if (filteredAbsorbing.length !== 4) {
+    console.error(`[parseFactorsTable1] ERROR: Absorbing items count mismatch! Expected 4, got ${filteredAbsorbing.length}`);
+    console.error(`[parseFactorsTable1] Filtered absorbing keys:`, filteredAbsorbing.map(r => r.key));
+    if (filteredAbsorbing.length < 4) {
+      const missingKeys = absorbingWhitelistKeys.filter(k => !filteredAbsorbing.some(r => r.key === k));
+      console.error(`[parseFactorsTable1] Missing keys:`, missingKeys);
+    }
   }
   
   // Total factors, other than reserve balances, absorbing reserve funds 원문에서 직접 파싱 (정규식 anchor 사용)

@@ -42,11 +42,19 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
   const showDebugBadge = process.env.NODE_ENV === 'development' && 
     (factors.supplying.length !== 13 || factors.absorbing.length !== 4);
   
+  // 항목 수 불일치 경고 (프로덕션에서도 표시)
+  const hasItemCountMismatch = factors.supplying.length !== 13 || factors.absorbing.length !== 4;
+  
   return (
     <div className="space-y-6">
       <div className="mb-4">
         <h2 className="text-2xl font-bold mb-2">준비금 요인</h2>
         <p className="text-sm text-gray-400">Factors Affecting Reserve Balances · 단위: 백만 달러</p>
+        {hasItemCountMismatch && (
+          <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-700 rounded text-sm text-yellow-400">
+            ⚠️ 항목 수 불일치: 공급 {factors.supplying.length}개 (예상: 13), 흡수 {factors.absorbing.length}개 (예상: 4)
+          </div>
+        )}
         {showDebugBadge && (
           <div className="mt-2 px-3 py-1 bg-yellow-500/20 border border-yellow-500/50 rounded text-xs text-yellow-400">
             ⚠️ 항목 수 불일치: 공급 {factors.supplying.length}/13, 흡수 {factors.absorbing.length}/4
