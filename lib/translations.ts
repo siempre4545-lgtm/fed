@@ -35,7 +35,6 @@ export const translationMap: Record<string, string> = {
   'Over 10 years': '10년 이상',
   
   // 대출/증권
-  'Primary credit': 'Primary Credit',
   'Secondary credit': 'Secondary Credit',
   'Seasonal credit': 'Seasonal Credit',
   'Bank Term Funding Program': 'BTFP',
