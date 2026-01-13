@@ -34,26 +34,24 @@ export interface FactorsTableData {
 
 /**
  * 숫자 파싱 (부호, 콤마, 공백 처리)
+ * 기존 h41-parser.ts의 parseNumberFromText와 동일한 로직 사용
  */
 function parseNumber(text: string): number | null {
   if (!text) return null;
   
-  // 모든 공백 제거 (non-breaking space 포함)
-  const cleaned = text.replace(/[\u00a0\s,]/g, '').trim();
+  // non-breaking space를 일반 공백으로 변환
+  const cleaned = text.replace(/\u00a0/g, ' ').trim();
   if (!cleaned) return null;
   
-  // 부호 처리: -258,957 같은 형식
-  const signMatch = cleaned.match(/^([+-])?/);
-  const sign = signMatch && signMatch[1] === '-' ? -1 : 1;
+  // 부호(+/-) 보존, 콤마 제거
+  const m = cleaned.match(/^([+-])?\s*([\d,]+)$/);
+  if (!m) return null;
   
-  // 숫자만 추출
-  const numMatch = cleaned.match(/(\d+)/);
-  if (!numMatch) return null;
+  const sign = m[1] === '-' ? -1 : 1;
+  const n = Number(m[2].replace(/,/g, ''));
+  if (!Number.isFinite(n)) return null;
   
-  const num = parseInt(numMatch[1], 10);
-  if (isNaN(num)) return null;
-  
-  return sign * num;
+  return sign * n;
 }
 
 /**
@@ -365,130 +363,130 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   });
   
   // 공급 요인 파싱 (Reserve Bank credit부터 Total factors supplying 전까지)
+  // 기존 h41-parser.ts의 findLabelIndex 방식을 사용하여 더 견고하게 파싱
   const supplying: FactorsTableRow[] = [];
-  const supplyingStartKeywords = ['Reserve Bank credit', 'Reserve bank credit'];
-  const supplyingEndKeywords = ['Total factors supplying reserve funds', 'Total factors supplying'];
   
-  let supplyingStartIndex = -1;
-  let supplyingEndIndex = -1;
+  // 공급 요인 라벨 목록 (원문 순서대로)
+  const supplyingLabels = [
+    'Reserve Bank credit',
+    'Securities held outright',
+    'U.S. Treasury securities',
+    'Bills',
+    'Notes and bonds',
+    'Notes and bonds, nominal',
+    'Notes and bonds, inflation-indexed',
+    'Inflation compensation',
+    'Federal agency debt securities',
+    'Mortgage-backed securities',
+    'Unamortized premiums on securities held outright',
+    'Unamortized discounts on securities held outright',
+    'Repurchase agreements',
+    'Loans',
+    'Primary credit',
+    'Secondary credit',
+    'Seasonal credit',
+    'Paycheck Protection Program Liquidity Facility',
+    'Bank Term Funding Program',
+    'Other credit extensions',
+    'Net portfolio holdings of MS Facilities 2020 LLC',
+    'Float',
+    'Central bank liquidity swaps',
+    'Other Federal Reserve assets',
+    'Gold Stock',
+    'Special Drawing Rights Certificate Account',
+    'Treasury Currency Outstanding',
+  ];
   
-  for (let i = headerLineIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
+  // findLabelIndex 함수 (기존 파서와 동일한 로직)
+  const findLabelIndex = (searchLabel: string, startFrom: number = 0): number => {
+    // 정확한 매칭
+    for (let i = startFrom; i < lines.length; i++) {
+      if (lines[i] === searchLabel) return i;
+    }
     
-    // 시작 키워드 찾기
-    if (supplyingStartIndex === -1) {
-      for (const keyword of supplyingStartKeywords) {
-        if (line.toLowerCase().includes(keyword.toLowerCase())) {
-          supplyingStartIndex = i;
-          break;
-        }
+    // 대소문자 무시 매칭
+    const lowerSearch = searchLabel.toLowerCase();
+    for (let i = startFrom; i < lines.length; i++) {
+      if (lines[i].toLowerCase() === lowerSearch) return i;
+    }
+    
+    // 키워드 매칭
+    const keywords = lowerSearch.split(/[,\s]+/).filter(k => k.length > 3);
+    for (let i = startFrom; i < lines.length; i++) {
+      const lineLower = lines[i].toLowerCase();
+      if (keywords.every(kw => lineLower.includes(kw))) {
+        return i;
       }
     }
     
-    // 종료 키워드 찾기
-    if (supplyingStartIndex >= 0 && supplyingEndIndex === -1) {
-      for (const keyword of supplyingEndKeywords) {
-        if (line.toLowerCase().includes(keyword.toLowerCase())) {
-          supplyingEndIndex = i;
-          break;
-        }
-      }
-    }
-    
-    if (supplyingEndIndex >= 0) break;
+    return -1;
+  };
+  
+  // Reserve Bank credit 찾기 (시작점)
+  let supplyingStartIndex = findLabelIndex('Reserve Bank credit', headerLineIndex + 1);
+  if (supplyingStartIndex === -1) {
+    supplyingStartIndex = findLabelIndex('Reserve bank credit', headerLineIndex + 1);
+  }
+  
+  // Total factors supplying 찾기 (종료점)
+  let supplyingEndIndex = findLabelIndex('Total factors supplying reserve funds', supplyingStartIndex >= 0 ? supplyingStartIndex : headerLineIndex + 1);
+  if (supplyingEndIndex === -1) {
+    supplyingEndIndex = findLabelIndex('Total factors supplying', supplyingStartIndex >= 0 ? supplyingStartIndex : headerLineIndex + 1);
   }
   
   if (supplyingStartIndex === -1) {
     console.error('[parseFactorsTable1] Supplying factors section not found. Searching for keywords:', {
       headerLineIndex,
-      linesAroundHeader: lines.slice(Math.max(0, headerLineIndex - 5), headerLineIndex + 20),
+      linesAroundHeader: lines.slice(Math.max(0, headerLineIndex - 5), Math.min(headerLineIndex + 50, lines.length)),
     });
     throw new Error('Supplying factors section not found. Expected "Reserve Bank credit" after header');
   }
   
-  // 공급 요인 항목 파싱
+  console.log(`[parseFactorsTable1] Supplying factors section: ${supplyingStartIndex} to ${supplyingEndIndex > 0 ? supplyingEndIndex : 'end'}`);
+  
+  // 공급 요인 항목 파싱 (기존 파서 방식: 라벨 찾고 다음 5줄에서 숫자 추출)
   console.log(`[parseFactorsTable1] Parsing supplying factors from line ${supplyingStartIndex} to ${supplyingEndIndex > 0 ? supplyingEndIndex : lines.length}`);
   
-  for (let i = supplyingStartIndex; i < (supplyingEndIndex > 0 ? supplyingEndIndex : Math.min(supplyingStartIndex + 100, lines.length)); i++) {
-    const line = lines[i];
+  // 각 라벨을 순서대로 찾아서 파싱
+  for (const label of supplyingLabels) {
+    // 현재 범위 내에서만 검색
+    const searchStart = supplyingStartIndex;
+    const searchEnd = supplyingEndIndex > 0 ? supplyingEndIndex : Math.min(supplyingStartIndex + 200, lines.length);
     
-    // 빈 라인 스킵
-    if (!line.trim()) continue;
+    const labelIdx = findLabelIndex(label, searchStart);
+    if (labelIdx < 0 || labelIdx >= searchEnd) continue;
     
-    // 숫자만 있는 라인은 스킵 (헤더나 구분선일 수 있음)
-    if (/^\s*[\d,\s+-]+\s*$/.test(line)) continue;
+    // 합계 라인은 건너뛰기
+    if (label.toLowerCase().includes('total factors supplying')) continue;
     
-    // 합계 라인은 나중에 처리
-    if (line.toLowerCase().includes('total factors supplying')) continue;
+    // 라벨 다음 5줄에서 숫자 추출 (기존 파서 방식)
+    let value = 0;
+    let wow = 0;
+    let yoy = 0;
+    const numbers: number[] = [];
     
-    // 라벨 찾기 - 더 유연한 패턴
-    // 패턴 1: 라벨 다음에 공백 2개 이상 또는 탭
-    let labelMatch = line.match(/^([^0-9+-]{3,}?)(?:\s{2,}|\t)/);
-    
-    // 패턴 2: 라벨이 숫자 앞에 오는 경우
-    if (!labelMatch) {
-      labelMatch = line.match(/^([A-Za-z][^0-9]{2,}?)(?=\s*[0-9+-])/);
-    }
-    
-    // 패턴 3: 라벨만 있는 경우 (다음 줄에 숫자가 있을 수 있음)
-    if (!labelMatch && i + 1 < lines.length) {
-      const nextLine = lines[i + 1];
-      if (/^[\s]*[0-9+-]/.test(nextLine)) {
-        labelMatch = [null, line.trim()];
+    for (let i = 1; i <= 5 && labelIdx + i < lines.length; i++) {
+      const num = parseNumber(lines[labelIdx + i]);
+      if (num !== null) {
+        numbers.push(num);
       }
     }
     
-    if (!labelMatch) continue;
-    
-    const label = labelMatch[1]?.trim() || line.trim();
-    if (!label || label.length < 3) continue;
-    
-    // 숫자 추출 (3개 컬럼: value, wow, yoy)
-    const numbers = extractNumbersFromLine(line);
-    
-    // 다음 줄에도 숫자가 있을 수 있음 (라벨과 숫자가 분리된 경우)
-    if (numbers.length < 3 && i + 1 < lines.length) {
-      const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
-      if (nextLineNumbers.length > 0) {
-        numbers.push(...nextLineNumbers);
-      }
-    }
-    
-    if (numbers.length >= 3) {
+    // 첫 번째 숫자는 value, 두 번째는 wow, 세 번째는 yoy
+    if (numbers.length >= 1) {
+      value = numbers[0];
+      wow = numbers.length >= 2 ? numbers[1] : 0;
+      yoy = numbers.length >= 3 ? numbers[2] : 0;
+      
       supplying.push({
         key: label,
         labelKo: translateLabel(label),
-        value: numbers[0] || 0,
-        wow: numbers[1] || 0,
-        yoy: numbers[2] || 0,
+        value,
+        wow,
+        yoy,
       });
-      console.log(`[parseFactorsTable1] Added supplying factor: ${label} = ${numbers[0]}`);
-    } else if (numbers.length >= 1) {
-      // 일부 항목은 주간/연간 변화가 없을 수 있음
-      supplying.push({
-        key: label,
-        labelKo: translateLabel(label),
-        value: numbers[0] || 0,
-        wow: 0,
-        yoy: 0,
-      });
-      console.log(`[parseFactorsTable1] Added supplying factor (partial): ${label} = ${numbers[0]}`);
-    } else {
-      // 숫자가 없으면 라벨만 있는 줄일 수 있음 (다음 줄 확인)
-      if (i + 1 < lines.length && /^[\s]*[0-9+-]/.test(lines[i + 1])) {
-        const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
-        if (nextLineNumbers.length >= 1) {
-          supplying.push({
-            key: label,
-            labelKo: translateLabel(label),
-            value: nextLineNumbers[0] || 0,
-            wow: nextLineNumbers[1] || 0,
-            yoy: nextLineNumbers[2] || 0,
-          });
-          i++; // 다음 줄을 건너뛰기
-          console.log(`[parseFactorsTable1] Added supplying factor (multi-line): ${label} = ${nextLineNumbers[0]}`);
-        }
-      }
+      
+      console.log(`[parseFactorsTable1] Added supplying factor: ${label} = ${value} (wow: ${wow}, yoy: ${yoy})`);
     }
   }
   
@@ -512,9 +510,19 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   // 흡수 요인 파싱 (Total factors supplying 다음부터 Total factors absorbing 전까지)
   // "continued" 섹션도 포함하여 파싱
   const absorbing: FactorsTableRow[] = [];
-  const absorbingEndKeywords = [
-    'Total factors, other than reserve balances, absorbing reserve funds',
-    'Total factors absorbing',
+  
+  // 흡수 요인 라벨 목록 (원문 순서대로)
+  const absorbingLabels = [
+    'Currency in circulation',
+    'Reverse repurchase agreements',
+    'Reverse repurchase agreements with foreign official and international accounts',
+    'Reverse repurchase agreements with others',
+    'Treasury Cash Holdings',
+    'Deposits with F.R. Banks, other than reserve balances',
+    'U.S. Treasury, General Account',
+    'Foreign official',
+    'Other',
+    'Other liabilities and capital',
   ];
   
   let absorbingStartIndex = supplyingEndIndex >= 0 ? supplyingEndIndex + 1 : lines.length;
@@ -523,7 +531,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   
   // "continued" 섹션 시작 인덱스 찾기
   let continuedStartIndex = -1;
-  for (let i = absorbingStartIndex; i < lines.length; i++) {
+  for (let i = absorbingStartIndex; i < Math.min(absorbingStartIndex + 100, lines.length); i++) {
     const line = lines[i].toLowerCase();
     if (line.includes('continued') || line.includes('table 1 (continued)')) {
       continuedStartIndex = i;
@@ -536,112 +544,58 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     ? Math.min(absorbingStartIndex, continuedStartIndex)
     : absorbingStartIndex;
   
-  for (let i = actualAbsorbingStartIndex; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // 종료 키워드 찾기
-    if (absorbingEndIndex === -1) {
-      for (const keyword of absorbingEndKeywords) {
-        if (line.toLowerCase().includes(keyword.toLowerCase())) {
-          absorbingEndIndex = i;
-          break;
-        }
-      }
-    }
-    
-    // Reserve balances 찾기
-    if (reserveBalancesIndex === -1) {
-      if (line.toLowerCase().includes('reserve balances with federal reserve banks')) {
-        reserveBalancesIndex = i;
-      }
-    }
-    
-    if (absorbingEndIndex >= 0 && reserveBalancesIndex >= 0) break;
+  // Total factors absorbing 찾기 (종료점)
+  absorbingEndIndex = findLabelIndex('Total factors, other than reserve balances, absorbing reserve funds', actualAbsorbingStartIndex);
+  if (absorbingEndIndex === -1) {
+    absorbingEndIndex = findLabelIndex('Total factors absorbing', actualAbsorbingStartIndex);
   }
   
-  // 흡수 요인 항목 파싱 (continued 포함)
+  // Reserve balances 찾기
+  reserveBalancesIndex = findLabelIndex('Reserve balances with Federal Reserve Banks', actualAbsorbingStartIndex);
+  
+  console.log(`[parseFactorsTable1] Absorbing factors section: ${actualAbsorbingStartIndex} to ${absorbingEndIndex > 0 ? absorbingEndIndex : 'end'}, Reserve balances at: ${reserveBalancesIndex}`);
+  
+  // 흡수 요인 항목 파싱 (기존 파서 방식: 라벨 찾고 다음 5줄에서 숫자 추출)
   console.log(`[parseFactorsTable1] Parsing absorbing factors from line ${actualAbsorbingStartIndex} to ${absorbingEndIndex > 0 ? absorbingEndIndex : lines.length}`);
   
-  for (let i = actualAbsorbingStartIndex; i < (absorbingEndIndex > 0 ? absorbingEndIndex : Math.min(actualAbsorbingStartIndex + 100, lines.length)); i++) {
-    const line = lines[i];
+  // 각 라벨을 순서대로 찾아서 파싱
+  for (const label of absorbingLabels) {
+    // 현재 범위 내에서만 검색
+    const searchStart = actualAbsorbingStartIndex;
+    const searchEnd = absorbingEndIndex > 0 ? absorbingEndIndex : Math.min(actualAbsorbingStartIndex + 200, lines.length);
     
-    // 빈 라인 스킵
-    if (!line.trim()) continue;
+    const labelIdx = findLabelIndex(label, searchStart);
+    if (labelIdx < 0 || labelIdx >= searchEnd) continue;
     
-    // 숫자만 있는 라인은 스킵
-    if (/^\s*[\d,\s+-]+\s*$/.test(line)) continue;
+    // 합계 라인은 건너뛰기
+    if (label.toLowerCase().includes('total factors')) continue;
+    if (label.toLowerCase().includes('reserve balances')) continue;
     
-    // "continued" 헤더 라인 스킵
-    if (line.toLowerCase().includes('continued') && line.toLowerCase().includes('table')) continue;
+    // 라벨 다음 5줄에서 숫자 추출 (기존 파서 방식)
+    const numbers: number[] = [];
     
-    // 합계 라인은 나중에 처리
-    if (line.toLowerCase().includes('total factors')) continue;
-    if (line.toLowerCase().includes('reserve balances')) continue;
-    
-    // 라벨 찾기 - 더 유연한 패턴
-    let labelMatch = line.match(/^([^0-9+-]{3,}?)(?:\s{2,}|\t)/);
-    
-    if (!labelMatch) {
-      labelMatch = line.match(/^([A-Za-z][^0-9]{2,}?)(?=\s*[0-9+-])/);
-    }
-    
-    if (!labelMatch && i + 1 < lines.length) {
-      const nextLine = lines[i + 1];
-      if (/^[\s]*[0-9+-]/.test(nextLine)) {
-        labelMatch = [null, line.trim()];
+    for (let i = 1; i <= 5 && labelIdx + i < lines.length; i++) {
+      const num = parseNumber(lines[labelIdx + i]);
+      if (num !== null) {
+        numbers.push(num);
       }
     }
     
-    if (!labelMatch) continue;
-    
-    const label = labelMatch[1]?.trim() || line.trim();
-    if (!label || label.length < 3) continue;
-    
-    // 숫자 추출
-    const numbers = extractNumbersFromLine(line);
-    
-    // 다음 줄에도 숫자가 있을 수 있음
-    if (numbers.length < 3 && i + 1 < lines.length) {
-      const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
-      if (nextLineNumbers.length > 0) {
-        numbers.push(...nextLineNumbers);
-      }
-    }
-    
-    if (numbers.length >= 3) {
+    // 첫 번째 숫자는 value, 두 번째는 wow, 세 번째는 yoy
+    if (numbers.length >= 1) {
+      const value = numbers[0];
+      const wow = numbers.length >= 2 ? numbers[1] : 0;
+      const yoy = numbers.length >= 3 ? numbers[2] : 0;
+      
       absorbing.push({
         key: label,
         labelKo: translateLabel(label),
-        value: numbers[0] || 0,
-        wow: numbers[1] || 0,
-        yoy: numbers[2] || 0,
+        value,
+        wow,
+        yoy,
       });
-      console.log(`[parseFactorsTable1] Added absorbing factor: ${label} = ${numbers[0]}`);
-    } else if (numbers.length >= 1) {
-      absorbing.push({
-        key: label,
-        labelKo: translateLabel(label),
-        value: numbers[0] || 0,
-        wow: 0,
-        yoy: 0,
-      });
-      console.log(`[parseFactorsTable1] Added absorbing factor (partial): ${label} = ${numbers[0]}`);
-    } else {
-      // 숫자가 없으면 라벨만 있는 줄일 수 있음
-      if (i + 1 < lines.length && /^[\s]*[0-9+-]/.test(lines[i + 1])) {
-        const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
-        if (nextLineNumbers.length >= 1) {
-          absorbing.push({
-            key: label,
-            labelKo: translateLabel(label),
-            value: nextLineNumbers[0] || 0,
-            wow: nextLineNumbers[1] || 0,
-            yoy: nextLineNumbers[2] || 0,
-          });
-          i++; // 다음 줄을 건너뛰기
-          console.log(`[parseFactorsTable1] Added absorbing factor (multi-line): ${label} = ${nextLineNumbers[0]}`);
-        }
-      }
+      
+      console.log(`[parseFactorsTable1] Added absorbing factor: ${label} = ${value} (wow: ${wow}, yoy: ${yoy})`);
     }
   }
   
