@@ -9,8 +9,11 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:nextjs": "next dev",
     "start": "node --enable-source-maps dist/index.js",
+    "start:nextjs": "next start",
     "build": "tsc -p tsconfig.json",
+    "build:nextjs": "next build",
     "report": "tsx src/notify.ts",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'No ESLint configured. Run typecheck instead.' && npm run typecheck",
@@ -19,14 +22,24 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/pdf-parse": "^1.1.4",
     "playwright": "^1.40.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
   }
 }
 
