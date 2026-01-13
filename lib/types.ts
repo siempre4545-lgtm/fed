@@ -155,15 +155,16 @@ export interface H4ReportFRNotes {
 
 export interface H4Report {
   ok: boolean;
-  meta: H4ReportMeta;
-  overview: H4ReportOverview;
-  factors: H4ReportFactors;
-  summary: H4ReportSummary;
-  maturity: H4ReportMaturity;
-  loansAndLending: H4ReportLoansAndLending;
-  consolidatedStatement: H4ReportConsolidatedStatement;
-  regionalFed: H4ReportRegionalFed;
-  frNotes: H4ReportFRNotes;
+  error?: string; // 에러 메시지 (ok가 false일 때)
+  meta?: H4ReportMeta;
+  overview?: H4ReportOverview;
+  factors?: H4ReportFactors;
+  summary?: H4ReportSummary;
+  maturity?: H4ReportMaturity;
+  loansAndLending?: H4ReportLoansAndLending;
+  consolidatedStatement?: H4ReportConsolidatedStatement;
+  regionalFed?: H4ReportRegionalFed;
+  frNotes?: H4ReportFRNotes;
   raw?: {
     // 디버깅용 원시 데이터 (선택적)
     parsedTables?: any[];

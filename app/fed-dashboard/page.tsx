@@ -36,8 +36,12 @@ export default function FedDashboardPage() {
       const data: H4Report = await response.json();
 
       // 응답 검증: H4Report 스키마 확인
-      if (!data.ok || !data.meta || !data.overview) {
-        throw new Error(data.error || 'Invalid response format. Expected H4Report schema.');
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to fetch report');
+      }
+      
+      if (!data.meta || !data.overview) {
+        throw new Error('Invalid response format. Expected H4Report schema with meta and overview.');
       }
 
       setReportData(data);
