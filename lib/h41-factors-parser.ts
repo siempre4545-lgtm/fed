@@ -205,21 +205,22 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     }
   });
   
-  // 테이블을 찾지 못한 경우 텍스트 기반 파싱으로 fallback
-  const text = $('body').text().replace(/\r/g, '');
-  const lines = text
+  // 섹션 스코프 제한: "Factors Affecting Reserve Balances" 섹션만 파싱
+  // 전체 body 텍스트에서 섹션 시작/종료 지점 찾기
+  const fullText = $('body').text().replace(/\r/g, '');
+  const fullLines = fullText
     .split('\n')
     .map(s => s.replace(/\u00a0/g, ' ').trim())
     .filter(Boolean);
   
-  // Release Date와 Week Ended 찾기
-  const releaseDateLine = lines.find(l => l.startsWith('Release Date:')) ?? '';
+  // Release Date와 Week Ended 찾기 (전체 텍스트에서)
+  const releaseDateLine = fullLines.find(l => l.startsWith('Release Date:')) ?? '';
   const releaseDateText = releaseDateLine.replace('Release Date:', '').trim();
   const releaseDate = parseDateToISO(releaseDateText) || '';
   
   let weekEndedText = '';
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < fullLines.length; i++) {
+    const line = fullLines[i];
     if (line.includes('Week ended') && !line.toLowerCase().includes('change from')) {
       const match = line.match(/Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
       if (match) {
@@ -230,33 +231,60 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   const weekEnded = parseDateToISO(weekEndedText) || '';
   
-  // Table 1 섹션 찾기 (더 유연한 검색)
-  const table1Start = text.toLowerCase().indexOf('factors affecting reserve balances');
-  if (table1Start === -1) {
-    // 대체 키워드로 검색
-    const altKeywords = [
-      'reserve bank credit',
-      'table 1',
-      'factors supplying',
-      'factors absorbing',
+  // "Factors Affecting Reserve Balances" 섹션 시작/종료 지점 찾기
+  let sectionStartIndex = -1;
+  let sectionEndIndex = -1;
+  
+  // 섹션 시작 지점 찾기
+  for (let i = 0; i < fullLines.length; i++) {
+    const line = fullLines[i].toLowerCase();
+    if (line.includes('factors affecting reserve balances') && 
+        (line.includes('table') || i + 1 < fullLines.length)) {
+      sectionStartIndex = i;
+      console.log(`[parseFactorsTable1] Found section start at line ${i}: "${fullLines[i].substring(0, 100)}"`);
+      break;
+    }
+  }
+  
+  // 섹션 종료 지점 찾기 (다음 주요 섹션 시작 전까지)
+  if (sectionStartIndex >= 0) {
+    const endKeywords = [
+      'table 2',
+      'table 3',
+      'table 4',
+      'table 5',
+      'consolidated statement',
+      'regional federal reserve',
+      'federal reserve notes',
     ];
     
-    let found = false;
-    for (const keyword of altKeywords) {
-      const idx = text.toLowerCase().indexOf(keyword);
-      if (idx !== -1) {
-        console.warn(`[parseFactorsTable1] Table 1 not found with primary keyword, but found "${keyword}" at index ${idx}`);
-        found = true;
+    for (let i = sectionStartIndex + 50; i < fullLines.length; i++) {
+      const line = fullLines[i].toLowerCase();
+      if (endKeywords.some(kw => line.includes(kw))) {
+        sectionEndIndex = i;
+        console.log(`[parseFactorsTable1] Found section end at line ${i}: "${fullLines[i].substring(0, 100)}"`);
         break;
       }
     }
     
-    if (!found) {
-      console.error('[parseFactorsTable1] Table 1 section not found. Text length:', text.length);
-      console.error('[parseFactorsTable1] First 1000 chars of text:', text.substring(0, 1000));
-      throw new Error('Table 1 "Factors Affecting Reserve Balances" not found in HTML');
+    // 종료 지점을 찾지 못한 경우, 섹션 시작 후 500줄까지로 제한
+    if (sectionEndIndex === -1) {
+      sectionEndIndex = Math.min(sectionStartIndex + 500, fullLines.length);
+      console.log(`[parseFactorsTable1] Section end not found, limiting to ${sectionEndIndex} lines from start`);
     }
   }
+  
+  if (sectionStartIndex === -1) {
+    console.error('[parseFactorsTable1] "Factors Affecting Reserve Balances" section not found');
+    throw new Error('Table 1 "Factors Affecting Reserve Balances" section not found in HTML');
+  }
+  
+  // 섹션 범위 내의 라인만 사용
+  const lines = sectionEndIndex > 0 
+    ? fullLines.slice(sectionStartIndex, sectionEndIndex)
+    : fullLines.slice(sectionStartIndex);
+  
+  console.log(`[parseFactorsTable1] Using section-scoped lines: ${lines.length} lines (from ${sectionStartIndex} to ${sectionEndIndex > 0 ? sectionEndIndex : 'end'})`);
   
   // 테이블 헤더 찾기 (컬럼 인덱스 확인)
   let headerLineIndex = -1;
@@ -393,35 +421,21 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   // 기존 h41-parser.ts의 findLabelIndex 방식을 사용하여 더 견고하게 파싱
   const supplying: FactorsTableRow[] = [];
   
-  // 공급 요인 라벨 목록 (원문 순서대로)
-  const supplyingLabels = [
+  // 공급 요인 필수 항목 (13개) - 정확한 라벨만 사용
+  const requiredSupplyingLabels = [
     'Reserve Bank credit',
     'Securities held outright',
     'U.S. Treasury securities',
     'Bills',
     'Notes and bonds',
-    'Notes and bonds, nominal',
-    'Notes and bonds, inflation-indexed',
-    'Inflation compensation',
-    'Federal agency debt securities',
+    'Treasury inflation-protected securities', // TIPS
     'Mortgage-backed securities',
-    'Unamortized premiums on securities held outright',
-    'Unamortized discounts on securities held outright',
     'Repurchase agreements',
     'Loans',
-    'Primary credit',
-    'Secondary credit',
-    'Seasonal credit',
-    'Paycheck Protection Program Liquidity Facility',
-    'Bank Term Funding Program',
-    'Other credit extensions',
-    'Net portfolio holdings of MS Facilities 2020 LLC',
-    'Float',
+    'Bank Term Funding Program', // BTFP (있으면, 없으면 0)
     'Central bank liquidity swaps',
-    'Other Federal Reserve assets',
-    'Gold Stock',
-    'Special Drawing Rights Certificate Account',
-    'Treasury Currency Outstanding',
+    'Gold stock',
+    'Special drawing rights certificate account',
   ];
   
   // findLabelIndex 함수 (기존 파서와 동일한 로직)
@@ -474,25 +488,35 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   // 공급 요인 항목 파싱 (기존 파서 방식: 라벨 찾고 다음 5줄에서 숫자 추출)
   console.log(`[parseFactorsTable1] Parsing supplying factors from line ${supplyingStartIndex} to ${supplyingEndIndex > 0 ? supplyingEndIndex : lines.length}`);
   
-  // 각 라벨을 순서대로 찾아서 파싱
-  for (const label of supplyingLabels) {
+  // 각 필수 라벨을 순서대로 찾아서 파싱
+  for (const label of requiredSupplyingLabels) {
     // 현재 범위 내에서만 검색
     const searchStart = supplyingStartIndex;
     const searchEnd = supplyingEndIndex > 0 ? supplyingEndIndex : Math.min(supplyingStartIndex + 200, lines.length);
     
     const labelIdx = findLabelIndex(label, searchStart);
-    if (labelIdx < 0 || labelIdx >= searchEnd) continue;
+    if (labelIdx < 0 || labelIdx >= searchEnd) {
+      // BTFP는 없을 수 있으므로 경고만 출력
+      if (label.includes('Bank Term Funding Program')) {
+        console.warn(`[parseFactorsTable1] BTFP not found, will be 0 or omitted`);
+      }
+      continue;
+    }
     
     // 합계 라인은 건너뛰기
     if (label.toLowerCase().includes('total factors supplying')) continue;
     
-    // 라벨 다음 5줄에서 숫자 추출 (기존 파서 방식)
-    let value = 0;
-    let wow = 0;
-    let yoy = 0;
+    // 라벨이 있는 줄과 다음 10줄에서 숫자 추출
     const numbers: number[] = [];
     
-    for (let i = 1; i <= 5 && labelIdx + i < lines.length; i++) {
+    // 라벨이 있는 줄에서도 숫자 찾기
+    const labelLineNumbers = extractNumbersFromLine(lines[labelIdx]);
+    if (labelLineNumbers.length > 0) {
+      numbers.push(...labelLineNumbers);
+    }
+    
+    // 다음 10줄에서 숫자 추출
+    for (let i = 1; i <= 10 && labelIdx + i < lines.length; i++) {
       const num = parseNumber(lines[labelIdx + i]);
       if (num !== null) {
         numbers.push(num);
@@ -501,9 +525,9 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     
     // 첫 번째 숫자는 value, 두 번째는 wow, 세 번째는 yoy
     if (numbers.length >= 1) {
-      value = numbers[0];
-      wow = numbers.length >= 2 ? numbers[1] : 0;
-      yoy = numbers.length >= 3 ? numbers[2] : 0;
+      const value = numbers[0];
+      const wow = numbers.length >= 2 ? numbers[1] : 0;
+      const yoy = numbers.length >= 3 ? numbers[2] : 0;
       
       supplying.push({
         key: label,
@@ -513,7 +537,9 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         yoy,
       });
       
-      console.log(`[parseFactorsTable1] Added supplying factor: ${label} = ${value} (wow: ${wow}, yoy: ${yoy})`);
+      console.log(`[parseFactorsTable1] Added supplying factor: ${label} = ${value} (wow: ${wow}, yoy: ${yoy}) at line ${labelIdx}`);
+    } else {
+      console.warn(`[parseFactorsTable1] Failed to extract numbers for ${label} at line ${labelIdx}`);
     }
   }
   
@@ -753,18 +779,85 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   // 흡수 요인 항목 파싱 (기존 파서 방식: 라벨 찾고 다음 5줄에서 숫자 추출)
   console.log(`[parseFactorsTable1] Parsing absorbing factors from line ${actualAbsorbingStartIndex} to ${absorbingEndIndex > 0 ? absorbingEndIndex : lines.length}`);
   
-  // 각 라벨을 순서대로 찾아서 파싱
-  for (const label of absorbingLabels) {
+  // 흡수 요인 필수 항목만 정확히 찾기 (풀 라벨 매칭)
+  const requiredAbsorbingLabels = [
+    'Currency in circulation',
+    'Reverse repurchase agreements', // 정확한 라벨만 (with foreign official 등 제외)
+    'Deposits with F.R. Banks, other than reserve balances', // 정확한 풀 라벨
+    'U.S. Treasury, General Account',
+  ];
+  
+  // 각 필수 라벨을 순서대로 찾아서 파싱
+  for (const label of requiredAbsorbingLabels) {
     // 현재 범위 내에서만 검색
     const searchStart = actualAbsorbingStartIndex;
     const searchEnd = absorbingEndIndex > 0 ? absorbingEndIndex : Math.min(actualAbsorbingStartIndex + 200, lines.length);
     
-    const labelIdx = findLabelIndex(label, searchStart);
-    if (labelIdx < 0 || labelIdx >= searchEnd) continue;
+    let labelIdx = findLabelIndex(label, searchStart);
+    
+    // 정확한 라벨을 찾지 못한 경우, 변형 라벨 시도
+    if (labelIdx < 0 || labelIdx >= searchEnd) {
+      // Reverse repurchase agreements 변형
+      if (label === 'Reverse repurchase agreements') {
+        const altLabels = [
+          'Reverse repurchase agreements',
+          'Reverse repurchase agreement',
+        ];
+        for (const altLabel of altLabels) {
+          const altIdx = findLabelIndex(altLabel, searchStart);
+          if (altIdx >= 0 && altIdx < searchEnd) {
+            // "with foreign official" 또는 "with others"가 포함된 라인은 건너뛰기
+            const lineText = lines[altIdx].toLowerCase();
+            if (!lineText.includes('with foreign') && !lineText.includes('with others')) {
+              labelIdx = altIdx;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Deposits 변형
+      if (label === 'Deposits with F.R. Banks, other than reserve balances') {
+        const altLabels = [
+          'Deposits with F.R. Banks, other than reserve balances',
+          'Deposits with FR Banks, other than reserve balances',
+          'Deposits with F. R. Banks, other than reserve balances',
+          'Other liabilities and capital', // Fed 원문에서 동일 항목
+        ];
+        for (const altLabel of altLabels) {
+          const altIdx = findLabelIndex(altLabel, searchStart);
+          if (altIdx >= 0 && altIdx < searchEnd) {
+            labelIdx = altIdx;
+            break;
+          }
+        }
+      }
+      
+      // TGA 변형
+      if (label === 'U.S. Treasury, General Account') {
+        const altLabels = [
+          'U.S. Treasury, General Account',
+          'U.S. Treasury General Account',
+          'US Treasury, General Account',
+        ];
+        for (const altLabel of altLabels) {
+          const altIdx = findLabelIndex(altLabel, searchStart);
+          if (altIdx >= 0 && altIdx < searchEnd) {
+            labelIdx = altIdx;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (labelIdx < 0 || labelIdx >= searchEnd) {
+      console.warn(`[parseFactorsTable1] Required absorbing label not found: "${label}"`);
+      continue;
+    }
     
     // 합계 라인은 건너뛰기
     if (label.toLowerCase().includes('total factors')) continue;
-    if (label.toLowerCase().includes('reserve balances')) continue;
+    if (label.toLowerCase().includes('reserve balances') && !label.toLowerCase().includes('other than')) continue;
     
     // 라벨이 있는 줄과 다음 10줄에서 숫자 추출 (더 넓은 범위)
     const numbers: number[] = [];
@@ -813,25 +906,69 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     'TGA',           // Treasury General Account
   ];
   
-  // 정규화 키 매핑 함수 (absorbing용)
+  /**
+   * 라벨 정규화 함수 (공백/구두점 제거, 소문자 변환)
+   */
+  const normalizeLabel = (label: string): string => {
+    return label
+      .replace(/\u00a0/g, ' ') // non-breaking space
+      .replace(/[()]/g, ' ') // 괄호 제거
+      .replace(/\./g, ' ') // 마침표 제거
+      .replace(/&/g, 'and') // &를 and로 변환
+      .replace(/,/g, ' ') // 쉼표 제거
+      .replace(/\s+/g, ' ') // 연속 공백을 하나로
+      .toLowerCase()
+      .trim();
+  };
+  
+  /**
+   * 정규화 키 매핑 함수 (absorbing용) - 풀 라벨 매칭 우선
+   */
   const getCanonicalKeyAbsorbing = (label: string): string | null => {
-    const s = label.replace(/\u00a0/g, ' ').replace(/[()]/g, ' ').replace(/\./g, ' ').replace(/\s+/g, ' ').toLowerCase().trim();
+    const normalized = normalizeLabel(label);
     
-    // Currency - 우선순위 1
-    if (s.includes('currency in circulation') || s.includes('유통 통화')) return 'CURRENCY';
+    // 1. Currency in circulation - 정확한 매칭
+    if (normalized === 'currency in circulation' || 
+        normalized.includes('currency in circulation')) {
+      return 'CURRENCY';
+    }
     
-    // Reverse Repo - 우선순위 2 (다른 항목보다 먼저 체크)
-    if (s.includes('reverse') && s.includes('repo')) {
-      // "reverse repurchase agreements" 또는 변형 모두 RRP로 매핑
+    // 2. Reverse repurchase agreements - 정확한 매칭 (부분 매칭 금지)
+    // "Reverse repurchase agreements"만 매칭 (with foreign official 등은 제외)
+    if (normalized === 'reverse repurchase agreements' ||
+        (normalized.includes('reverse repurchase agreements') && 
+         !normalized.includes('with foreign') && 
+         !normalized.includes('with others'))) {
       return 'RRP';
     }
-    if (s.includes('역레포')) return 'RRP';
     
-    // TGA - 우선순위 3 (Deposits보다 먼저 체크)
-    if ((s.includes('treasury') && s.includes('general')) || s.includes('tga') || s.includes('재무부 일반계정')) return 'TGA';
+    // 3. Treasury General Account - 정확한 매칭
+    if (normalized === 'us treasury general account' ||
+        normalized === 'u s treasury general account' ||
+        normalized.includes('treasury general account') ||
+        normalized === 'tga') {
+      return 'TGA';
+    }
     
-    // Deposits (Other liabilities and capital) - 우선순위 4
-    if (s.includes('deposits') || s.includes('other liabilities') || s.includes('예치금')) {
+    // 4. Deposits with F.R. Banks, other than reserve balances - 정확한 풀 라벨 매칭만
+    // 부분 매칭 금지: "deposits"만으로는 매칭하지 않음
+    const depositsFullLabel = 'deposits with f r banks other than reserve balances';
+    const depositsFullLabelAlt = 'deposits with fr banks other than reserve balances';
+    
+    if (normalized === depositsFullLabel ||
+        normalized === depositsFullLabelAlt ||
+        (normalized.includes('deposits') && 
+         normalized.includes('f r banks') && 
+         normalized.includes('other than reserve balances')) ||
+        (normalized.includes('deposits') && 
+         normalized.includes('fr banks') && 
+         normalized.includes('other than reserve balances'))) {
+      return 'DEPOSITS';
+    }
+    
+    // "Other liabilities and capital"도 DEPOSITS로 매핑 (Fed 원문에서 동일 항목)
+    if (normalized === 'other liabilities and capital' ||
+        normalized.includes('other liabilities and capital')) {
       return 'DEPOSITS';
     }
     
@@ -986,7 +1123,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     console.warn('[parseFactorsTable1] "Reserve balances with Federal Reserve Banks" line not found');
   }
   
-  // 검증: 계산값과 원문값 비교 (경고용)
+  // 하단 합계 계산: 필터링된 항목들의 합계로 계산 (0 방지)
   const calcTotalSupplying = {
     value: filteredSupplying.reduce((sum, r) => sum + r.value, 0),
     wow: filteredSupplying.reduce((sum, r) => sum + r.wow, 0),
@@ -999,58 +1136,106 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     yoy: filteredAbsorbing.reduce((sum, r) => sum + r.yoy, 0),
   };
   
+  // 원문에서 파싱한 값과 계산값 비교하여 더 정확한 값 사용
+  // 원문값이 0이 아니고 계산값과 차이가 작으면 원문값 사용, 그렇지 않으면 계산값 사용
+  let finalTotalSupplyingValue = totalSupplyingValue;
+  let finalTotalSupplyingWow = totalSupplyingWow;
+  let finalTotalSupplyingYoy = totalSupplyingYoy;
+  
+  if (totalSupplyingValue === 0 || Math.abs(calcTotalSupplying.value - totalSupplyingValue) > 100) {
+    // 원문값이 0이거나 차이가 크면 계산값 사용
+    if (calcTotalSupplying.value !== 0) {
+      console.warn('[parseFactorsTable1] Using calculated total supplying (source was 0 or mismatch):', {
+        calculated: calcTotalSupplying.value,
+        fromSource: totalSupplyingValue,
+        delta: Math.abs(calcTotalSupplying.value - totalSupplyingValue),
+      });
+      finalTotalSupplyingValue = calcTotalSupplying.value;
+      finalTotalSupplyingWow = calcTotalSupplying.wow;
+      finalTotalSupplyingYoy = calcTotalSupplying.yoy;
+    }
+  }
+  
+  let finalTotalAbsorbingExReservesValue = totalAbsorbingExReservesValue;
+  let finalTotalAbsorbingExReservesWow = totalAbsorbingExReservesWow;
+  let finalTotalAbsorbingExReservesYoy = totalAbsorbingExReservesYoy;
+  
+  if (totalAbsorbingExReservesValue === 0 || Math.abs(calcTotalAbsorbingExReserves.value - totalAbsorbingExReservesValue) > 100) {
+    // 원문값이 0이거나 차이가 크면 계산값 사용
+    if (calcTotalAbsorbingExReserves.value !== 0) {
+      console.warn('[parseFactorsTable1] Using calculated total absorbing (source was 0 or mismatch):', {
+        calculated: calcTotalAbsorbingExReserves.value,
+        fromSource: totalAbsorbingExReservesValue,
+        delta: Math.abs(calcTotalAbsorbingExReserves.value - totalAbsorbingExReservesValue),
+      });
+      finalTotalAbsorbingExReservesValue = calcTotalAbsorbingExReserves.value;
+      finalTotalAbsorbingExReservesWow = calcTotalAbsorbingExReserves.wow;
+      finalTotalAbsorbingExReservesYoy = calcTotalAbsorbingExReserves.yoy;
+    }
+  }
+  
+  // Reserve balances = Total Supplying - Total Absorbing (계산값 우선)
   const calcReserveBalances = {
-    value: totalSupplyingValue - totalAbsorbingExReservesValue,
-    wow: totalSupplyingWow - totalAbsorbingExReservesWow,
-    yoy: totalSupplyingYoy - totalAbsorbingExReservesYoy,
+    value: finalTotalSupplyingValue - finalTotalAbsorbingExReservesValue,
+    wow: finalTotalSupplyingWow - finalTotalAbsorbingExReservesWow,
+    yoy: finalTotalSupplyingYoy - finalTotalAbsorbingExReservesYoy,
   };
   
-  // 계산값과 원문값 차이 확인 (경고만 출력, 원문값 우선 사용)
-  const supplyingDelta = Math.abs(calcTotalSupplying.value - totalSupplyingValue);
-  if (supplyingDelta > 100) {
-    console.warn('[parseFactorsTable1] Total supplying mismatch (calculated vs source):', {
-      calculated: calcTotalSupplying.value,
-      fromSource: totalSupplyingValue,
-      delta: supplyingDelta,
-    });
-  }
+  // 원문에서 파싱한 Reserve balances와 계산값 비교
+  let finalReserveBalancesValue = reserveBalancesValue;
+  let finalReserveBalancesWow = reserveBalancesWow;
+  let finalReserveBalancesYoy = reserveBalancesYoy;
   
-  const absorbingDelta = Math.abs(calcTotalAbsorbingExReserves.value - totalAbsorbingExReservesValue);
-  if (absorbingDelta > 100) {
-    console.warn('[parseFactorsTable1] Total absorbing mismatch (calculated vs source):', {
-      calculated: calcTotalAbsorbingExReserves.value,
-      fromSource: totalAbsorbingExReservesValue,
-      delta: absorbingDelta,
-    });
-  }
-  
-  const reserveBalancesDelta = Math.abs(calcReserveBalances.value - reserveBalancesValue);
-  if (reserveBalancesDelta > 10) { // 10백만 달러 이내 오차 허용
-    console.warn('[parseFactorsTable1] Reserve balances mismatch (calculated vs source):', {
+  if (reserveBalancesValue === 0 || Math.abs(calcReserveBalances.value - reserveBalancesValue) > 10) {
+    // 원문값이 0이거나 차이가 크면 계산값 사용
+    console.warn('[parseFactorsTable1] Using calculated reserve balances (source was 0 or mismatch):', {
       calculated: calcReserveBalances.value,
       fromSource: reserveBalancesValue,
-      delta: reserveBalancesDelta,
+      delta: Math.abs(calcReserveBalances.value - reserveBalancesValue),
     });
+    finalReserveBalancesValue = calcReserveBalances.value;
+    finalReserveBalancesWow = calcReserveBalances.wow;
+    finalReserveBalancesYoy = calcReserveBalances.yoy;
   }
   
-  console.log(`[parseFactorsTable1] Final totals (from source):`, {
-    totalSupplying: { value: totalSupplyingValue, wow: totalSupplyingWow, yoy: totalSupplyingYoy },
-    totalAbsorbing: { value: totalAbsorbingExReservesValue, wow: totalAbsorbingExReservesWow, yoy: totalAbsorbingExReservesYoy },
-    reserveBalances: { value: reserveBalancesValue, wow: reserveBalancesWow, yoy: reserveBalancesYoy },
-    calculatedReserveBalances: calcReserveBalances.value,
-    reserveBalancesDelta,
+  console.log(`[parseFactorsTable1] Final totals:`, {
+    totalSupplying: { value: finalTotalSupplyingValue, wow: finalTotalSupplyingWow, yoy: finalTotalSupplyingYoy },
+    totalAbsorbing: { value: finalTotalAbsorbingExReservesValue, wow: finalTotalAbsorbingExReservesWow, yoy: finalTotalAbsorbingExReservesYoy },
+    reserveBalances: { value: finalReserveBalancesValue, wow: finalReserveBalancesWow, yoy: finalReserveBalancesYoy },
+    supplyingItemsCount: filteredSupplying.length,
+    absorbingItemsCount: filteredAbsorbing.length,
   });
   
-  // Integrity 체크: 공급 - 흡수 = 지급준비금 (원문값 기준)
-  const calcReserveBalancesFromSource = totalSupplyingValue - totalAbsorbingExReservesValue;
-  const reserveBalancesDeltaFromSource = Math.abs(calcReserveBalancesFromSource - reserveBalancesValue);
-  const integrityOk = reserveBalancesDeltaFromSource <= 10; // 10백만 달러 이내 오차 허용
+  // Integrity 체크: 공급 - 흡수 = 지급준비금 (최종값 기준)
+  const calcReserveBalancesFinal = finalTotalSupplyingValue - finalTotalAbsorbingExReservesValue;
+  const reserveBalancesDeltaFinal = Math.abs(calcReserveBalancesFinal - finalReserveBalancesValue);
+  const integrityOk = reserveBalancesDeltaFinal <= 10; // 10백만 달러 이내 오차 허용
   
   if (!integrityOk) {
     console.warn('[parseFactorsTable1] Reserve balances integrity check failed:', {
-      calculated: calcReserveBalancesFromSource,
-      fromSource: reserveBalancesValue,
-      delta: reserveBalancesDeltaFromSource,
+      calculated: calcReserveBalancesFinal,
+      finalValue: finalReserveBalancesValue,
+      delta: reserveBalancesDeltaFinal,
+    });
+  }
+  
+  // 최종 검증: totals가 0이 아닌지 확인
+  if (finalTotalSupplyingValue === 0 && filteredSupplying.length > 0 && filteredSupplying.some(r => r.value !== 0)) {
+    console.error('[parseFactorsTable1] ERROR: Total supplying is 0 but items have non-zero values!');
+    console.error('[parseFactorsTable1] Supplying items:', filteredSupplying.map(r => ({ key: r.key, value: r.value })));
+  }
+  
+  if (finalTotalAbsorbingExReservesValue === 0 && filteredAbsorbing.length > 0 && filteredAbsorbing.some(r => r.value !== 0)) {
+    console.error('[parseFactorsTable1] ERROR: Total absorbing is 0 but items have non-zero values!');
+    console.error('[parseFactorsTable1] Absorbing items:', filteredAbsorbing.map(r => ({ key: r.key, value: r.value })));
+  }
+  
+  if (finalReserveBalancesValue === 0 && (finalTotalSupplyingValue !== 0 || finalTotalAbsorbingExReservesValue !== 0)) {
+    console.error('[parseFactorsTable1] ERROR: Reserve balances is 0 but totals are non-zero!');
+    console.error('[parseFactorsTable1] Totals:', {
+      supplying: finalTotalSupplyingValue,
+      absorbing: finalTotalAbsorbingExReservesValue,
+      calculated: calcReserveBalancesFinal,
     });
   }
   
@@ -1059,28 +1244,28 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     weekEnded,
     prevWeekEnded,
     yearAgoLabel,
-    supplying: filteredSupplying, // 필터링된 supplying 사용
-    absorbing: filteredAbsorbing, // 필터링된 absorbing 사용
+    supplying: filteredSupplying, // 필터링된 supplying 사용 (13개)
+    absorbing: filteredAbsorbing, // 필터링된 absorbing 사용 (4개)
     totals: {
       totalSupplying: {
-        value: totalSupplyingValue, // 원문에서 직접 파싱한 값
-        wow: totalSupplyingWow,
-        yoy: totalSupplyingYoy,
+        value: finalTotalSupplyingValue, // 최종값 (원문 또는 계산값)
+        wow: finalTotalSupplyingWow,
+        yoy: finalTotalSupplyingYoy,
       },
       totalAbsorbingExReserves: {
-        value: totalAbsorbingExReservesValue, // 원문에서 직접 파싱한 값
-        wow: totalAbsorbingExReservesWow,
-        yoy: totalAbsorbingExReservesYoy,
+        value: finalTotalAbsorbingExReservesValue, // 최종값 (원문 또는 계산값)
+        wow: finalTotalAbsorbingExReservesWow,
+        yoy: finalTotalAbsorbingExReservesYoy,
       },
       reserveBalances: {
-        value: reserveBalancesValue, // 원문에서 직접 파싱한 값
-        wow: reserveBalancesWow,
-        yoy: reserveBalancesYoy,
+        value: finalReserveBalancesValue, // 최종값 (원문 또는 계산값)
+        wow: finalReserveBalancesWow,
+        yoy: finalReserveBalancesYoy,
       },
     },
     integrity: {
-      calcReserveBalances: calcReserveBalancesFromSource,
-      delta: reserveBalancesDeltaFromSource,
+      calcReserveBalances: calcReserveBalancesFinal,
+      delta: reserveBalancesDeltaFinal,
       ok: integrityOk,
     },
   };
