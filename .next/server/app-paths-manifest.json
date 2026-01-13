@@ -2,7 +2,7 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/fed-dashboard/page": "app/fed-dashboard/page.js",
   "/api/h41/dates/route": "app/api/h41/dates/route.js",
-  "/api/h41/factors/route": "app/api/h41/factors/route.js",
   "/api/h41/compare/route": "app/api/h41/compare/route.js",
+  "/api/h41/factors/route": "app/api/h41/factors/route.js",
   "/api/h41/report/route": "app/api/h41/report/route.js"
 }

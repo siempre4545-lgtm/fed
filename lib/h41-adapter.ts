@@ -118,11 +118,11 @@ export async function convertH41ToH4Report(
   
   const historicalData = await fetchHistoricalDataForYearlyComparison(date, releaseDates);
   
-  // 개요 데이터 변환 (연간 데이터 포함)
-  const overview = await convertOverview(h41Report, date, historicalData, releaseDates);
-  
-  // 준비금 요인 변환 (연간 데이터 포함)
+  // 준비금 요인 변환 (연간 데이터 포함) - 먼저 실행하여 파싱된 데이터 재사용
   const factors = await convertFactors(h41Report, date, historicalData);
+  
+  // 개요 데이터 변환 (연간 데이터 포함) - factors에서 파싱된 연간 데이터 사용
+  const overview = await convertOverview(h41Report, date, historicalData, releaseDates, factors);
   
   // 요인 요약 변환
   const summary = convertSummary(h41Report);
@@ -183,12 +183,14 @@ export async function convertH41ToH4Report(
 
 /**
  * 개요 데이터 변환 (연간 데이터 포함)
+ * factorsData에서 파싱된 연간 데이터를 사용하여 정확한 연간 변화 계산
  */
 async function convertOverview(
   h41Report: H41Report,
   currentDate: string,
   historicalData: HistoricalData[],
-  releaseDates: string[]
+  releaseDates: string[],
+  factorsData?: H4ReportFactors
 ): Promise<H4ReportOverview> {
   const cards = h41Report.cards;
   
@@ -326,50 +328,142 @@ async function convertOverview(
     }
   }
   
-  // 연간 데이터 계산 (52주 전 데이터와 비교)
-  const totalAssetsYearly = calculateYearlyChange(
-    totalAssets,
-    currentDate,
-    historicalData,
-    totalAssetsCard?.fedLabel || 'Total assets'
-  );
-  const securitiesYearly = calculateYearlyChange(
-    securitiesHeld,
-    currentDate,
-    historicalData,
-    'Securities held outright'
-  );
-  const reservesYearly = calculateYearlyChange(
-    reserves,
-    currentDate,
-    historicalData,
-    'Reserve balances with Federal Reserve Banks'
-  );
-  const tgaYearly = calculateYearlyChange(
-    tga,
-    currentDate,
-    historicalData,
-    'U.S. Treasury, General Account'
-  );
-  const rrpYearly = calculateYearlyChange(
-    rrp,
-    currentDate,
-    historicalData,
-    'Reverse repurchase agreements'
-  );
-  const currencyYearly = calculateYearlyChange(
-    currency,
-    currentDate,
-    historicalData,
-    'Currency in circulation'
-  );
+  // 연간 데이터 계산
+  // 1순위: factorsData에서 파싱된 연간 데이터 사용 (HTML에서 직접 파싱)
+  // 2순위: calculateYearlyChange 사용 (historicalData 기반)
+  
+  let totalAssetsYearly = { change: 0, changePercent: 0 };
+  let securitiesYearly = { change: 0, changePercent: 0 };
+  let reservesYearly = { change: 0, changePercent: 0 };
+  let tgaYearly = { change: 0, changePercent: 0 };
+  let rrpYearly = { change: 0, changePercent: 0 };
+  let currencyYearly = { change: 0, changePercent: 0 };
+  
+  if (factorsData) {
+    // factorsData에서 해당 항목 찾기
+    // Total Assets는 Reserve Bank credit과 유사하거나 Total factors supplying과 관련
+    const reserveBankCredit = factorsData.supplying.find(r => 
+      r.labelEn.toLowerCase().includes('reserve bank credit')
+    );
+    if (reserveBankCredit) {
+      // Reserve Bank credit의 연간 변화를 Total Assets의 근사치로 사용
+      totalAssetsYearly = {
+        change: reserveBankCredit.yearlyChange,
+        changePercent: reserveBankCredit.yearlyChangePercent,
+      };
+    }
+    
+    // Securities Held
+    const securitiesFactor = factorsData.supplying.find(r => 
+      r.labelEn.toLowerCase().includes('securities held outright')
+    );
+    if (securitiesFactor) {
+      securitiesYearly = {
+        change: securitiesFactor.yearlyChange,
+        changePercent: securitiesFactor.yearlyChangePercent,
+      };
+    }
+    
+    // Reserves (Reserve balances)
+    // factorsData.totals.net이 Reserve balances이므로 그 연간 변화 사용
+    reservesYearly = {
+      change: factorsData.totals.netYearlyChange,
+      changePercent: factorsData.totals.net ? (factorsData.totals.netYearlyChange / factorsData.totals.net) * 100 : 0,
+    };
+    
+    // TGA
+    const tgaFactor = factorsData.absorbing.find(r => 
+      r.labelEn.toLowerCase().includes('treasury') && 
+      r.labelEn.toLowerCase().includes('general account')
+    );
+    if (tgaFactor) {
+      tgaYearly = {
+        change: tgaFactor.yearlyChange,
+        changePercent: tgaFactor.yearlyChangePercent,
+      };
+    }
+    
+    // Reverse Repo
+    const rrpFactor = factorsData.absorbing.find(r => 
+      r.labelEn.toLowerCase().includes('reverse repurchase')
+    );
+    if (rrpFactor) {
+      rrpYearly = {
+        change: rrpFactor.yearlyChange,
+        changePercent: rrpFactor.yearlyChangePercent,
+      };
+    }
+    
+    // Currency
+    const currencyFactor = factorsData.absorbing.find(r => 
+      r.labelEn.toLowerCase().includes('currency in circulation')
+    );
+    if (currencyFactor) {
+      currencyYearly = {
+        change: currencyFactor.yearlyChange,
+        changePercent: currencyFactor.yearlyChangePercent,
+      };
+    }
+    
+    console.log('[convertOverview] Using yearly data from factorsData:', {
+      totalAssets: totalAssetsYearly,
+      securitiesHeld: securitiesYearly,
+      reserves: reservesYearly,
+      tga: tgaYearly,
+      rrp: rrpYearly,
+      currency: currencyYearly,
+    });
+  } else {
+    // factorsData가 없으면 기존 방식 사용
+    console.warn('[convertOverview] factorsData not available, using calculateYearlyChange');
+    
+    totalAssetsYearly = calculateYearlyChange(
+      totalAssets,
+      currentDate,
+      historicalData,
+      totalAssetsCard?.fedLabel || 'Total assets'
+    );
+    securitiesYearly = calculateYearlyChange(
+      securitiesHeld,
+      currentDate,
+      historicalData,
+      'Securities held outright'
+    );
+    reservesYearly = calculateYearlyChange(
+      reserves,
+      currentDate,
+      historicalData,
+      'Reserve balances with Federal Reserve Banks'
+    );
+    tgaYearly = calculateYearlyChange(
+      tga,
+      currentDate,
+      historicalData,
+      'U.S. Treasury, General Account'
+    );
+    rrpYearly = calculateYearlyChange(
+      rrp,
+      currentDate,
+      historicalData,
+      'Reverse repurchase agreements'
+    );
+    currencyYearly = calculateYearlyChange(
+      currency,
+      currentDate,
+      historicalData,
+      'Currency in circulation'
+    );
+  }
   
   // 디버그 로그
-  console.log('[convertOverview] Yearly changes:', {
+  console.log('[convertOverview] Final yearly changes:', {
     totalAssets: { value: totalAssets, yearly: totalAssetsYearly },
     securitiesHeld: { value: securitiesHeld, yearly: securitiesYearly },
     reserves: { value: reserves, yearly: reservesYearly },
-    historicalDataCount: historicalData.length,
+    tga: { value: tga, yearly: tgaYearly },
+    rrp: { value: rrp, yearly: rrpYearly },
+    currency: { value: currency, yearly: currencyYearly },
+    usedFactorsData: !!factorsData,
   });
   
   return {
