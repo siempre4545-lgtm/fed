@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       }
       
       // 데이터 유효성 검증
-      const hasValidData = h41Report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
+      const hasValidData = h41Report.cards.some((c: any) => c.balance_musd !== 0 || c.change_musd !== 0);
       if (!hasValidData) {
         console.error(`[${requestId}] All card values are zero`);
         return NextResponse.json(
@@ -104,15 +104,15 @@ export async function GET(request: NextRequest) {
       
       if (debug) {
         console.log('H4 Report converted:', {
-          overview: {
+          overview: normalizedData.overview ? {
             totalAssets: normalizedData.overview.totalAssets.value,
             securitiesHeld: normalizedData.overview.securitiesHeld.value,
             reserves: normalizedData.overview.reserves.value,
-          },
-          factors: {
+          } : null,
+          factors: normalizedData.factors ? {
             supplyingCount: normalizedData.factors.supplying.length,
             absorbingCount: normalizedData.factors.absorbing.length,
-          },
+          } : null,
         });
       }
     } catch (error) {

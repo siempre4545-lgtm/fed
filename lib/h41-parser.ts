@@ -333,7 +333,7 @@ async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise
 /**
  * H.4.1 리포트 가져오기
  */
-export async function fetchH41Report(targetDate?: string): Promise<H41Report> {
+export async function fetchH41Report(targetDate?: string, availableDates?: string[]): Promise<H41Report> {
   let url = SOURCE_URL;
 
   if (targetDate) {

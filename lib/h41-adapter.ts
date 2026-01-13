@@ -3,65 +3,9 @@
  * 기존 HTML 파싱 로직을 재사용하여 안정적인 데이터 추출
  */
 
-// H41Report 타입은 직접 정의 (src/h41.ts는 Next.js 외부)
-export type H41Card = {
-  key: string;
-  title: string;
-  fedLabel: string;
-  balance_musd: number;
-  change_musd: number;
-  balance_okeusd: number;
-  change_okeusd: number;
-  liquidityTag: "흡수(약재)" | "공급(해열)" | "QT/자산" | "상태";
-  concept: string;
-  interpretation: string;
-  dataDate: string;
-  qtQeSignal?: "QT" | "QE" | "중립";
-};
-
-export type H41Report = {
-  releaseDateText: string;
-  asOfWeekEndedText: string;
-  sourceUrl: string;
-  cards: H41Card[];
-  updatedAtISO: string;
-  warningLevel: 0 | 1 | 2 | 3;
-  assetGuidance: string;
-  teamSignal: { blueTeam: string; whiteTeam: string; summary: string };
-  weeklySummary: string;
-  coreCards: H41Card[];
-};
+import type { H41Report, H41Card } from './h41-parser';
 import type { H4Report, H4ReportOverview, H4ReportFactors, H4ReportSummary } from './types';
 import { translateLabel } from './translations';
-
-// H41Report 타입 재정의 (src/h41.ts는 Next.js 외부)
-type H41Card = {
-  key: string;
-  title: string;
-  fedLabel: string;
-  balance_musd: number;
-  change_musd: number;
-  balance_okeusd: number;
-  change_okeusd: number;
-  liquidityTag: "흡수(약재)" | "공급(해열)" | "QT/자산" | "상태";
-  concept: string;
-  interpretation: string;
-  dataDate: string;
-  qtQeSignal?: "QT" | "QE" | "중립";
-};
-
-type H41Report = {
-  releaseDateText: string;
-  asOfWeekEndedText: string;
-  sourceUrl: string;
-  cards: H41Card[];
-  updatedAtISO: string;
-  warningLevel: 0 | 1 | 2 | 3;
-  assetGuidance: string;
-  teamSignal: { blueTeam: string; whiteTeam: string; summary: string };
-  weeklySummary: string;
-  coreCards: H41Card[];
-};
 
 /**
  * H41Report를 H4Report로 변환

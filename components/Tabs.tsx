@@ -5,6 +5,11 @@ import { TrendTab } from './TrendTab';
 import { OverviewTab } from './OverviewTab';
 import { ReserveFactorsTab } from './ReserveFactorsTab';
 import { FactorsSummaryTab } from './FactorsSummaryTab';
+import { MaturityTab } from './MaturityTab';
+import { LoansSecuritiesTab } from './LoansSecuritiesTab';
+import { ConsolidatedStatementTab } from './ConsolidatedStatementTab';
+import { RegionalFedTab } from './RegionalFedTab';
+import { FRNotesTab } from './FRNotesTab';
 import type { H4Report } from '@/lib/types';
 
 interface TabsProps {
@@ -62,11 +67,65 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
       return <FactorsSummaryTab summary={reportData.summary} />;
     }
 
-    // 나머지 탭들은 기본 구현 (추후 개선)
+    if (activeTab === 'maturity') {
+      if (!reportData.maturity) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>만기 분포 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
+      return <MaturityTab maturity={reportData.maturity} />;
+    }
+
+    if (activeTab === 'loans-securities') {
+      if (!reportData.loansAndLending) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>대출/증권 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
+      return <LoansSecuritiesTab loansAndLending={reportData.loansAndLending} />;
+    }
+
+    if (activeTab === 'consolidated') {
+      if (!reportData.consolidatedStatement) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>재무제표 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
+      return <ConsolidatedStatementTab consolidatedStatement={reportData.consolidatedStatement} />;
+    }
+
+    if (activeTab === 'regional-fed') {
+      if (!reportData.regionalFed) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>지역 연준 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
+      return <RegionalFedTab regionalFed={reportData.regionalFed} />;
+    }
+
+    if (activeTab === 'fr-notes') {
+      if (!reportData.frNotes) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>연방준비권 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
+      return <FRNotesTab frNotes={reportData.frNotes} />;
+    }
+
+    // 알 수 없는 탭
     return (
       <div className="text-center py-12 text-gray-400">
         <p>{tabs.find(t => t.id === activeTab)?.label} 탭은 준비 중입니다.</p>
-        <p className="text-xs mt-2">데이터 구조는 준비되었으나 UI 구현이 필요합니다.</p>
       </div>
     );
   };
