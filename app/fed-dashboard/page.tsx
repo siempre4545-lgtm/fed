@@ -32,24 +32,62 @@ export default function FedDashboardPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/h41/report?date=${date}`);
+      const response = await fetch(`/api/h41/report?date=${date}`, {
+        cache: 'no-store', // 캐시 방지
+      });
+      
+      // Content-Type 검증
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Invalid response type: ${contentType}. First 200 chars: ${text.substring(0, 200)}`);
+      }
+      
       const data: H4Report = await response.json();
 
       // 응답 검증: H4Report 스키마 확인
       if (!data.ok) {
-        throw new Error(data.error || 'Failed to fetch report');
+        const errorMsg = data.error || 'Failed to fetch report';
+        console.error('API returned error:', {
+          date,
+          error: errorMsg,
+          status: response.status,
+        });
+        throw new Error(errorMsg);
       }
       
       if (!data.meta || !data.overview) {
+        console.error('Invalid response format:', {
+          date,
+          hasMeta: !!data.meta,
+          hasOverview: !!data.overview,
+          dataKeys: Object.keys(data),
+        });
         throw new Error('Invalid response format. Expected H4Report schema with meta and overview.');
+      }
+
+      // 데이터 유효성 검증
+      if (data.overview.totalAssets.value === 0 && 
+          data.overview.securitiesHeld.value === 0 && 
+          data.overview.reserves.value === 0) {
+        console.warn('All overview values are zero:', {
+          date,
+          overview: data.overview,
+        });
+        // 경고만 표시하고 계속 진행 (데이터가 실제로 0일 수도 있음)
       }
 
       setReportData(data);
       setSelectedDate(date);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Failed to fetch report:', errorMessage);
-      setError(errorMessage);
+      console.error('Failed to fetch report:', {
+        date,
+        error: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      setError(`데이터를 불러올 수 없습니다: ${errorMessage}`);
       setReportData(null);
     } finally {
       setLoading(false);
@@ -107,8 +145,9 @@ export default function FedDashboardPage() {
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+              aria-label="설정"
             >
-              설정
+              ⚙️ 설정
             </button>
           </div>
         </div>

@@ -41,28 +41,50 @@ export async function GET(request: NextRequest) {
     // 기존 HTML 파싱 로직 사용 (안정적이고 검증됨)
     let h41Report;
     try {
+      const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      console.log(`[${requestId}] Fetching H.4.1 report for date: ${date}`);
+      
       const releaseDates = await getFedReleaseDates();
+      console.log(`[${requestId}] Available dates count: ${releaseDates.length}`);
+      
       h41Report = await fetchH41Report(date, releaseDates);
       
+      // 데이터 유효성 검증
+      const hasValidData = h41Report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
+      if (!hasValidData) {
+        console.error(`[${requestId}] All card values are zero`);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Parsed data appears invalid (all zeros). The H.4.1 page structure may have changed.',
+            ...(debug && { requestId, date, cardCount: h41Report.cards.length }),
+          },
+          { status: 500 }
+        );
+      }
+      
       if (debug) {
-        console.log('H41 Report fetched:', {
+        console.log(`[${requestId}] H41 Report fetched:`, {
           releaseDate: h41Report.releaseDateText,
           weekEnded: h41Report.asOfWeekEndedText,
           cardCount: h41Report.cards.length,
           coreCardCount: h41Report.coreCards.length,
+          sampleCard: h41Report.coreCards[0],
         });
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('H41 fetch error:', {
         date,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
+        stack: error instanceof Error ? error.stack : undefined,
       });
       
       return NextResponse.json(
         {
           ok: false,
-          error: `Failed to fetch H.4.1 report: ${error instanceof Error ? error.message : String(error)}`,
-          ...(debug && { date, pdfUrl }),
+          error: `Failed to fetch H.4.1 report: ${errorMsg}`,
+          ...(debug && { date, pdfUrl, errorDetails: errorMsg }),
         },
         { status: 500 }
       );
