@@ -397,6 +397,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   // 흡수 요인 파싱 (Total factors supplying 다음부터 Total factors absorbing 전까지)
+  // "continued" 섹션도 포함하여 파싱
   const absorbing: FactorsTableRow[] = [];
   const absorbingEndKeywords = [
     'Total factors, other than reserve balances, absorbing reserve funds',
@@ -407,7 +408,22 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   let absorbingEndIndex = -1;
   let reserveBalancesIndex = -1;
   
+  // "continued" 섹션 시작 인덱스 찾기
+  let continuedStartIndex = -1;
   for (let i = absorbingStartIndex; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes('continued') || line.includes('table 1 (continued)')) {
+      continuedStartIndex = i;
+      break;
+    }
+  }
+  
+  // continued 섹션이 있으면 그 이후부터도 흡수 요인으로 포함
+  const actualAbsorbingStartIndex = continuedStartIndex >= 0 
+    ? Math.min(absorbingStartIndex, continuedStartIndex)
+    : absorbingStartIndex;
+  
+  for (let i = actualAbsorbingStartIndex; i < lines.length; i++) {
     const line = lines[i];
     
     // 종료 키워드 찾기
@@ -430,12 +446,15 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     if (absorbingEndIndex >= 0 && reserveBalancesIndex >= 0) break;
   }
   
-  // 흡수 요인 항목 파싱
-  for (let i = absorbingStartIndex; i < (absorbingEndIndex > 0 ? absorbingEndIndex : lines.length); i++) {
+  // 흡수 요인 항목 파싱 (continued 포함)
+  for (let i = actualAbsorbingStartIndex; i < (absorbingEndIndex > 0 ? absorbingEndIndex : lines.length); i++) {
     const line = lines[i];
     
     // 빈 라인 또는 숫자만 있는 라인 스킵
     if (!line.trim() || /^\s*[\d,\s+-]+\s*$/.test(line)) continue;
+    
+    // "continued" 헤더 라인 스킵
+    if (line.toLowerCase().includes('continued') && line.toLowerCase().includes('table')) continue;
     
     // 합계 라인은 나중에 처리
     if (line.toLowerCase().includes('total factors')) continue;
