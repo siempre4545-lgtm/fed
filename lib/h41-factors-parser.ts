@@ -286,27 +286,45 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   
   // 헤더를 찾지 못한 경우, 더 유연한 검색
   if (headerLineIndex === -1) {
-    // "Week ended"와 "Change"가 포함된 라인 찾기
-    for (let i = 0; i < lines.length; i++) {
+    console.warn('[parseFactorsTable1] Header not found with standard pattern, trying flexible search...');
+    
+    // "Week ended"와 "Change"가 포함된 라인 찾기 (대소문자 무시)
+    for (let i = 0; i < Math.min(300, lines.length); i++) {
       const line = lines[i];
-      if (line.match(/Week\s+ended/i) && line.match(/Change\s+from/i)) {
-        headerLineIndex = i;
+      const lineLower = line.toLowerCase();
+      
+      // "Week" 또는 "Change"가 포함된 줄 찾기
+      if (lineLower.includes('week') || lineLower.includes('change')) {
+        // 인접한 줄들도 확인
+        const contextLines = [
+          i > 0 ? lines[i - 1] : '',
+          line,
+          i + 1 < lines.length ? lines[i + 1] : '',
+        ].join(' ').toLowerCase();
         
-        // 간단한 컬럼 인덱스 추정 (공백으로 분리)
-        const parts = line.split(/\s{3,}/).map(p => p.trim()).filter(Boolean);
-        weekEndedColIndex = 0;
-        changeFromWeekEndedColIndex = 1;
-        changeFromYearAgoColIndex = 2;
-        
-        // 날짜 추출
-        const weekEndedMatch = line.match(/Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-        const prevWeekMatch = line.match(/Change\s+from\s+week\s+ended[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-        const yearAgoMatch = line.match(/Change\s+from[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-        
-        if (prevWeekMatch) prevWeekEndedText = prevWeekMatch[1].trim();
-        if (yearAgoMatch) yearAgoLabel = yearAgoMatch[1].trim();
-        
-        break;
+        if (contextLines.includes('week') && contextLines.includes('change')) {
+          headerLineIndex = i;
+          weekEndedColIndex = 0;
+          changeFromWeekEndedColIndex = 1;
+          changeFromYearAgoColIndex = 2;
+          
+          // 날짜 추출
+          const contextOriginal = [
+            i > 0 ? lines[i - 1] : '',
+            line,
+            i + 1 < lines.length ? lines[i + 1] : '',
+          ].join(' ');
+          
+          const weekEndedMatch = contextOriginal.match(/Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+          const prevWeekMatch = contextOriginal.match(/Change\s+from\s+week\s+ended[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+          const yearAgoMatch = contextOriginal.match(/Change\s+from[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+          
+          if (prevWeekMatch) prevWeekEndedText = prevWeekMatch[1].trim();
+          if (yearAgoMatch) yearAgoLabel = yearAgoMatch[1].trim();
+          
+          console.log(`[parseFactorsTable1] Found header at line ${i} with flexible search`);
+          break;
+        }
       }
     }
   }
@@ -314,18 +332,26 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   if (headerLineIndex === -1) {
     console.error('[parseFactorsTable1] Header not found. Searching in lines:', {
       totalLines: lines.length,
-      sampleLines: lines.slice(0, 50),
+      sampleLines: lines.slice(0, 100),
     });
     
-    // 더 유연한 헤더 검색
-    for (let i = 0; i < Math.min(100, lines.length); i++) {
+    // 디버깅: "Week" 또는 "Change"가 포함된 줄 출력
+    const potentialHeaders: Array<{ line: number; text: string }> = [];
+    for (let i = 0; i < Math.min(200, lines.length); i++) {
       const line = lines[i].toLowerCase();
-      if (line.includes('week') || line.includes('change')) {
-        console.warn(`[parseFactorsTable1] Potential header at line ${i}:`, lines[i]);
+      if (line.includes('week') || line.includes('change') || line.includes('ended')) {
+        potentialHeaders.push({ line: i, text: lines[i] });
       }
     }
     
-    throw new Error('Table 1 header not found. Expected line with "Week ended" and "Change from"');
+    console.error('[parseFactorsTable1] Potential header lines:', potentialHeaders.slice(0, 20));
+    
+    // 헤더를 찾지 못했어도 계속 진행 (기본값 사용)
+    console.warn('[parseFactorsTable1] Header not found, using default column indices');
+    headerLineIndex = 0;
+    weekEndedColIndex = 0;
+    changeFromWeekEndedColIndex = 1;
+    changeFromYearAgoColIndex = 2;
   }
   
   const prevWeekEnded = parseDateToISO(prevWeekEndedText) || '';
@@ -381,24 +407,52 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   // 공급 요인 항목 파싱
-  for (let i = supplyingStartIndex; i < (supplyingEndIndex > 0 ? supplyingEndIndex : lines.length); i++) {
+  console.log(`[parseFactorsTable1] Parsing supplying factors from line ${supplyingStartIndex} to ${supplyingEndIndex > 0 ? supplyingEndIndex : lines.length}`);
+  
+  for (let i = supplyingStartIndex; i < (supplyingEndIndex > 0 ? supplyingEndIndex : Math.min(supplyingStartIndex + 100, lines.length)); i++) {
     const line = lines[i];
     
-    // 빈 라인 또는 숫자만 있는 라인 스킵
-    if (!line.trim() || /^\s*[\d,\s+-]+\s*$/.test(line)) continue;
+    // 빈 라인 스킵
+    if (!line.trim()) continue;
+    
+    // 숫자만 있는 라인은 스킵 (헤더나 구분선일 수 있음)
+    if (/^\s*[\d,\s+-]+\s*$/.test(line)) continue;
     
     // 합계 라인은 나중에 처리
     if (line.toLowerCase().includes('total factors supplying')) continue;
     
-    // 라벨 찾기 (숫자가 아닌 텍스트)
-    const labelMatch = line.match(/^([^0-9+-]+?)(?:\s{2,}|\t)/);
+    // 라벨 찾기 - 더 유연한 패턴
+    // 패턴 1: 라벨 다음에 공백 2개 이상 또는 탭
+    let labelMatch = line.match(/^([^0-9+-]{3,}?)(?:\s{2,}|\t)/);
+    
+    // 패턴 2: 라벨이 숫자 앞에 오는 경우
+    if (!labelMatch) {
+      labelMatch = line.match(/^([A-Za-z][^0-9]{2,}?)(?=\s*[0-9+-])/);
+    }
+    
+    // 패턴 3: 라벨만 있는 경우 (다음 줄에 숫자가 있을 수 있음)
+    if (!labelMatch && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      if (/^[\s]*[0-9+-]/.test(nextLine)) {
+        labelMatch = [null, line.trim()];
+      }
+    }
+    
     if (!labelMatch) continue;
     
-    const label = labelMatch[1].trim();
-    if (!label || label.length < 3) continue; // 너무 짧은 라벨 스킵
+    const label = labelMatch[1]?.trim() || line.trim();
+    if (!label || label.length < 3) continue;
     
     // 숫자 추출 (3개 컬럼: value, wow, yoy)
     const numbers = extractNumbersFromLine(line);
+    
+    // 다음 줄에도 숫자가 있을 수 있음 (라벨과 숫자가 분리된 경우)
+    if (numbers.length < 3 && i + 1 < lines.length) {
+      const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
+      if (nextLineNumbers.length > 0) {
+        numbers.push(...nextLineNumbers);
+      }
+    }
     
     if (numbers.length >= 3) {
       supplying.push({
@@ -408,6 +462,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         wow: numbers[1] || 0,
         yoy: numbers[2] || 0,
       });
+      console.log(`[parseFactorsTable1] Added supplying factor: ${label} = ${numbers[0]}`);
     } else if (numbers.length >= 1) {
       // 일부 항목은 주간/연간 변화가 없을 수 있음
       supplying.push({
@@ -417,8 +472,27 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         wow: 0,
         yoy: 0,
       });
+      console.log(`[parseFactorsTable1] Added supplying factor (partial): ${label} = ${numbers[0]}`);
+    } else {
+      // 숫자가 없으면 라벨만 있는 줄일 수 있음 (다음 줄 확인)
+      if (i + 1 < lines.length && /^[\s]*[0-9+-]/.test(lines[i + 1])) {
+        const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
+        if (nextLineNumbers.length >= 1) {
+          supplying.push({
+            key: label,
+            labelKo: translateLabel(label),
+            value: nextLineNumbers[0] || 0,
+            wow: nextLineNumbers[1] || 0,
+            yoy: nextLineNumbers[2] || 0,
+          });
+          i++; // 다음 줄을 건너뛰기
+          console.log(`[parseFactorsTable1] Added supplying factor (multi-line): ${label} = ${nextLineNumbers[0]}`);
+        }
+      }
     }
   }
+  
+  console.log(`[parseFactorsTable1] Parsed ${supplying.length} supplying factors`);
   
   // Total factors supplying 찾기
   let totalSupplyingValue = 0;
@@ -486,11 +560,16 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   // 흡수 요인 항목 파싱 (continued 포함)
-  for (let i = actualAbsorbingStartIndex; i < (absorbingEndIndex > 0 ? absorbingEndIndex : lines.length); i++) {
+  console.log(`[parseFactorsTable1] Parsing absorbing factors from line ${actualAbsorbingStartIndex} to ${absorbingEndIndex > 0 ? absorbingEndIndex : lines.length}`);
+  
+  for (let i = actualAbsorbingStartIndex; i < (absorbingEndIndex > 0 ? absorbingEndIndex : Math.min(actualAbsorbingStartIndex + 100, lines.length)); i++) {
     const line = lines[i];
     
-    // 빈 라인 또는 숫자만 있는 라인 스킵
-    if (!line.trim() || /^\s*[\d,\s+-]+\s*$/.test(line)) continue;
+    // 빈 라인 스킵
+    if (!line.trim()) continue;
+    
+    // 숫자만 있는 라인은 스킵
+    if (/^\s*[\d,\s+-]+\s*$/.test(line)) continue;
     
     // "continued" 헤더 라인 스킵
     if (line.toLowerCase().includes('continued') && line.toLowerCase().includes('table')) continue;
@@ -499,15 +578,35 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     if (line.toLowerCase().includes('total factors')) continue;
     if (line.toLowerCase().includes('reserve balances')) continue;
     
-    // 라벨 찾기
-    const labelMatch = line.match(/^([^0-9+-]+?)(?:\s{2,}|\t)/);
+    // 라벨 찾기 - 더 유연한 패턴
+    let labelMatch = line.match(/^([^0-9+-]{3,}?)(?:\s{2,}|\t)/);
+    
+    if (!labelMatch) {
+      labelMatch = line.match(/^([A-Za-z][^0-9]{2,}?)(?=\s*[0-9+-])/);
+    }
+    
+    if (!labelMatch && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      if (/^[\s]*[0-9+-]/.test(nextLine)) {
+        labelMatch = [null, line.trim()];
+      }
+    }
+    
     if (!labelMatch) continue;
     
-    const label = labelMatch[1].trim();
+    const label = labelMatch[1]?.trim() || line.trim();
     if (!label || label.length < 3) continue;
     
     // 숫자 추출
     const numbers = extractNumbersFromLine(line);
+    
+    // 다음 줄에도 숫자가 있을 수 있음
+    if (numbers.length < 3 && i + 1 < lines.length) {
+      const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
+      if (nextLineNumbers.length > 0) {
+        numbers.push(...nextLineNumbers);
+      }
+    }
     
     if (numbers.length >= 3) {
       absorbing.push({
@@ -517,6 +616,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         wow: numbers[1] || 0,
         yoy: numbers[2] || 0,
       });
+      console.log(`[parseFactorsTable1] Added absorbing factor: ${label} = ${numbers[0]}`);
     } else if (numbers.length >= 1) {
       absorbing.push({
         key: label,
@@ -525,8 +625,27 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         wow: 0,
         yoy: 0,
       });
+      console.log(`[parseFactorsTable1] Added absorbing factor (partial): ${label} = ${numbers[0]}`);
+    } else {
+      // 숫자가 없으면 라벨만 있는 줄일 수 있음
+      if (i + 1 < lines.length && /^[\s]*[0-9+-]/.test(lines[i + 1])) {
+        const nextLineNumbers = extractNumbersFromLine(lines[i + 1]);
+        if (nextLineNumbers.length >= 1) {
+          absorbing.push({
+            key: label,
+            labelKo: translateLabel(label),
+            value: nextLineNumbers[0] || 0,
+            wow: nextLineNumbers[1] || 0,
+            yoy: nextLineNumbers[2] || 0,
+          });
+          i++; // 다음 줄을 건너뛰기
+          console.log(`[parseFactorsTable1] Added absorbing factor (multi-line): ${label} = ${nextLineNumbers[0]}`);
+        }
+      }
     }
   }
+  
+  console.log(`[parseFactorsTable1] Parsed ${absorbing.length} absorbing factors`);
   
   // Total factors absorbing (지준금 제외) 찾기
   let totalAbsorbingExReservesValue = 0;
@@ -609,32 +728,29 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
 function extractNumbersFromLine(line: string): number[] {
   const numbers: number[] = [];
   
-  // 라인을 공백/탭으로 분리
+  // 방법 1: 정규식으로 직접 추출 (부호 포함, 콤마 포함)
+  const regex = /([+-]?\s*[\d,]+(?:\.[\d]+)?)/g;
+  let match;
+  const extracted: number[] = [];
+  
+  while ((match = regex.exec(line)) !== null) {
+    const num = parseNumber(match[1]);
+    if (num !== null) {
+      extracted.push(num);
+    }
+  }
+  
+  if (extracted.length > 0) {
+    return extracted;
+  }
+  
+  // 방법 2: 공백/탭으로 분리 후 숫자 추출
   const parts = line.split(/\s{2,}|\t/).map(p => p.trim()).filter(Boolean);
   
-  // 각 파트에서 숫자 추출
   for (const part of parts) {
     const num = parseNumber(part);
     if (num !== null) {
       numbers.push(num);
-    }
-  }
-  
-  // 위 방법이 실패하면 정규식으로 직접 추출
-  if (numbers.length < 3) {
-    const regex = /([+-]?\s*[\d,]+)/g;
-    let match;
-    const extracted: number[] = [];
-    
-    while ((match = regex.exec(line)) !== null && extracted.length < 3) {
-      const num = parseNumber(match[1]);
-      if (num !== null) {
-        extracted.push(num);
-      }
-    }
-    
-    if (extracted.length > numbers.length) {
-      return extracted;
     }
   }
   
