@@ -433,11 +433,92 @@ async function convertOverview(
 }
 
 /**
- * 준비금 요인 변환 (연간 데이터 포함)
- * 공급 요인: Reserve Bank Credit, Securities Held, Treasury Securities, Bills, Notes and Bonds, TIPS, MBS, Repos, Loans, BTFP, CB Swaps, Gold, SDR
- * 흡수 요인: Deposits (Other liabilities and capital을 Deposits로 변경)
+ * 준비금 요인 변환 (새로운 Table 1 직접 파서 사용)
+ * 원문 HTML에서 Table 1을 직접 파싱하여 모든 항목을 순서대로 추출
  */
 async function convertFactors(
+  h41Report: H41Report,
+  currentDate: string,
+  historicalData: HistoricalData[]
+): Promise<H4ReportFactors> {
+  // 새로운 Table 1 직접 파서 사용
+  const { parseFactorsTable1 } = await import('./h41-factors-parser');
+  
+  // rawText가 없으면 HTML을 다시 가져와야 함
+  if (!h41Report.rawText) {
+    console.warn('[convertFactors] rawText not available, falling back to card-based parsing');
+    return convertFactorsLegacy(h41Report, currentDate, historicalData);
+  }
+  
+  try {
+    // Table 1 직접 파싱
+    const factorsData = await parseFactorsTable1(h41Report.rawText, h41Report.sourceUrl);
+    
+    // FactorsTableData를 H4ReportFactors로 변환
+    const supplying: H4ReportFactorRow[] = factorsData.supplying.map(row => ({
+      label: row.labelKo,
+      labelEn: row.key,
+      value: row.value,
+      change: row.wow,
+      changePercent: row.value ? (row.wow / row.value) * 100 : 0,
+      yearlyChange: row.yoy,
+      yearlyChangePercent: row.value ? (row.yoy / row.value) * 100 : 0,
+    }));
+    
+    const absorbing: H4ReportFactorRow[] = factorsData.absorbing.map(row => {
+      // Other liabilities and capital을 Deposits로 표시
+      const displayLabel = row.key === 'Other liabilities and capital' 
+        ? 'Deposits' 
+        : row.labelKo;
+      
+      return {
+        label: displayLabel,
+        labelEn: row.key === 'Other liabilities and capital' ? 'Deposits' : row.key,
+        value: row.value,
+        change: row.wow,
+        changePercent: row.value ? (row.wow / row.value) * 100 : 0,
+        yearlyChange: row.yoy,
+        yearlyChangePercent: row.value ? (row.yoy / row.value) * 100 : 0,
+      };
+    });
+    
+    // Reserve balances는 원문 값을 우선 사용 (계산은 검증용)
+    const reserveBalancesValue = factorsData.totals.reserveBalances.value;
+    
+    // 검증 로그
+    if (!factorsData.integrity.ok) {
+      console.warn('[convertFactors] Reserve balances integrity check failed:', {
+        calculated: factorsData.integrity.calcReserveBalances,
+        fromSource: reserveBalancesValue,
+        delta: factorsData.integrity.delta,
+      });
+    }
+    
+    return {
+      supplying,
+      absorbing,
+      totals: {
+        supplying: factorsData.totals.totalSupplying.value,
+        supplyingWeeklyChange: factorsData.totals.totalSupplying.wow,
+        supplyingYearlyChange: factorsData.totals.totalSupplying.yoy,
+        absorbing: factorsData.totals.totalAbsorbingExReserves.value,
+        absorbingWeeklyChange: factorsData.totals.totalAbsorbingExReserves.wow,
+        absorbingYearlyChange: factorsData.totals.totalAbsorbingExReserves.yoy,
+        net: reserveBalancesValue, // 원문 값 사용
+        netWeeklyChange: factorsData.totals.reserveBalances.wow,
+        netYearlyChange: factorsData.totals.reserveBalances.yoy,
+      },
+    };
+  } catch (error) {
+    console.error('[convertFactors] Failed to parse Table 1 directly, falling back to legacy method:', error);
+    return convertFactorsLegacy(h41Report, currentDate, historicalData);
+  }
+}
+
+/**
+ * 레거시 방식 (기존 카드 기반 파싱) - fallback용
+ */
+async function convertFactorsLegacy(
   h41Report: H41Report,
   currentDate: string,
   historicalData: HistoricalData[]

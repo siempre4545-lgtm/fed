@@ -358,6 +358,9 @@ async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise
   if (rrp && rrp.change_musd > 30000) warningLevel = Math.max(warningLevel, 1);
   if (reserves && reserves.change_musd < -50000) warningLevel = Math.max(warningLevel, 1);
 
+  // rawText는 항상 저장 (Table 1 직접 파싱을 위해)
+  const rawText = text || $('body').text().replace(/\r/g, '');
+  
   return {
     releaseDateText,
     asOfWeekEndedText,
@@ -373,7 +376,7 @@ async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise
     },
     weeklySummary: '주간 요약 리포트입니다.',
     coreCards,
-    rawText: text, // 추가 테이블 파싱을 위해 원본 텍스트 저장
+    rawText, // 추가 테이블 파싱을 위해 원본 텍스트 저장
   };
 }
 

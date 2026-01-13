@@ -144,6 +144,11 @@ export async function GET(request: NextRequest) {
       // 실제 사용된 release 날짜를 reportDate로 사용
       normalizedData = await convertH41ToH4Report(h41Report, actualReleaseDate, pdfUrl);
       
+      // meta가 없는 경우 에러 반환
+      if (!normalizedData.meta) {
+        throw new Error('convertH41ToH4Report returned data without meta field');
+      }
+      
       // 검증 로그 출력
       console.log(`[${requestId}] H4 Report converted:`, {
         overview: normalizedData.overview ? {
