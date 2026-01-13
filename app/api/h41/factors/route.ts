@@ -124,6 +124,23 @@ export async function GET(request: NextRequest) {
         throw new Error('No factors data parsed: both supplying and absorbing arrays are empty');
       }
       
+      // 공식 합계 라벨 파싱 실패 확인: totals 3개가 모두 0이면 실패
+      const allTotalsZero = 
+        factorsData.totals.totalSupplying.value === 0 &&
+        factorsData.totals.totalAbsorbingExReserves.value === 0 &&
+        factorsData.totals.reserveBalances.value === 0;
+      
+      // 항목은 있지만 totals가 모두 0이면 공식 합계 라벨 파싱 실패
+      if (allTotalsZero && (factorsData.supplying.length > 0 || factorsData.absorbing.length > 0)) {
+        const hasNonZeroItems = 
+          factorsData.supplying.some(r => r.value !== 0) ||
+          factorsData.absorbing.some(r => r.value !== 0);
+        
+        if (hasNonZeroItems) {
+          throw new Error('Official total labels parsing failed: all totals are 0 but items have non-zero values');
+        }
+      }
+      
       // 모든 값이 0이면 실패로 처리
       const hasNonZeroData = 
         factorsData.totals.totalSupplying.value !== 0 ||

@@ -142,12 +142,13 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
         </div>
       </div>
 
-      {/* 합계 카드 - API totals를 그대로 사용 (FE에서 재계산하지 않음) */}
+      {/* 합계 카드 - API totals를 그대로 사용 (FE에서 재계산 금지, 원문 공식 합계값만 표시) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">공급 총합</div>
+          <div className="text-xs text-gray-500 mb-1">Total factors supplying reserve funds</div>
           {factors.totals.supplying === 0 && factors.supplying.length > 0 && factors.supplying.some(r => r.value !== 0) ? (
-            <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
+            <div className="text-sm text-red-400">⚠️ 공식 합계 파싱 실패</div>
           ) : (
             <>
               <div className="text-2xl font-bold mb-2">{formatNumber(factors.totals.supplying)}</div>
@@ -170,7 +171,7 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
           <div className="text-sm text-gray-400 mb-1">흡수 총합</div>
           <div className="text-xs text-gray-500 mb-1">Total factors, other than reserve balances, absorbing reserve funds</div>
           {factors.totals.absorbing === 0 && factors.absorbing.length > 0 && factors.absorbing.some(r => r.value !== 0) ? (
-            <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
+            <div className="text-sm text-red-400">⚠️ 공식 합계 파싱 실패</div>
           ) : (
             <>
               <div className="text-2xl font-bold mb-2">{formatNumber(factors.totals.absorbing)}</div>
@@ -191,9 +192,9 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">지급준비금</div>
-          <div className="text-xs text-gray-500 mb-1">Reserve Balances</div>
+          <div className="text-xs text-gray-500 mb-1">Reserve balances with Federal Reserve Banks</div>
           {factors.totals.net === 0 && (factors.totals.supplying !== 0 || factors.totals.absorbing !== 0) ? (
-            <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
+            <div className="text-sm text-red-400">⚠️ 공식 합계 파싱 실패</div>
           ) : (
             <>
               <div className={`text-2xl font-bold mb-2 ${
