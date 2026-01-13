@@ -650,7 +650,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     }
   }
   
-  // 화이트리스트 순서대로 정렬 및 labelKo 재설정 (정확히 13개만)
+  // 화이트리스트 순서대로 정렬 및 labelKo 재설정
   const filteredSupplying: FactorsTableRow[] = [];
   for (const key of supplyingWhitelistKeys) {
     const row = supplyingMap.get(key);
@@ -659,35 +659,12 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         ...row,
         labelKo: translateLabel(key), // 정규화된 키로 한글 번역
       });
-    } else {
-      // 누락된 항목은 0으로 채우기 (BTFP는 없을 수 있음)
-      filteredSupplying.push({
-        key,
-        labelKo: translateLabel(key),
-        value: 0,
-        wow: 0,
-        yoy: 0,
-      });
     }
   }
   
-  // 정확히 13개만 반환
-  const finalSupplying = filteredSupplying.slice(0, 13);
-  
-  console.log(`[parseFactorsTable1] Filtered supplying: ${finalSupplying.length} items (expected: 13)`);
-  
-  // 화이트리스트 매칭 실패 항목 로깅 (개발 환경에서만)
-  if (unmatchedSupplying.length > 0) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
-      console.warn(`[parseFactorsTable1] Total unmatched supplying: ${unmatchedSupplying.length}`);
-    }
-  }
-  
-  // 항목 수 검증: 13개가 아니면 경고
-  if (finalSupplying.length !== 13) {
-    console.error(`[parseFactorsTable1] ERROR: Supplying items count mismatch! Expected 13, got ${finalSupplying.length}`);
-    console.error(`[parseFactorsTable1] Filtered supplying keys:`, finalSupplying.map(r => r.key));
+  console.log(`[parseFactorsTable1] Filtered supplying: ${filteredSupplying.length} items (expected: 13)`);
+  if (unmatchedSupplying.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
   }
   
   /**
@@ -1095,7 +1072,7 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     }
   }
   
-  // 화이트리스트 순서대로 정렬 및 labelKo 재설정 (정확히 4개만)
+  // 화이트리스트 순서대로 정렬 및 labelKo 재설정
   const filteredAbsorbing: FactorsTableRow[] = [];
   for (const key of absorbingWhitelistKeys) {
     const row = absorbingMap.get(key);
@@ -1104,43 +1081,21 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         ...row,
         labelKo: translateLabel(key), // 정규화된 키로 한글 번역
       });
-    } else {
-      // 누락된 항목은 0으로 채우기
-      filteredAbsorbing.push({
-        key,
-        labelKo: translateLabel(key),
-        value: 0,
-        wow: 0,
-        yoy: 0,
-      });
     }
   }
   
-  // 정확히 4개만 반환
-  const finalAbsorbing = filteredAbsorbing.slice(0, 4);
-  
-  console.log(`[parseFactorsTable1] Filtered absorbing: ${finalAbsorbing.length} items (expected: 4, including RRP)`);
-  console.log(`[parseFactorsTable1] Filtered absorbing items:`, finalAbsorbing.map(r => ({ key: r.key, label: r.labelKo, value: r.value })));
-  
-  // 화이트리스트 매칭 실패 항목 로깅 (개발 환경에서만)
-  if (unmatchedAbsorbing.length > 0) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
-      console.warn(`[parseFactorsTable1] Total unmatched absorbing: ${unmatchedAbsorbing.length}`);
-    }
-  }
+  console.log(`[parseFactorsTable1] Filtered absorbing: ${filteredAbsorbing.length} items (expected: 4, including RRP)`);
+  console.log(`[parseFactorsTable1] Filtered absorbing items:`, filteredAbsorbing.map(r => ({ key: r.key, label: r.labelKo, value: r.value })));
   
   // RRP가 포함되어 있는지 확인
-  const hasRRP = finalAbsorbing.some(r => r.key === 'RRP' || r.labelKo === '역레포');
+  const hasRRP = filteredAbsorbing.some(r => r.key === 'RRP' || r.labelKo === '역레포');
   if (!hasRRP) {
     console.warn('[parseFactorsTable1] RRP (Reverse repurchase agreements) not found in filtered absorbing items!');
     console.warn('[parseFactorsTable1] All absorbing items before filtering:', absorbing.map(r => ({ key: r.key, value: r.value })));
   }
   
-  // 항목 수 검증: 4개가 아니면 경고
-  if (finalAbsorbing.length !== 4) {
-    console.error(`[parseFactorsTable1] ERROR: Absorbing items count mismatch! Expected 4, got ${finalAbsorbing.length}`);
-    console.error(`[parseFactorsTable1] Filtered absorbing keys:`, finalAbsorbing.map(r => r.key));
+  if (unmatchedAbsorbing.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
   }
   
   // Total factors, other than reserve balances, absorbing reserve funds 원문에서 직접 파싱 (정규식 anchor 사용)
@@ -1326,8 +1281,8 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     });
     
     // 검증용 계산값 (오류 로그용)
-    const calcTotalSupplying = finalSupplying.reduce((sum, r) => sum + r.value, 0);
-    const calcTotalAbsorbing = finalAbsorbing.reduce((sum, r) => sum + r.value, 0);
+    const calcTotalSupplying = filteredSupplying.reduce((sum, r) => sum + r.value, 0);
+    const calcTotalAbsorbing = filteredAbsorbing.reduce((sum, r) => sum + r.value, 0);
     console.error('[parseFactorsTable1] Calculated values (for debugging):', {
       calculatedSupplying: calcTotalSupplying,
       calculatedAbsorbing: calcTotalAbsorbing,
@@ -1362,8 +1317,8 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     weekEnded,
     prevWeekEnded,
     yearAgoLabel,
-    supplying: finalSupplying, // 필터링된 supplying 사용 (정확히 13개)
-    absorbing: finalAbsorbing, // 필터링된 absorbing 사용 (정확히 4개)
+    supplying: filteredSupplying, // 필터링된 supplying 사용
+    absorbing: filteredAbsorbing, // 필터링된 absorbing 사용
     totals: {
       totalSupplying: {
         value: finalTotalSupplyingValue, // 원문에서 파싱한 공식 합계값
