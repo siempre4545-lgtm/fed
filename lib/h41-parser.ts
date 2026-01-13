@@ -34,6 +34,7 @@ export type H41Report = {
   teamSignal: { blueTeam: string; whiteTeam: string; summary: string };
   weeklySummary: string;
   coreCards: H41Card[];
+  rawText?: string; // 추가 테이블 파싱을 위한 원본 텍스트
 };
 
 const ITEM_DEFS: Array<{
@@ -204,7 +205,7 @@ async function interpret(
 /**
  * H.4.1 리포트 파싱
  */
-async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise<H41Report> {
+async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise<H41Report & { rawText?: string }> {
   const text = $('body').text().replace(/\r/g, '');
   const lines = text
     .split('\n')
@@ -327,6 +328,7 @@ async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise
     },
     weeklySummary: '주간 요약 리포트입니다.',
     coreCards,
+    rawText: text, // 추가 테이블 파싱을 위해 원본 텍스트 저장
   };
 }
 

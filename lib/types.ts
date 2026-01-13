@@ -124,11 +124,13 @@ export interface H4ReportConsolidatedStatement {
     label: string;
     value: number;
     change: number;
+    yearlyChange?: number;
   }>;
   liabilitiesRows: Array<{
     label: string;
     value: number;
     change: number;
+    yearlyChange?: number;
   }>;
   totals: {
     assets: number;

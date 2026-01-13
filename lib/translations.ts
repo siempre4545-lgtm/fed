@@ -25,6 +25,8 @@ export const translationMap: Record<string, string> = {
   'Treasury cash holdings': '재무부 현금 보유',
   'Deposits with F.R. Banks, other than reserve balances': '기타 예치금',
   'Treasury deposits with Federal Reserve Banks': '재무부 예치금',
+  'Other liabilities and capital': '연준 예치금',
+  'Deposits': '연준 예치금',
   
   // 만기 분포
   'Within 15 days': '15일 이내',
