@@ -80,9 +80,36 @@ function parseDateToISO(dateText: string): string | null {
 }
 
 /**
- * 한글 라벨 번역
+ * 한글 라벨 번역 (정규화된 키 또는 원문 라벨 지원)
  */
 function translateLabel(enLabel: string): string {
+  // 정규화된 키 매핑
+  const canonicalTranslations: Record<string, string> = {
+    'RBC': '연준 신용',
+    'SECURITIES_HELD': '보유 증권',
+    'TREASURY': '미 국채',
+    'BILLS': '단기채',
+    'NOTES_BONDS': '중장기채',
+    'TIPS': '물가연동채',
+    'MBS': '주택저당증권',
+    'REPOS': '레포',
+    'LOANS': '대출',
+    'BTFP': '은행기간대출',
+    'SWAPS': '통화스왑',
+    'GOLD': '금',
+    'SDR': 'SDR 증서',
+    'CURRENCY': '유통 통화',
+    'RRP': '역레포',
+    'DEPOSITS': '연준 예치금',
+    'TGA': '재무부 일반계정',
+  };
+  
+  // 정규화된 키 먼저 확인
+  if (canonicalTranslations[enLabel]) {
+    return canonicalTranslations[enLabel];
+  }
+  
+  // 원문 라벨 매핑
   const translations: Record<string, string> = {
     'Reserve Bank credit': '연준 신용',
     'Securities held outright': '보유 증권',
@@ -98,12 +125,12 @@ function translateLabel(enLabel: string): string {
     'BTFP': '은행기간대출',
     'Central bank liquidity swaps': '통화스왑',
     'Gold': '금',
-    'SDR': 'SDR',
+    'SDR': 'SDR 증서',
     'Reverse repurchase agreements': '역레포',
     'Currency in circulation': '유통 통화',
-    'U.S. Treasury, General Account': 'TGA',
-    'Deposits with F.R. Banks, other than reserve balances': '예금 (지준금 제외)',
-    'Other liabilities and capital': '기타 부채·자본',
+    'U.S. Treasury, General Account': '재무부 일반계정',
+    'Deposits with F.R. Banks, other than reserve balances': '연준 예치금',
+    'Other liabilities and capital': '연준 예치금',
     'Reserve balances with Federal Reserve Banks': '지급준비금',
   };
   
@@ -490,22 +517,122 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     }
   }
   
-  console.log(`[parseFactorsTable1] Parsed ${supplying.length} supplying factors`);
+  console.log(`[parseFactorsTable1] Parsed ${supplying.length} supplying factors (before whitelist filter)`);
   
-  // Total factors supplying 찾기
-  let totalSupplyingValue = 0;
-  let totalSupplyingWow = 0;
-  let totalSupplyingYoy = 0;
+  // 화이트리스트 필터링: 정규화 키 매핑 및 필터링
+  const supplyingWhitelistKeys = [
+    'RBC',           // Reserve Bank Credit
+    'SECURITIES_HELD', // Securities Held
+    'TREASURY',      // Treasury Securities
+    'BILLS',         // Bills
+    'NOTES_BONDS',   // Notes and Bonds
+    'TIPS',          // TIPS
+    'MBS',           // MBS
+    'REPOS',         // Repos
+    'LOANS',         // Loans
+    'BTFP',          // Bank Term Funding Program
+    'SWAPS',         // Central bank liquidity swaps
+    'GOLD',          // Gold
+    'SDR',           // SDR
+  ];
   
-  if (supplyingEndIndex >= 0) {
-    const totalLine = lines[supplyingEndIndex];
-    const totalNumbers = extractNumbersFromLine(totalLine);
-    if (totalNumbers.length >= 3) {
-      totalSupplyingValue = totalNumbers[0] || 0;
-      totalSupplyingWow = totalNumbers[1] || 0;
-      totalSupplyingYoy = totalNumbers[2] || 0;
+  // 정규화 키 매핑 함수
+  const getCanonicalKey = (label: string): string | null => {
+    const s = label.replace(/\u00a0/g, ' ').replace(/[()]/g, ' ').replace(/\./g, ' ').replace(/\s+/g, ' ').toLowerCase().trim();
+    
+    // Reserve Bank Credit
+    if (s.includes('reserve bank credit') || s.includes('연준 신용')) return 'RBC';
+    
+    // Securities Held
+    if (s.includes('securities held outright') || s.includes('보유 증권')) return 'SECURITIES_HELD';
+    
+    // Treasury Securities
+    if ((s.includes('treasury') || s.includes('국채')) && !s.includes('general') && !s.includes('account')) return 'TREASURY';
+    
+    // Bills
+    if (s.includes('bills') || s.includes('단기채')) return 'BILLS';
+    
+    // Notes and Bonds
+    if ((s.includes('notes') && s.includes('bonds')) || s.includes('중장기채')) {
+      if (s.includes('inflation') || s.includes('tips')) return 'TIPS';
+      return 'NOTES_BONDS';
+    }
+    
+    // TIPS
+    if (s.includes('tips') || s.includes('inflation') || s.includes('물가연동채')) return 'TIPS';
+    
+    // MBS
+    if (s.includes('mbs') || s.includes('mortgage') || s.includes('주택저당증권')) return 'MBS';
+    
+    // Repos
+    if ((s.includes('repo') || s.includes('repurchase')) && !s.includes('reverse') && !s.includes('레포')) return 'REPOS';
+    
+    // Loans
+    if (s.includes('loans') || s.includes('대출')) {
+      if (s.includes('primary credit') || s.includes('1차 신용')) return 'LOANS';
+      if (s.includes('btfp') || s.includes('bank term funding') || s.includes('은행기간대출')) return 'BTFP';
+      return 'LOANS';
+    }
+    
+    // BTFP
+    if (s.includes('btfp') || s.includes('bank term funding program') || s.includes('은행기간대출')) return 'BTFP';
+    
+    // Swaps
+    if (s.includes('swap') || s.includes('통화스왑')) return 'SWAPS';
+    
+    // Gold
+    if (s.includes('gold') || s.includes('금')) return 'GOLD';
+    
+    // SDR
+    if (s.includes('sdr') || s.includes('special drawing rights') || s.includes('sdr 증서')) return 'SDR';
+    
+    return null;
+  };
+  
+  // supplying 필터링 및 중복 제거
+  const supplyingMap = new Map<string, FactorsTableRow>();
+  const unmatchedSupplying: string[] = [];
+  
+  for (const row of supplying) {
+    const canonicalKey = getCanonicalKey(row.key);
+    if (!canonicalKey) {
+      unmatchedSupplying.push(row.key);
+      continue;
+    }
+    
+    if (!supplyingWhitelistKeys.includes(canonicalKey)) {
+      unmatchedSupplying.push(row.key);
+      continue;
+    }
+    
+    // 중복 제거: 동일 키가 이미 있으면 value가 0이 아닌 것 우선, 둘 다 0이면 첫 번째 유지
+    const existing = supplyingMap.get(canonicalKey);
+    if (!existing || (existing.value === 0 && row.value !== 0)) {
+      supplyingMap.set(canonicalKey, {
+        ...row,
+        key: canonicalKey, // 정규화된 키로 교체
+      });
     }
   }
+  
+  // 화이트리스트 순서대로 정렬 및 labelKo 재설정
+  const filteredSupplying: FactorsTableRow[] = [];
+  for (const key of supplyingWhitelistKeys) {
+    const row = supplyingMap.get(key);
+    if (row) {
+      filteredSupplying.push({
+        ...row,
+        labelKo: translateLabel(key), // 정규화된 키로 한글 번역
+      });
+    }
+  }
+  
+  console.log(`[parseFactorsTable1] Filtered supplying: ${filteredSupplying.length} items (expected: 13)`);
+  if (unmatchedSupplying.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
+  }
+  
+  // Total factors supplying는 나중에 합산 계산으로 처리
   
   // 흡수 요인 파싱 (Total factors supplying 다음부터 Total factors absorbing 전까지)
   // "continued" 섹션도 포함하여 파싱
@@ -599,58 +726,218 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     }
   }
   
-  console.log(`[parseFactorsTable1] Parsed ${absorbing.length} absorbing factors`);
+  console.log(`[parseFactorsTable1] Parsed ${absorbing.length} absorbing factors (before whitelist filter)`);
   
-  // Total factors absorbing (지준금 제외) 찾기
-  let totalAbsorbingExReservesValue = 0;
-  let totalAbsorbingExReservesWow = 0;
-  let totalAbsorbingExReservesYoy = 0;
+  // 흡수 요인 화이트리스트 필터링
+  const absorbingWhitelistKeys = [
+    'CURRENCY',      // Currency in circulation
+    'RRP',           // Reverse Repos
+    'DEPOSITS',       // Deposits (Other liabilities and capital)
+    'TGA',           // Treasury General Account
+  ];
+  
+  // 정규화 키 매핑 함수 (absorbing용)
+  const getCanonicalKeyAbsorbing = (label: string): string | null => {
+    const s = label.replace(/\u00a0/g, ' ').replace(/[()]/g, ' ').replace(/\./g, ' ').replace(/\s+/g, ' ').toLowerCase().trim();
+    
+    // Currency
+    if (s.includes('currency in circulation') || s.includes('유통 통화')) return 'CURRENCY';
+    
+    // Reverse Repo
+    if ((s.includes('reverse') && s.includes('repo')) || s.includes('역레포')) return 'RRP';
+    
+    // Deposits (Other liabilities and capital)
+    if (s.includes('deposits') || s.includes('other liabilities') || s.includes('예치금')) {
+      // TGA는 제외
+      if (s.includes('treasury') && s.includes('general')) return null;
+      return 'DEPOSITS';
+    }
+    
+    // TGA
+    if ((s.includes('treasury') && s.includes('general')) || s.includes('tga') || s.includes('재무부 일반계정')) return 'TGA';
+    
+    return null;
+  };
+  
+  // absorbing 필터링 및 중복 제거
+  const absorbingMap = new Map<string, FactorsTableRow>();
+  const unmatchedAbsorbing: string[] = [];
+  
+  for (const row of absorbing) {
+    const canonicalKey = getCanonicalKeyAbsorbing(row.key);
+    if (!canonicalKey) {
+      unmatchedAbsorbing.push(row.key);
+      continue;
+    }
+    
+    if (!absorbingWhitelistKeys.includes(canonicalKey)) {
+      unmatchedAbsorbing.push(row.key);
+      continue;
+    }
+    
+    // 중복 제거: 동일 키가 이미 있으면 value가 0이 아닌 것 우선, 둘 다 0이면 첫 번째 유지
+    const existing = absorbingMap.get(canonicalKey);
+    if (!existing || (existing.value === 0 && row.value !== 0)) {
+      absorbingMap.set(canonicalKey, {
+        ...row,
+        key: canonicalKey, // 정규화된 키로 교체
+      });
+    }
+  }
+  
+  // 화이트리스트 순서대로 정렬 및 labelKo 재설정
+  const filteredAbsorbing: FactorsTableRow[] = [];
+  for (const key of absorbingWhitelistKeys) {
+    const row = absorbingMap.get(key);
+    if (row) {
+      filteredAbsorbing.push({
+        ...row,
+        labelKo: translateLabel(key), // 정규화된 키로 한글 번역
+      });
+    }
+  }
+  
+  console.log(`[parseFactorsTable1] Filtered absorbing: ${filteredAbsorbing.length} items (expected: 4)`);
+  if (unmatchedAbsorbing.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
+  }
+  
+  // totals 합산 계산 (서버에서 합산)
+  // totalSupplying = filteredSupplying의 value/wow/yoy 합
+  const calcTotalSupplying = {
+    value: filteredSupplying.reduce((sum, r) => sum + r.value, 0),
+    wow: filteredSupplying.reduce((sum, r) => sum + r.wow, 0),
+    yoy: filteredSupplying.reduce((sum, r) => sum + r.yoy, 0),
+  };
+  
+  // totalAbsorbingExReserves = filteredAbsorbing의 value/wow/yoy 합
+  const calcTotalAbsorbingExReserves = {
+    value: filteredAbsorbing.reduce((sum, r) => sum + r.value, 0),
+    wow: filteredAbsorbing.reduce((sum, r) => sum + r.wow, 0),
+    yoy: filteredAbsorbing.reduce((sum, r) => sum + r.yoy, 0),
+  };
+  
+  // reserveBalances = totalSupplying - totalAbsorbingExReserves
+  const calcReserveBalances = {
+    value: calcTotalSupplying.value - calcTotalAbsorbingExReserves.value,
+    wow: calcTotalSupplying.wow - calcTotalAbsorbingExReserves.wow,
+    yoy: calcTotalSupplying.yoy - calcTotalAbsorbingExReserves.yoy,
+  };
+  
+  // 원문에서 파싱한 totals와 비교 (검증용)
+  let totalSupplyingValue = calcTotalSupplying.value;
+  let totalSupplyingWow = calcTotalSupplying.wow;
+  let totalSupplyingYoy = calcTotalSupplying.yoy;
+  
+  let totalAbsorbingExReservesValue = calcTotalAbsorbingExReserves.value;
+  let totalAbsorbingExReservesWow = calcTotalAbsorbingExReserves.wow;
+  let totalAbsorbingExReservesYoy = calcTotalAbsorbingExReserves.yoy;
+  
+  let reserveBalancesValue = calcReserveBalances.value;
+  let reserveBalancesWow = calcReserveBalances.wow;
+  let reserveBalancesYoy = calcReserveBalances.yoy;
+  
+  // 원문에서 파싱 시도 (검증용, 계산값 우선 사용)
+  if (supplyingEndIndex >= 0) {
+    const totalLine = lines[supplyingEndIndex];
+    const totalNumbers = extractNumbersFromLine(totalLine);
+    if (totalNumbers.length >= 3 && totalNumbers[0] !== 0) {
+      const parsedValue = totalNumbers[0];
+      const parsedWow = totalNumbers[1] || 0;
+      const parsedYoy = totalNumbers[2] || 0;
+      
+      // 계산값과 원문값 차이가 크면 경고
+      const delta = Math.abs(calcTotalSupplying.value - parsedValue);
+      if (delta > 100) { // 100백만 달러 이상 차이
+        console.warn('[parseFactorsTable1] Total supplying mismatch:', {
+          calculated: calcTotalSupplying.value,
+          fromSource: parsedValue,
+          delta,
+        });
+      } else {
+        // 차이가 작으면 원문값 사용 (더 정확할 수 있음)
+        totalSupplyingValue = parsedValue;
+        totalSupplyingWow = parsedWow;
+        totalSupplyingYoy = parsedYoy;
+      }
+    }
+  }
   
   if (absorbingEndIndex >= 0) {
     const totalLine = lines[absorbingEndIndex];
     const totalNumbers = extractNumbersFromLine(totalLine);
-    if (totalNumbers.length >= 3) {
-      totalAbsorbingExReservesValue = totalNumbers[0] || 0;
-      totalAbsorbingExReservesWow = totalNumbers[1] || 0;
-      totalAbsorbingExReservesYoy = totalNumbers[2] || 0;
+    if (totalNumbers.length >= 3 && totalNumbers[0] !== 0) {
+      const parsedValue = totalNumbers[0];
+      const parsedWow = totalNumbers[1] || 0;
+      const parsedYoy = totalNumbers[2] || 0;
+      
+      const delta = Math.abs(calcTotalAbsorbingExReserves.value - parsedValue);
+      if (delta > 100) {
+        console.warn('[parseFactorsTable1] Total absorbing mismatch:', {
+          calculated: calcTotalAbsorbingExReserves.value,
+          fromSource: parsedValue,
+          delta,
+        });
+      } else {
+        totalAbsorbingExReservesValue = parsedValue;
+        totalAbsorbingExReservesWow = parsedWow;
+        totalAbsorbingExReservesYoy = parsedYoy;
+      }
     }
   }
-  
-  // Reserve balances 찾기
-  let reserveBalancesValue = 0;
-  let reserveBalancesWow = 0;
-  let reserveBalancesYoy = 0;
   
   if (reserveBalancesIndex >= 0) {
     const reserveLine = lines[reserveBalancesIndex];
     const reserveNumbers = extractNumbersFromLine(reserveLine);
-    if (reserveNumbers.length >= 3) {
-      reserveBalancesValue = reserveNumbers[0] || 0;
-      reserveBalancesWow = reserveNumbers[1] || 0;
-      reserveBalancesYoy = reserveNumbers[2] || 0;
+    if (reserveNumbers.length >= 3 && reserveNumbers[0] !== 0) {
+      const parsedValue = reserveNumbers[0];
+      const parsedWow = reserveNumbers[1] || 0;
+      const parsedYoy = reserveNumbers[2] || 0;
+      
+      const delta = Math.abs(calcReserveBalances.value - parsedValue);
+      if (delta > 100) {
+        console.warn('[parseFactorsTable1] Reserve balances mismatch:', {
+          calculated: calcReserveBalances.value,
+          fromSource: parsedValue,
+          delta,
+        });
+      } else {
+        // 원문값 사용 (더 정확할 수 있음)
+        reserveBalancesValue = parsedValue;
+        reserveBalancesWow = parsedWow;
+        reserveBalancesYoy = parsedYoy;
+      }
     }
   }
   
-  // 검증: 공급 - 흡수 = 지급준비금 (계산값)
-  const calcReserveBalances = totalSupplyingValue - totalAbsorbingExReservesValue;
-  const delta = Math.abs(calcReserveBalances - reserveBalancesValue);
-  const ok = delta <= 10; // 10백만 달러 이내 오차 허용
+  // 최종 검증: 공급 - 흡수 = 지급준비금
+  const finalCalcReserveBalances = totalSupplyingValue - totalAbsorbingExReservesValue;
+  const finalDelta = Math.abs(finalCalcReserveBalances - reserveBalancesValue);
+  const ok = finalDelta <= 10; // 10백만 달러 이내 오차 허용
   
   if (!ok) {
-    console.warn('[parseFactorsTable1] Reserve balances mismatch:', {
-      calculated: calcReserveBalances,
+    console.warn('[parseFactorsTable1] Final reserve balances mismatch:', {
+      calculated: finalCalcReserveBalances,
       fromSource: reserveBalancesValue,
-      delta,
+      delta: finalDelta,
     });
   }
+  
+  console.log(`[parseFactorsTable1] Final totals:`, {
+    totalSupplying: totalSupplyingValue,
+    totalAbsorbing: totalAbsorbingExReservesValue,
+    reserveBalances: reserveBalancesValue,
+    calculatedReserveBalances: finalCalcReserveBalances,
+    delta: finalDelta,
+  });
   
   return {
     releaseDate,
     weekEnded,
     prevWeekEnded,
     yearAgoLabel,
-    supplying,
-    absorbing,
+    supplying: filteredSupplying, // 필터링된 supplying 사용
+    absorbing: filteredAbsorbing, // 필터링된 absorbing 사용
     totals: {
       totalSupplying: {
         value: totalSupplyingValue,
@@ -669,8 +956,8 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
       },
     },
     integrity: {
-      calcReserveBalances,
-      delta,
+      calcReserveBalances: finalCalcReserveBalances,
+      delta: finalDelta,
       ok,
     },
   };
