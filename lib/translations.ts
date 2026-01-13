@@ -19,12 +19,9 @@ export const translationMap: Record<string, string> = {
   // 준비금 요인
   'Factors supplying reserve funds': '공급 요인',
   'Factors absorbing reserve funds': '흡수 요인',
-  'Securities held outright': '보유 증권',
   'Repurchase agreements': '리포',
   'Primary credit': 'Primary Credit',
   'Other Federal Reserve assets': '기타 연준 자산',
-  'Currency in circulation': '유통 통화',
-  'Reverse repurchase agreements': '역레포',
   'Treasury cash holdings': '재무부 현금 보유',
   'Deposits with F.R. Banks, other than reserve balances': '기타 예치금',
   'Treasury deposits with Federal Reserve Banks': '재무부 예치금',
