@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchH41Report, getFedReleaseDates } from '../../../src/h41';
 import { convertH41ToH4Report } from '@/lib/h41-adapter';
+
+// src/h41.ts는 Next.js 외부이므로 동적 import 또는 API를 통해 접근
+// 대신 /api/h41 엔드포인트를 사용하여 기존 로직 재사용
 
 /**
  * 특정 날짜의 H.4.1 리포트 가져오기 및 파싱
@@ -39,15 +41,32 @@ export async function GET(request: NextRequest) {
     const pdfUrl = `https://www.federalreserve.gov/releases/h41/${yyyymmdd}/h41.pdf`;
 
     // 기존 HTML 파싱 로직 사용 (안정적이고 검증됨)
+    // /api/h41 엔드포인트를 통해 기존 로직 재사용
     let h41Report;
     try {
       const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       console.log(`[${requestId}] Fetching H.4.1 report for date: ${date}`);
       
-      const releaseDates = await getFedReleaseDates();
-      console.log(`[${requestId}] Available dates count: ${releaseDates.length}`);
+      // 기존 Express API를 통해 데이터 가져오기
+      const apiUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}/api/h41?date=${date}`
+        : `http://localhost:${process.env.PORT || 8787}/api/h41?date=${date}`;
       
-      h41Report = await fetchH41Report(date, releaseDates);
+      const apiResponse = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        cache: 'no-store',
+      });
+      
+      if (!apiResponse.ok) {
+        throw new Error(`API returned ${apiResponse.status}: ${apiResponse.statusText}`);
+      }
+      
+      h41Report = await apiResponse.json();
+      
+      // H41Report 형식 검증
+      if (!h41Report.cards || !Array.isArray(h41Report.cards)) {
+        throw new Error('Invalid H41Report format: missing cards array');
+      }
       
       // 데이터 유효성 검증
       const hasValidData = h41Report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
