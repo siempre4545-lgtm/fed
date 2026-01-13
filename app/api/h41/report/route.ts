@@ -10,6 +10,9 @@ import { fetchH41Report, getFedReleaseDates } from '@/lib/h41-parser';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
+  // requestId를 함수 상단에서 정의하여 모든 블록에서 접근 가능하도록 함
+  const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  
   try {
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
@@ -42,7 +45,6 @@ export async function GET(request: NextRequest) {
     // 동적 import를 사용하여 src/h41.ts 접근
     let h41Report: any;
     try {
-      const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       console.log(`[${requestId}] Fetching H.4.1 report for date: ${date}`);
       
       // lib/h41-parser에서 직접 사용 (이미 위에서 import됨)
