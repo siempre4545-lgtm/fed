@@ -340,10 +340,12 @@ async function convertOverview(
   let currencyYearly = { change: 0, changePercent: 0 };
   
   if (factorsData) {
-    // factorsData에서 해당 항목 찾기
+    // factorsData에서 해당 항목 찾기 (정규화된 키 또는 labelEn으로 찾기)
     // Total Assets는 Reserve Bank credit과 유사하거나 Total factors supplying과 관련
     const reserveBankCredit = factorsData.supplying.find(r => 
-      r.labelEn.toLowerCase().includes('reserve bank credit')
+      r.labelEn === 'RBC' || 
+      r.labelEn.toLowerCase().includes('reserve bank credit') ||
+      r.key === 'RBC'
     );
     if (reserveBankCredit) {
       // Reserve Bank credit의 연간 변화를 Total Assets의 근사치로 사용
@@ -355,7 +357,9 @@ async function convertOverview(
     
     // Securities Held
     const securitiesFactor = factorsData.supplying.find(r => 
-      r.labelEn.toLowerCase().includes('securities held outright')
+      r.labelEn === 'SECURITIES_HELD' ||
+      r.labelEn.toLowerCase().includes('securities held outright') ||
+      r.key === 'SECURITIES_HELD'
     );
     if (securitiesFactor) {
       securitiesYearly = {
@@ -373,8 +377,9 @@ async function convertOverview(
     
     // TGA
     const tgaFactor = factorsData.absorbing.find(r => 
-      r.labelEn.toLowerCase().includes('treasury') && 
-      r.labelEn.toLowerCase().includes('general account')
+      r.labelEn === 'TGA' ||
+      r.key === 'TGA' ||
+      (r.labelEn.toLowerCase().includes('treasury') && r.labelEn.toLowerCase().includes('general account'))
     );
     if (tgaFactor) {
       tgaYearly = {
@@ -385,6 +390,8 @@ async function convertOverview(
     
     // Reverse Repo
     const rrpFactor = factorsData.absorbing.find(r => 
+      r.labelEn === 'RRP' ||
+      r.key === 'RRP' ||
       r.labelEn.toLowerCase().includes('reverse repurchase')
     );
     if (rrpFactor) {
@@ -396,6 +403,8 @@ async function convertOverview(
     
     // Currency
     const currencyFactor = factorsData.absorbing.find(r => 
+      r.labelEn === 'CURRENCY' ||
+      r.key === 'CURRENCY' ||
       r.labelEn.toLowerCase().includes('currency in circulation')
     );
     if (currencyFactor) {

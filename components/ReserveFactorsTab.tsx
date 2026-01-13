@@ -146,7 +146,7 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">공급 총합</div>
-          {factors.totals.supplying === 0 && factors.supplying.length > 0 ? (
+          {factors.totals.supplying === 0 && factors.supplying.length > 0 && factors.supplying.some(r => r.value !== 0) ? (
             <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
           ) : (
             <>
@@ -168,7 +168,7 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">흡수 총합</div>
-          {factors.totals.absorbing === 0 && factors.absorbing.length > 0 ? (
+          {factors.totals.absorbing === 0 && factors.absorbing.length > 0 && factors.absorbing.some(r => r.value !== 0) ? (
             <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
           ) : (
             <>

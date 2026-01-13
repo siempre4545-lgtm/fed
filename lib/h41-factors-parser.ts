@@ -638,8 +638,16 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   let totalSupplyingYoy = 0;
   
   if (supplyingEndIndex >= 0) {
-    const totalLine = lines[supplyingEndIndex];
-    const totalNumbers = extractNumbersFromLine(totalLine);
+    // 라벨이 있는 줄과 다음 3줄에서 숫자 찾기
+    const totalNumbers: number[] = [];
+    for (let i = 0; i <= 3 && supplyingEndIndex + i < lines.length; i++) {
+      const line = lines[supplyingEndIndex + i];
+      const numbers = extractNumbersFromLine(line);
+      if (numbers.length > 0) {
+        totalNumbers.push(...numbers);
+      }
+    }
+    
     if (totalNumbers.length >= 1) {
       totalSupplyingValue = totalNumbers[0] || 0;
       totalSupplyingWow = totalNumbers.length >= 2 ? (totalNumbers[1] || 0) : 0;
@@ -649,10 +657,12 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         value: totalSupplyingValue,
         wow: totalSupplyingWow,
         yoy: totalSupplyingYoy,
-        lineText: totalLine.substring(0, 200),
+        lineText: lines[supplyingEndIndex].substring(0, 200),
+        foundNumbers: totalNumbers,
       });
     } else {
-      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors supplying reserve funds" line:`, totalLine.substring(0, 200));
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors supplying reserve funds" (lines ${supplyingEndIndex}-${supplyingEndIndex + 3}):`, 
+        lines.slice(supplyingEndIndex, supplyingEndIndex + 4).map(l => l.substring(0, 100)));
     }
   } else {
     console.warn('[parseFactorsTable1] "Total factors supplying reserve funds" line not found');
@@ -701,8 +711,16 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     absorbingEndIndex = findLabelIndex('Total factors absorbing', actualAbsorbingStartIndex);
   }
   
-  // Reserve balances 찾기
+  // Reserve balances 찾기 (더 넓은 범위에서 검색)
   reserveBalancesIndex = findLabelIndex('Reserve balances with Federal Reserve Banks', actualAbsorbingStartIndex);
+  if (reserveBalancesIndex === -1) {
+    // absorbingEndIndex 이후에서도 찾기
+    reserveBalancesIndex = findLabelIndex('Reserve balances with Federal Reserve Banks', absorbingEndIndex >= 0 ? absorbingEndIndex : actualAbsorbingStartIndex);
+  }
+  if (reserveBalancesIndex === -1) {
+    // 더 넓은 범위에서 검색 (headerLineIndex부터)
+    reserveBalancesIndex = findLabelIndex('Reserve balances with Federal Reserve Banks', headerLineIndex);
+  }
   
   console.log(`[parseFactorsTable1] Absorbing factors section: ${actualAbsorbingStartIndex} to ${absorbingEndIndex > 0 ? absorbingEndIndex : 'end'}, Reserve balances at: ${reserveBalancesIndex}`);
   
@@ -832,8 +850,16 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   let totalAbsorbingExReservesYoy = 0;
   
   if (absorbingEndIndex >= 0) {
-    const totalLine = lines[absorbingEndIndex];
-    const totalNumbers = extractNumbersFromLine(totalLine);
+    // 라벨이 있는 줄과 다음 3줄에서 숫자 찾기
+    const totalNumbers: number[] = [];
+    for (let i = 0; i <= 3 && absorbingEndIndex + i < lines.length; i++) {
+      const line = lines[absorbingEndIndex + i];
+      const numbers = extractNumbersFromLine(line);
+      if (numbers.length > 0) {
+        totalNumbers.push(...numbers);
+      }
+    }
+    
     if (totalNumbers.length >= 1) {
       totalAbsorbingExReservesValue = totalNumbers[0] || 0;
       totalAbsorbingExReservesWow = totalNumbers.length >= 2 ? (totalNumbers[1] || 0) : 0;
@@ -843,10 +869,12 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         value: totalAbsorbingExReservesValue,
         wow: totalAbsorbingExReservesWow,
         yoy: totalAbsorbingExReservesYoy,
-        lineText: totalLine.substring(0, 200),
+        lineText: lines[absorbingEndIndex].substring(0, 200),
+        foundNumbers: totalNumbers,
       });
     } else {
-      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors absorbing" line:`, totalLine.substring(0, 200));
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors absorbing" (lines ${absorbingEndIndex}-${absorbingEndIndex + 3}):`, 
+        lines.slice(absorbingEndIndex, absorbingEndIndex + 4).map(l => l.substring(0, 100)));
     }
   } else {
     console.warn('[parseFactorsTable1] "Total factors, other than reserve balances, absorbing reserve funds" line not found');
@@ -858,8 +886,16 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   let reserveBalancesYoy = 0;
   
   if (reserveBalancesIndex >= 0) {
-    const reserveLine = lines[reserveBalancesIndex];
-    const reserveNumbers = extractNumbersFromLine(reserveLine);
+    // 라벨이 있는 줄과 다음 3줄에서 숫자 찾기
+    const reserveNumbers: number[] = [];
+    for (let i = 0; i <= 3 && reserveBalancesIndex + i < lines.length; i++) {
+      const line = lines[reserveBalancesIndex + i];
+      const numbers = extractNumbersFromLine(line);
+      if (numbers.length > 0) {
+        reserveNumbers.push(...numbers);
+      }
+    }
+    
     if (reserveNumbers.length >= 1) {
       reserveBalancesValue = reserveNumbers[0] || 0;
       reserveBalancesWow = reserveNumbers.length >= 2 ? (reserveNumbers[1] || 0) : 0;
@@ -869,10 +905,12 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
         value: reserveBalancesValue,
         wow: reserveBalancesWow,
         yoy: reserveBalancesYoy,
-        lineText: reserveLine.substring(0, 200),
+        lineText: lines[reserveBalancesIndex].substring(0, 200),
+        foundNumbers: reserveNumbers,
       });
     } else {
-      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Reserve balances" line:`, reserveLine.substring(0, 200));
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Reserve balances" (lines ${reserveBalancesIndex}-${reserveBalancesIndex + 3}):`, 
+        lines.slice(reserveBalancesIndex, reserveBalancesIndex + 4).map(l => l.substring(0, 100)));
     }
   } else {
     console.warn('[parseFactorsTable1] "Reserve balances with Federal Reserve Banks" line not found');
