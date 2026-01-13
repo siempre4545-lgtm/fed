@@ -64,50 +64,62 @@ export function normalizeH41Data(
 function extractOverview(table1: any, parsedData: ParsedH41Data): H4ReportOverview {
   const rows = table1?.rows || [];
   
-  // 주요 지표 찾기
-  const findValue = (labelPattern: string): number => {
-    const row = rows.find((r: any) => 
-      r.label && r.label.toLowerCase().includes(labelPattern.toLowerCase())
-    );
-    return row?.weekEnded || 0;
+  // 주요 지표 찾기 (부분 일치 허용)
+  const findValue = (patterns: string[]): number => {
+    for (const pattern of patterns) {
+      const row = rows.find((r: any) => {
+        if (!r.label) return false;
+        const labelLower = r.label.toLowerCase();
+        return pattern.toLowerCase().split(' ').every(word => labelLower.includes(word));
+      });
+      if (row && typeof row.weekEnded === 'number') {
+        return row.weekEnded;
+      }
+    }
+    return 0;
   };
   
-  const findChange = (labelPattern: string): number => {
-    const row = rows.find((r: any) => 
-      r.label && r.label.toLowerCase().includes(labelPattern.toLowerCase())
-    );
-    return row?.changeFromPrevWeek || 0;
+  const findChange = (patterns: string[]): number => {
+    for (const pattern of patterns) {
+      const row = rows.find((r: any) => {
+        if (!r.label) return false;
+        const labelLower = r.label.toLowerCase();
+        return pattern.toLowerCase().split(' ').every(word => labelLower.includes(word));
+      });
+      if (row && typeof row.changeFromPrevWeek === 'number') {
+        return row.changeFromPrevWeek;
+      }
+    }
+    return 0;
   };
   
-  // 총 자산 (Total assets)
-  const totalAssets = findValue('total assets') || findValue('total liabilities and capital');
-  const totalAssetsChange = findChange('total assets') || findChange('total liabilities and capital');
+  // 총 자산 (Total assets 또는 Total liabilities and capital)
+  const totalAssets = findValue(['total assets', 'total liabilities and capital', 'total liabilities']);
+  const totalAssetsChange = findChange(['total assets', 'total liabilities and capital', 'total liabilities']);
   
   // 보유 증권
-  const securitiesHeld = findValue('securities held outright');
-  const securitiesHeldChange = findChange('securities held outright');
+  const securitiesHeld = findValue(['securities held outright', 'securities held']);
+  const securitiesHeldChange = findChange(['securities held outright', 'securities held']);
   
   // 지급준비금
-  const reserves = findValue('reserve balances');
-  const reservesChange = findChange('reserve balances');
+  const reserves = findValue(['reserve balances', 'reserve balances with federal reserve banks']);
+  const reservesChange = findChange(['reserve balances', 'reserve balances with federal reserve banks']);
   
   // TGA
-  const tga = findValue('treasury') && findValue('general account') 
-    ? findValue('treasury') 
-    : findValue('treasury general account');
-  const tgaChange = findChange('treasury general account');
+  const tga = findValue(['treasury general account', 'u.s. treasury general account', 'treasury general']);
+  const tgaChange = findChange(['treasury general account', 'u.s. treasury general account', 'treasury general']);
   
   // 역레포
-  const rrp = findValue('reverse repurchase');
-  const rrpChange = findChange('reverse repurchase');
+  const rrp = findValue(['reverse repurchase', 'reverse repurchase agreements']);
+  const rrpChange = findChange(['reverse repurchase', 'reverse repurchase agreements']);
   
   // 유통 통화
-  const currency = findValue('currency in circulation');
-  const currencyChange = findChange('currency in circulation');
+  const currency = findValue(['currency in circulation', 'currency']);
+  const currencyChange = findChange(['currency in circulation', 'currency']);
   
   // 자산 구성 계산 (보유 증권 기준)
-  const treasury = findValue('treasury securities') || 0;
-  const mbs = findValue('mortgage-backed') || findValue('mbs') || 0;
+  const treasury = findValue(['u.s. treasury securities', 'treasury securities', 'treasury']);
+  const mbs = findValue(['mortgage-backed securities', 'mortgage backed', 'mbs']);
   const other = securitiesHeld - treasury - mbs;
   
   return {
