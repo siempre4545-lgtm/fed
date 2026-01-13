@@ -2,6 +2,22 @@
   "buildCommand": "",
   "rewrites": [
     {
+      "source": "/fed-dashboard/:path*",
+      "destination": "/fed-dashboard/:path*"
+    },
+    {
+      "source": "/api/h41/dates/:path*",
+      "destination": "/api/h41/dates/:path*"
+    },
+    {
+      "source": "/api/h41/report",
+      "destination": "/api/h41/report"
+    },
+    {
+      "source": "/api/h41/compare",
+      "destination": "/api/h41/compare"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api/index"
     }
