@@ -1,5 +1,5 @@
 import type { ParsedH41Data } from './pdf-parser';
-import type { H4Report, H4ReportOverview, H4ReportFactors, H4ReportSummary } from './types';
+import type { H4Report, H4ReportOverview, H4ReportFactors, H4ReportSummary, H4ReportFactorRow } from './types';
 import { translateLabel, formatNumber } from './translations';
 
 /**
