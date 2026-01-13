@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { convertH41ToH4Report } from '@/lib/h41-adapter';
-
-// src/h41.ts는 Next.js 외부이므로 동적 import 또는 API를 통해 접근
-// 대신 /api/h41 엔드포인트를 사용하여 기존 로직 재사용
+import { fetchH41Report, getFedReleaseDates } from '@/lib/h41-parser';
 
 /**
  * 특정 날짜의 H.4.1 리포트 가져오기 및 파싱
