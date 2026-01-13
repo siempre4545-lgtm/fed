@@ -127,7 +127,7 @@ export default function FedDashboardPage() {
                       month: 'long', 
                       day: 'numeric' 
                     }) : reportData.meta.reportDate}
-                    {' '}기준일(Week Ended): {isValidWeekEnded ? weekEndedDate.toLocaleDateString('ko-KR', { 
+                    {' '}Release dates: {isValidWeekEnded ? weekEndedDate.toLocaleDateString('ko-KR', { 
                       year: 'numeric',
                       month: 'long', 
                       day: 'numeric' 
