@@ -205,10 +205,32 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   const weekEnded = parseDateToISO(weekEndedText) || '';
   
-  // Table 1 섹션 찾기
+  // Table 1 섹션 찾기 (더 유연한 검색)
   const table1Start = text.toLowerCase().indexOf('factors affecting reserve balances');
   if (table1Start === -1) {
-    throw new Error('Table 1 "Factors Affecting Reserve Balances" not found');
+    // 대체 키워드로 검색
+    const altKeywords = [
+      'reserve bank credit',
+      'table 1',
+      'factors supplying',
+      'factors absorbing',
+    ];
+    
+    let found = false;
+    for (const keyword of altKeywords) {
+      const idx = text.toLowerCase().indexOf(keyword);
+      if (idx !== -1) {
+        console.warn(`[parseFactorsTable1] Table 1 not found with primary keyword, but found "${keyword}" at index ${idx}`);
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      console.error('[parseFactorsTable1] Table 1 section not found. Text length:', text.length);
+      console.error('[parseFactorsTable1] First 1000 chars of text:', text.substring(0, 1000));
+      throw new Error('Table 1 "Factors Affecting Reserve Balances" not found in HTML');
+    }
   }
   
   // 테이블 헤더 찾기 (컬럼 인덱스 확인)
@@ -290,7 +312,20 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   if (headerLineIndex === -1) {
-    throw new Error('Table 1 header not found');
+    console.error('[parseFactorsTable1] Header not found. Searching in lines:', {
+      totalLines: lines.length,
+      sampleLines: lines.slice(0, 50),
+    });
+    
+    // 더 유연한 헤더 검색
+    for (let i = 0; i < Math.min(100, lines.length); i++) {
+      const line = lines[i].toLowerCase();
+      if (line.includes('week') || line.includes('change')) {
+        console.warn(`[parseFactorsTable1] Potential header at line ${i}:`, lines[i]);
+      }
+    }
+    
+    throw new Error('Table 1 header not found. Expected line with "Week ended" and "Change from"');
   }
   
   const prevWeekEnded = parseDateToISO(prevWeekEndedText) || '';
@@ -338,7 +373,11 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
   }
   
   if (supplyingStartIndex === -1) {
-    throw new Error('Supplying factors section not found');
+    console.error('[parseFactorsTable1] Supplying factors section not found. Searching for keywords:', {
+      headerLineIndex,
+      linesAroundHeader: lines.slice(Math.max(0, headerLineIndex - 5), headerLineIndex + 20),
+    });
+    throw new Error('Supplying factors section not found. Expected "Reserve Bank credit" after header');
   }
   
   // 공급 요인 항목 파싱

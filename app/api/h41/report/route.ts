@@ -7,6 +7,8 @@ import { fetchH41Report, getFedReleaseDates } from '@/lib/h41-parser';
  * 기존 HTML 파싱 로직을 재사용하여 안정적인 데이터 추출
  * Node.js 런타임 필수
  */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
@@ -14,9 +16,9 @@ export async function GET(request: NextRequest) {
   const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const date = searchParams.get('date');
-    const debug = searchParams.get('debug') === '1';
+    const url = new URL(request.url);
+    const date = url.searchParams.get('date') ?? '';
+    const debug = url.searchParams.get('debug') === '1';
 
     if (!date) {
       return NextResponse.json(

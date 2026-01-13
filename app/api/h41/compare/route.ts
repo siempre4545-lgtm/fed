@@ -4,12 +4,16 @@ import type { ParsedTable } from '@/lib/pdf-parser';
 /**
  * 두 날짜의 H.4.1 리포트 비교
  */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const debug = searchParams.get('debug') === '1';
+    const url = new URL(request.url);
+    const from = url.searchParams.get('from') ?? '';
+    const to = url.searchParams.get('to') ?? '';
+    const debug = url.searchParams.get('debug') === '1';
 
     if (!from || !to) {
       return NextResponse.json(
@@ -19,9 +23,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 두 날짜의 리포트 가져오기
+    const origin = url.origin;
     const [fromReport, toReport] = await Promise.all([
-      fetch(`${request.nextUrl.origin}/api/h41/report?date=${from}`).then(r => r.json()),
-      fetch(`${request.nextUrl.origin}/api/h41/report?date=${to}`).then(r => r.json()),
+      fetch(`${origin}/api/h41/report?date=${from}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`${origin}/api/h41/report?date=${to}`, { cache: 'no-store' }).then(r => r.json()),
     ]);
 
     if (!fromReport.ok || !toReport.ok) {

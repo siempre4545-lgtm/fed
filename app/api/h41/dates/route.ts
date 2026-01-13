@@ -12,10 +12,14 @@ interface DateMapping {
  * FED H.4.1 발표일 목록과 PDF URL 매핑 가져오기
  * Feed 우선, HTML 스크래핑 fallback
  */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const debug = searchParams.get('debug') === '1';
+    const url = new URL(request.url);
+    const debug = url.searchParams.get('debug') === '1';
 
     const dateMappings: DateMapping[] = [];
     const dateSet = new Set<string>();
@@ -24,7 +28,7 @@ export async function GET(request: NextRequest) {
     try {
       const feedResponse = await fetch('https://www.federalreserve.gov/feeds/h41.html', {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        next: { revalidate: 21600 }, // 6시간 캐시
+        cache: 'no-store',
       });
 
       if (feedResponse.ok) {
@@ -70,7 +74,7 @@ export async function GET(request: NextRequest) {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           },
-          next: { revalidate: 21600 },
+          cache: 'no-store',
         });
 
         if (response.ok) {
