@@ -632,7 +632,31 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     console.log(`[parseFactorsTable1] Unmatched supplying items (top 10):`, unmatchedSupplying.slice(0, 10));
   }
   
-  // Total factors supplying는 나중에 합산 계산으로 처리
+  // Total factors supplying reserve funds 원문에서 직접 파싱
+  let totalSupplyingValue = 0;
+  let totalSupplyingWow = 0;
+  let totalSupplyingYoy = 0;
+  
+  if (supplyingEndIndex >= 0) {
+    const totalLine = lines[supplyingEndIndex];
+    const totalNumbers = extractNumbersFromLine(totalLine);
+    if (totalNumbers.length >= 1) {
+      totalSupplyingValue = totalNumbers[0] || 0;
+      totalSupplyingWow = totalNumbers.length >= 2 ? (totalNumbers[1] || 0) : 0;
+      totalSupplyingYoy = totalNumbers.length >= 3 ? (totalNumbers[2] || 0) : 0;
+      
+      console.log(`[parseFactorsTable1] Parsed "Total factors supplying reserve funds" from line ${supplyingEndIndex}:`, {
+        value: totalSupplyingValue,
+        wow: totalSupplyingWow,
+        yoy: totalSupplyingYoy,
+        lineText: totalLine.substring(0, 200),
+      });
+    } else {
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors supplying reserve funds" line:`, totalLine.substring(0, 200));
+    }
+  } else {
+    console.warn('[parseFactorsTable1] "Total factors supplying reserve funds" line not found');
+  }
   
   // 흡수 요인 파싱 (Total factors supplying 다음부터 Total factors absorbing 전까지)
   // "continued" 섹션도 포함하여 파싱
@@ -802,134 +826,125 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     console.log(`[parseFactorsTable1] Unmatched absorbing items (top 10):`, unmatchedAbsorbing.slice(0, 10));
   }
   
-  // totals 합산 계산 (서버에서 합산)
-  // totalSupplying = filteredSupplying의 value/wow/yoy 합
+  // Total factors, other than reserve balances, absorbing reserve funds 원문에서 직접 파싱
+  let totalAbsorbingExReservesValue = 0;
+  let totalAbsorbingExReservesWow = 0;
+  let totalAbsorbingExReservesYoy = 0;
+  
+  if (absorbingEndIndex >= 0) {
+    const totalLine = lines[absorbingEndIndex];
+    const totalNumbers = extractNumbersFromLine(totalLine);
+    if (totalNumbers.length >= 1) {
+      totalAbsorbingExReservesValue = totalNumbers[0] || 0;
+      totalAbsorbingExReservesWow = totalNumbers.length >= 2 ? (totalNumbers[1] || 0) : 0;
+      totalAbsorbingExReservesYoy = totalNumbers.length >= 3 ? (totalNumbers[2] || 0) : 0;
+      
+      console.log(`[parseFactorsTable1] Parsed "Total factors, other than reserve balances, absorbing reserve funds" from line ${absorbingEndIndex}:`, {
+        value: totalAbsorbingExReservesValue,
+        wow: totalAbsorbingExReservesWow,
+        yoy: totalAbsorbingExReservesYoy,
+        lineText: totalLine.substring(0, 200),
+      });
+    } else {
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Total factors absorbing" line:`, totalLine.substring(0, 200));
+    }
+  } else {
+    console.warn('[parseFactorsTable1] "Total factors, other than reserve balances, absorbing reserve funds" line not found');
+  }
+  
+  // Reserve balances with Federal Reserve Banks 원문에서 직접 파싱
+  let reserveBalancesValue = 0;
+  let reserveBalancesWow = 0;
+  let reserveBalancesYoy = 0;
+  
+  if (reserveBalancesIndex >= 0) {
+    const reserveLine = lines[reserveBalancesIndex];
+    const reserveNumbers = extractNumbersFromLine(reserveLine);
+    if (reserveNumbers.length >= 1) {
+      reserveBalancesValue = reserveNumbers[0] || 0;
+      reserveBalancesWow = reserveNumbers.length >= 2 ? (reserveNumbers[1] || 0) : 0;
+      reserveBalancesYoy = reserveNumbers.length >= 3 ? (reserveNumbers[2] || 0) : 0;
+      
+      console.log(`[parseFactorsTable1] Parsed "Reserve balances with Federal Reserve Banks" from line ${reserveBalancesIndex}:`, {
+        value: reserveBalancesValue,
+        wow: reserveBalancesWow,
+        yoy: reserveBalancesYoy,
+        lineText: reserveLine.substring(0, 200),
+      });
+    } else {
+      console.warn(`[parseFactorsTable1] Failed to extract numbers from "Reserve balances" line:`, reserveLine.substring(0, 200));
+    }
+  } else {
+    console.warn('[parseFactorsTable1] "Reserve balances with Federal Reserve Banks" line not found');
+  }
+  
+  // 검증: 계산값과 원문값 비교 (경고용)
   const calcTotalSupplying = {
     value: filteredSupplying.reduce((sum, r) => sum + r.value, 0),
     wow: filteredSupplying.reduce((sum, r) => sum + r.wow, 0),
     yoy: filteredSupplying.reduce((sum, r) => sum + r.yoy, 0),
   };
   
-  // totalAbsorbingExReserves = filteredAbsorbing의 value/wow/yoy 합
   const calcTotalAbsorbingExReserves = {
     value: filteredAbsorbing.reduce((sum, r) => sum + r.value, 0),
     wow: filteredAbsorbing.reduce((sum, r) => sum + r.wow, 0),
     yoy: filteredAbsorbing.reduce((sum, r) => sum + r.yoy, 0),
   };
   
-  // reserveBalances = totalSupplying - totalAbsorbingExReserves
   const calcReserveBalances = {
-    value: calcTotalSupplying.value - calcTotalAbsorbingExReserves.value,
-    wow: calcTotalSupplying.wow - calcTotalAbsorbingExReserves.wow,
-    yoy: calcTotalSupplying.yoy - calcTotalAbsorbingExReserves.yoy,
+    value: totalSupplyingValue - totalAbsorbingExReservesValue,
+    wow: totalSupplyingWow - totalAbsorbingExReservesWow,
+    yoy: totalSupplyingYoy - totalAbsorbingExReservesYoy,
   };
   
-  // 원문에서 파싱한 totals와 비교 (검증용)
-  let totalSupplyingValue = calcTotalSupplying.value;
-  let totalSupplyingWow = calcTotalSupplying.wow;
-  let totalSupplyingYoy = calcTotalSupplying.yoy;
-  
-  let totalAbsorbingExReservesValue = calcTotalAbsorbingExReserves.value;
-  let totalAbsorbingExReservesWow = calcTotalAbsorbingExReserves.wow;
-  let totalAbsorbingExReservesYoy = calcTotalAbsorbingExReserves.yoy;
-  
-  let reserveBalancesValue = calcReserveBalances.value;
-  let reserveBalancesWow = calcReserveBalances.wow;
-  let reserveBalancesYoy = calcReserveBalances.yoy;
-  
-  // 원문에서 파싱 시도 (검증용, 계산값 우선 사용)
-  if (supplyingEndIndex >= 0) {
-    const totalLine = lines[supplyingEndIndex];
-    const totalNumbers = extractNumbersFromLine(totalLine);
-    if (totalNumbers.length >= 3 && totalNumbers[0] !== 0) {
-      const parsedValue = totalNumbers[0];
-      const parsedWow = totalNumbers[1] || 0;
-      const parsedYoy = totalNumbers[2] || 0;
-      
-      // 계산값과 원문값 차이가 크면 경고
-      const delta = Math.abs(calcTotalSupplying.value - parsedValue);
-      if (delta > 100) { // 100백만 달러 이상 차이
-        console.warn('[parseFactorsTable1] Total supplying mismatch:', {
-          calculated: calcTotalSupplying.value,
-          fromSource: parsedValue,
-          delta,
-        });
-      } else {
-        // 차이가 작으면 원문값 사용 (더 정확할 수 있음)
-        totalSupplyingValue = parsedValue;
-        totalSupplyingWow = parsedWow;
-        totalSupplyingYoy = parsedYoy;
-      }
-    }
-  }
-  
-  if (absorbingEndIndex >= 0) {
-    const totalLine = lines[absorbingEndIndex];
-    const totalNumbers = extractNumbersFromLine(totalLine);
-    if (totalNumbers.length >= 3 && totalNumbers[0] !== 0) {
-      const parsedValue = totalNumbers[0];
-      const parsedWow = totalNumbers[1] || 0;
-      const parsedYoy = totalNumbers[2] || 0;
-      
-      const delta = Math.abs(calcTotalAbsorbingExReserves.value - parsedValue);
-      if (delta > 100) {
-        console.warn('[parseFactorsTable1] Total absorbing mismatch:', {
-          calculated: calcTotalAbsorbingExReserves.value,
-          fromSource: parsedValue,
-          delta,
-        });
-      } else {
-        totalAbsorbingExReservesValue = parsedValue;
-        totalAbsorbingExReservesWow = parsedWow;
-        totalAbsorbingExReservesYoy = parsedYoy;
-      }
-    }
-  }
-  
-  if (reserveBalancesIndex >= 0) {
-    const reserveLine = lines[reserveBalancesIndex];
-    const reserveNumbers = extractNumbersFromLine(reserveLine);
-    if (reserveNumbers.length >= 3 && reserveNumbers[0] !== 0) {
-      const parsedValue = reserveNumbers[0];
-      const parsedWow = reserveNumbers[1] || 0;
-      const parsedYoy = reserveNumbers[2] || 0;
-      
-      const delta = Math.abs(calcReserveBalances.value - parsedValue);
-      if (delta > 100) {
-        console.warn('[parseFactorsTable1] Reserve balances mismatch:', {
-          calculated: calcReserveBalances.value,
-          fromSource: parsedValue,
-          delta,
-        });
-      } else {
-        // 원문값 사용 (더 정확할 수 있음)
-        reserveBalancesValue = parsedValue;
-        reserveBalancesWow = parsedWow;
-        reserveBalancesYoy = parsedYoy;
-      }
-    }
-  }
-  
-  // 최종 검증: 공급 - 흡수 = 지급준비금
-  const finalCalcReserveBalances = totalSupplyingValue - totalAbsorbingExReservesValue;
-  const finalDelta = Math.abs(finalCalcReserveBalances - reserveBalancesValue);
-  const ok = finalDelta <= 10; // 10백만 달러 이내 오차 허용
-  
-  if (!ok) {
-    console.warn('[parseFactorsTable1] Final reserve balances mismatch:', {
-      calculated: finalCalcReserveBalances,
-      fromSource: reserveBalancesValue,
-      delta: finalDelta,
+  // 계산값과 원문값 차이 확인 (경고만 출력, 원문값 우선 사용)
+  const supplyingDelta = Math.abs(calcTotalSupplying.value - totalSupplyingValue);
+  if (supplyingDelta > 100) {
+    console.warn('[parseFactorsTable1] Total supplying mismatch (calculated vs source):', {
+      calculated: calcTotalSupplying.value,
+      fromSource: totalSupplyingValue,
+      delta: supplyingDelta,
     });
   }
   
-  console.log(`[parseFactorsTable1] Final totals:`, {
-    totalSupplying: totalSupplyingValue,
-    totalAbsorbing: totalAbsorbingExReservesValue,
-    reserveBalances: reserveBalancesValue,
-    calculatedReserveBalances: finalCalcReserveBalances,
-    delta: finalDelta,
+  const absorbingDelta = Math.abs(calcTotalAbsorbingExReserves.value - totalAbsorbingExReservesValue);
+  if (absorbingDelta > 100) {
+    console.warn('[parseFactorsTable1] Total absorbing mismatch (calculated vs source):', {
+      calculated: calcTotalAbsorbingExReserves.value,
+      fromSource: totalAbsorbingExReservesValue,
+      delta: absorbingDelta,
+    });
+  }
+  
+  const reserveBalancesDelta = Math.abs(calcReserveBalances.value - reserveBalancesValue);
+  if (reserveBalancesDelta > 10) { // 10백만 달러 이내 오차 허용
+    console.warn('[parseFactorsTable1] Reserve balances mismatch (calculated vs source):', {
+      calculated: calcReserveBalances.value,
+      fromSource: reserveBalancesValue,
+      delta: reserveBalancesDelta,
+    });
+  }
+  
+  console.log(`[parseFactorsTable1] Final totals (from source):`, {
+    totalSupplying: { value: totalSupplyingValue, wow: totalSupplyingWow, yoy: totalSupplyingYoy },
+    totalAbsorbing: { value: totalAbsorbingExReservesValue, wow: totalAbsorbingExReservesWow, yoy: totalAbsorbingExReservesYoy },
+    reserveBalances: { value: reserveBalancesValue, wow: reserveBalancesWow, yoy: reserveBalancesYoy },
+    calculatedReserveBalances: calcReserveBalances.value,
+    reserveBalancesDelta,
   });
+  
+  // Integrity 체크: 공급 - 흡수 = 지급준비금 (원문값 기준)
+  const calcReserveBalancesFromSource = totalSupplyingValue - totalAbsorbingExReservesValue;
+  const reserveBalancesDeltaFromSource = Math.abs(calcReserveBalancesFromSource - reserveBalancesValue);
+  const integrityOk = reserveBalancesDeltaFromSource <= 10; // 10백만 달러 이내 오차 허용
+  
+  if (!integrityOk) {
+    console.warn('[parseFactorsTable1] Reserve balances integrity check failed:', {
+      calculated: calcReserveBalancesFromSource,
+      fromSource: reserveBalancesValue,
+      delta: reserveBalancesDeltaFromSource,
+    });
+  }
   
   return {
     releaseDate,
@@ -940,25 +955,25 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     absorbing: filteredAbsorbing, // 필터링된 absorbing 사용
     totals: {
       totalSupplying: {
-        value: totalSupplyingValue,
+        value: totalSupplyingValue, // 원문에서 직접 파싱한 값
         wow: totalSupplyingWow,
         yoy: totalSupplyingYoy,
       },
       totalAbsorbingExReserves: {
-        value: totalAbsorbingExReservesValue,
+        value: totalAbsorbingExReservesValue, // 원문에서 직접 파싱한 값
         wow: totalAbsorbingExReservesWow,
         yoy: totalAbsorbingExReservesYoy,
       },
       reserveBalances: {
-        value: reserveBalancesValue,
+        value: reserveBalancesValue, // 원문에서 직접 파싱한 값
         wow: reserveBalancesWow,
         yoy: reserveBalancesYoy,
       },
     },
     integrity: {
-      calcReserveBalances: finalCalcReserveBalances,
-      delta: finalDelta,
-      ok,
+      calcReserveBalances: calcReserveBalancesFromSource,
+      delta: reserveBalancesDeltaFromSource,
+      ok: integrityOk,
     },
   };
 }
