@@ -5,10 +5,12 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { DateSelector } from '@/components/DateSelector';
 import { Tabs } from '@/components/Tabs';
 import { DebugPanel } from '@/components/DebugPanel';
+import type { H4Report } from '@/lib/types';
+import Link from 'next/link';
 
 export default function FedDashboardPage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<H4Report | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,16 +33,19 @@ export default function FedDashboardPage() {
 
     try {
       const response = await fetch(`/api/h41/report?date=${date}`);
-      const data = await response.json();
+      const data: H4Report = await response.json();
 
-      if (!data.ok) {
-        throw new Error(data.error || 'Failed to fetch report');
+      // 응답 검증: H4Report 스키마 확인
+      if (!data.ok || !data.meta || !data.overview) {
+        throw new Error(data.error || 'Invalid response format. Expected H4Report schema.');
       }
 
       setReportData(data);
       setSelectedDate(date);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Failed to fetch report:', errorMessage);
+      setError(errorMessage);
       setReportData(null);
     } finally {
       setLoading(false);
@@ -65,10 +70,22 @@ export default function FedDashboardPage() {
       <header className="sticky top-0 z-50 bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">FED H.4.1 Dashboard</h1>
+            <h1 className="text-2xl font-bold">Fed Dashboard 연준 대차대조표</h1>
             <p className="text-sm text-gray-400 mt-1">
-              {reportData?.releaseDate && `Release: ${reportData.releaseDate}`}
-              {reportData?.weekEnded && ` · Week ended: ${reportData.weekEnded}`}
+              {reportData?.meta && (
+                <>
+                  발표일: {new Date(reportData.meta.reportDate).toLocaleDateString('ko-KR', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                  {' '}기준일: {new Date(reportData.meta.weekEnded).toLocaleDateString('ko-KR', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                  })}
+                </>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -77,6 +94,12 @@ export default function FedDashboardPage() {
               selectedDate={selectedDate}
               loading={loading}
             />
+            <Link
+              href="/"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white font-medium"
+            >
+              FED Dashboard
+            </Link>
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"

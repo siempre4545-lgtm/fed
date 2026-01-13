@@ -12,6 +12,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [fontFamily, setFontFamily] = useState<'ibm-plex' | 'noto-sans' | 'inter'>('ibm-plex');
 
   useEffect(() => {
+    // SSR/CSR mismatch 방지: 클라이언트에서만 실행
+    if (typeof window === 'undefined') return;
+    
     // localStorage에서 설정 불러오기
     const savedTheme = localStorage.getItem('theme') as 'dark' | 'light' | null;
     const savedFontSize = localStorage.getItem('fontSize') as 'small' | 'medium' | 'large' | null;
@@ -23,6 +26,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   }, []);
 
   useEffect(() => {
+    // SSR/CSR mismatch 방지: 클라이언트에서만 실행
+    if (typeof window === 'undefined') return;
+    
     // 설정 적용
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.setProperty('--font-size', 

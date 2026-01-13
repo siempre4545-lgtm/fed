@@ -1,11 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import type { H4Report } from '@/lib/types';
+import { formatNumber, formatChange } from '@/lib/translations';
 
-export function TrendTab() {
-  const [fromDate, setFromDate] = useState('');
+interface TrendTabProps {
+  baseDate?: string;
+}
+
+export function TrendTab({ baseDate }: TrendTabProps) {
+  const [fromDate, setFromDate] = useState(baseDate || '');
   const [toDate, setToDate] = useState('');
-  const [compareData, setCompareData] = useState<any>(null);
+  const [fromReport, setFromReport] = useState<H4Report | null>(null);
+  const [toReport, setToReport] = useState<H4Report | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,17 +31,24 @@ export function TrendTab() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/h41/compare?from=${fromDate}&to=${toDate}`);
-      const data = await response.json();
+      const [fromRes, toRes] = await Promise.all([
+        fetch(`/api/h41/report?date=${fromDate}`),
+        fetch(`/api/h41/report?date=${toDate}`),
+      ]);
 
-      if (!data.ok) {
-        throw new Error(data.error || 'Failed to compare');
+      const fromData: H4Report = await fromRes.json();
+      const toData: H4Report = await toRes.json();
+
+      if (!fromData.ok || !toData.ok) {
+        throw new Error('Failed to fetch one or both reports');
       }
 
-      setCompareData(data);
+      setFromReport(fromData);
+      setToReport(toData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      setCompareData(null);
+      setFromReport(null);
+      setToReport(null);
     } finally {
       setLoading(false);
     }
@@ -84,67 +98,50 @@ export function TrendTab() {
         </div>
       )}
 
-      {compareData && compareData.comparisons && (
+      {fromReport && toReport && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-gray-800 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-400 mb-1">From</h3>
-              <p className="text-lg font-bold">{compareData.from.date}</p>
-              <p className="text-sm text-gray-400">{compareData.from.weekEnded}</p>
+              <h3 className="text-sm font-medium text-gray-400 mb-1">기준일</h3>
+              <p className="text-lg font-bold">{fromDate}</p>
+              <p className="text-sm text-gray-400">{fromReport.meta.weekEnded}</p>
             </div>
             <div className="p-4 bg-gray-800 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-400 mb-1">To</h3>
-              <p className="text-lg font-bold">{compareData.to.date}</p>
-              <p className="text-sm text-gray-400">{compareData.to.weekEnded}</p>
+              <h3 className="text-sm font-medium text-gray-400 mb-1">비교일</h3>
+              <p className="text-lg font-bold">{toDate}</p>
+              <p className="text-sm text-gray-400">{toReport.meta.weekEnded}</p>
             </div>
           </div>
 
-          {compareData.comparisons.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <p>비교할 데이터가 없습니다.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">지표</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">From</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">To</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">Δ</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">%</th>
-                    <th className="px-4 py-2 text-center text-sm font-medium text-gray-400">방향</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {compareData.comparisons.map((comp: any, idx: number) => (
-                    <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
-                      <td className="px-4 py-2 text-sm">{comp.label}</td>
-                      <td className="px-4 py-2 text-sm text-right">{comp.from.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-sm text-right">{comp.to.toLocaleString()}</td>
-                      <td className={`px-4 py-2 text-sm text-right ${
-                        comp.delta > 0 ? 'text-red-400' : comp.delta < 0 ? 'text-green-400' : 'text-gray-400'
-                      }`}>
-                        {comp.delta > 0 ? '+' : ''}{comp.delta.toLocaleString()}
-                      </td>
-                      <td className={`px-4 py-2 text-sm text-right ${
-                        comp.deltaPercent > 0 ? 'text-red-400' : comp.deltaPercent < 0 ? 'text-green-400' : 'text-gray-400'
-                      }`}>
-                        {comp.deltaPercent > 0 ? '+' : ''}{comp.deltaPercent.toFixed(2)}%
-                      </td>
-                      <td className="px-4 py-2 text-sm text-center">
-                        {comp.direction === 'up' ? '↑' : comp.direction === 'down' ? '↓' : '→'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* 주요 지표 비교 카드 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { key: 'totalAssets', label: '총 자산', from: fromReport.overview.totalAssets, to: toReport.overview.totalAssets },
+              { key: 'securitiesHeld', label: '보유 증권', from: fromReport.overview.securitiesHeld, to: toReport.overview.securitiesHeld },
+              { key: 'reserves', label: '지급준비금', from: fromReport.overview.reserves, to: toReport.overview.reserves },
+              { key: 'tga', label: 'TGA', from: fromReport.overview.tga, to: toReport.overview.tga },
+              { key: 'rrp', label: '역레포', from: fromReport.overview.rrp, to: toReport.overview.rrp },
+              { key: 'currency', label: '유통 통화', from: fromReport.overview.currency, to: toReport.overview.currency },
+            ].map(({ key, label, from, to }) => {
+              const delta = to.value - from.value;
+              const deltaPercent = from.value ? ((delta / from.value) * 100) : 0;
+              const color = delta > 0 ? 'text-red-400' : delta < 0 ? 'text-green-400' : 'text-gray-400';
+              
+              return (
+                <div key={key} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                  <div className="text-sm text-gray-400 mb-2">{label}</div>
+                  <div className="text-xl font-bold mb-2">{formatNumber(to.value)}M</div>
+                  <div className={`text-sm font-medium ${color}`}>
+                    Δ: {formatChange(delta, deltaPercent)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {!compareData && !loading && !error && (
+      {!fromReport && !loading && !error && (
         <div className="text-center py-12 text-gray-400">
           <p>두 날짜를 선택하여 비교하세요.</p>
         </div>

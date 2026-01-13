@@ -59,6 +59,7 @@ export async function parseH41PDF(pdfBuffer: Buffer): Promise<ParsedH41Data> {
 
 /**
  * Table 1: Factors Affecting Reserve Balances 파싱
+ * PDF 텍스트에서 라벨과 숫자를 추출
  */
 function parseTable1(text: string): ParsedTable | null {
   const table1Start = text.indexOf('Factors Affecting Reserve Balances');
@@ -71,27 +72,36 @@ function parseTable1(text: string): ParsedTable | null {
 
   const rows: Array<Record<string, string | number>> = [];
   
-  // 라인별 파싱
+  // 라인별 파싱 (개선된 정규표현식)
   const lines = table1Text.split('\n');
-  let currentRow: Record<string, string | number> = {};
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.length < 5) continue;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // 라벨과 숫자 추출
-    const labelMatch = trimmed.match(/^([A-Za-z][^0-9]+?)(\d[\d,.\s-]+)/);
-    if (labelMatch) {
-      const label = labelMatch[1].trim();
-      const numbers = labelMatch[2].trim().split(/\s+/);
+    // 라벨 패턴: 대문자로 시작하는 텍스트 (최소 3자 이상)
+    // 숫자 패턴: 콤마 포함 숫자 (예: 833,093 또는 -41,158)
+    const pattern = /^([A-Z][A-Za-z\s,()&.-]+?)\s+([+-]?[\d,]+)\s+([+-]?[\d,]+)/;
+    const match = line.match(pattern);
+    
+    if (match) {
+      const label = match[1].trim();
+      const weekEndedValue = match[2].trim();
+      const changeValue = match[3].trim();
       
-      if (numbers.length >= 2) {
-        currentRow = {
+      // 라벨이 너무 짧거나 숫자만 있는 경우 스킵
+      if (label.length < 3 || /^\d+$/.test(label)) continue;
+      
+      const weekEnded = parseNumber(weekEndedValue);
+      const changeFromPrevWeek = parseNumber(changeValue);
+      
+      // 유효한 값인지 확인 (0이 아닌 값이 하나라도 있어야 함)
+      if (weekEnded !== 0 || changeFromPrevWeek !== 0) {
+        rows.push({
           label,
-          weekEnded: parseNumber(numbers[0]),
-          changeFromPrevWeek: parseNumber(numbers[1]),
-        };
-        rows.push(currentRow);
+          weekEnded,
+          changeFromPrevWeek,
+        });
       }
     }
   }
