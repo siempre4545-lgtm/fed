@@ -47,8 +47,10 @@ export async function GET(request: NextRequest) {
       const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       console.log(`[${requestId}] Fetching H.4.1 report for date: ${date}`);
       
-      // 동적 import로 src/h41.ts 접근
-      const { fetchH41Report, getFedReleaseDates } = await import('../../../../src/h41.js');
+      // 동적 import로 src/h41.ts 접근 (상대 경로)
+      const h41Module = await import('../../../../src/h41.js');
+      const fetchH41Report = h41Module.fetchH41Report;
+      const getFedReleaseDates = h41Module.getFedReleaseDates;
       
       const releaseDates = await getFedReleaseDates();
       console.log(`[${requestId}] Available dates count: ${releaseDates.length}`);
