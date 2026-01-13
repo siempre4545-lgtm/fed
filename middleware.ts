@@ -2,34 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Next.js 라우트는 그대로 통과
-  if (
-    pathname.startsWith('/fed-dashboard') ||
-    pathname.startsWith('/api/h41/dates') ||
-    pathname.startsWith('/api/h41/report') ||
-    pathname.startsWith('/api/h41/compare') ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.match(/\.(ico|png|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot)$/)
-  ) {
-    return NextResponse.next();
-  }
-
-  // 나머지는 Express로 (vercel.json의 rewrites가 처리)
+  // Next.js 라우트는 그대로 통과 (아무것도 하지 않음)
+  // Vercel이 자동으로 Next.js 라우트를 처리하므로 middleware에서 가로채지 않음
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // Next.js 라우트는 제외하고, Express 라우트만 처리
+    // 실제로는 Next.js가 자동으로 처리되므로 여기서는 아무것도 하지 않음
   ],
 };
