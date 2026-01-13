@@ -641,18 +641,23 @@ async function convertFactors(
     supplying: {
       total: supplyingTotal,
       weeklyChange: supplyingWeeklyChange,
-      yearlyChange: supplyingYearly.change,
+      yearlyChange: supplyingYearlyChange,
+      yearlyPercent: supplyingYearlyPercent,
     },
     absorbing: {
       total: absorbingTotal,
       weeklyChange: absorbingWeeklyChange,
-      yearlyChange: absorbingYearly.change,
+      yearlyChange: absorbingYearlyChange,
+      yearlyPercent: absorbingYearlyPercent,
     },
     net: {
       total: netTotal,
       weeklyChange: netWeeklyChange,
-      yearlyChange: netYearly.change,
+      yearlyChange: netYearlyChange,
+      yearlyPercent: netYearlyPercent,
     },
+    hasYearAgoData: !!yearAgoData,
+    hasPreviousWeekData: !!previousWeekData,
   });
   
   return {
