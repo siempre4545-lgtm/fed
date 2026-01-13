@@ -37,21 +37,60 @@ export async function GET(request: NextRequest) {
     const cacheKey = `h41:${date}`;
     // TODO: 실제 캐시 구현 (Vercel KV 또는 메모리 캐시)
 
-    // 날짜에서 PDF URL 구성 (참고용)
-    const yyyymmdd = date.replace(/-/g, '');
+    // 실제 H.4.1 release 날짜 찾기 (선택한 날짜와 가장 가까운 날짜)
+    const releaseDates = await getFedReleaseDates();
+    console.log(`[${requestId}] Available dates count: ${releaseDates.length}`);
+    
+    // 선택한 날짜와 가장 가까운 release 날짜 찾기
+    const findClosestReleaseDate = (targetDate: string, availableDates: string[]): string => {
+      if (availableDates.length === 0) {
+        return targetDate; // fallback to original date
+      }
+      
+      const target = new Date(targetDate);
+      let closest: string | null = null;
+      let minDiff = Infinity;
+      
+      // 정확히 일치하는 날짜가 있으면 우선 사용
+      if (availableDates.includes(targetDate)) {
+        console.log(`[${requestId}] Exact match found: ${targetDate}`);
+        return targetDate;
+      }
+      
+      // 가장 가까운 날짜 찾기 (과거 또는 미래 모두 고려)
+      for (const releaseDate of availableDates) {
+        const release = new Date(releaseDate);
+        const diff = Math.abs(release.getTime() - target.getTime());
+        
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = releaseDate;
+        }
+      }
+      
+      if (closest) {
+        const daysDiff = Math.round(minDiff / (1000 * 60 * 60 * 24));
+        console.log(`[${requestId}] Closest release date found: ${closest} (${daysDiff} days from ${targetDate})`);
+        return closest;
+      }
+      
+      return targetDate; // fallback
+    };
+    
+    const actualReleaseDate = findClosestReleaseDate(date, releaseDates);
+    
+    // 날짜에서 PDF URL 구성 (실제 사용된 날짜 기준)
+    const yyyymmdd = actualReleaseDate.replace(/-/g, '');
     const pdfUrl = `https://www.federalreserve.gov/releases/h41/${yyyymmdd}/h41.pdf`;
 
     // 기존 HTML 파싱 로직 사용 (안정적이고 검증됨)
     // 동적 import를 사용하여 src/h41.ts 접근
     let h41Report: any;
     try {
-      console.log(`[${requestId}] Fetching H.4.1 report for date: ${date}`);
+      console.log(`[${requestId}] Fetching H.4.1 report for date: ${date} -> actual release date: ${actualReleaseDate}`);
       
-      // lib/h41-parser에서 직접 사용 (이미 위에서 import됨)
-      const releaseDates = await getFedReleaseDates();
-      console.log(`[${requestId}] Available dates count: ${releaseDates.length}`);
-      
-      h41Report = await fetchH41Report(date, releaseDates);
+      // 실제 release 날짜로 데이터 가져오기
+      h41Report = await fetchH41Report(actualReleaseDate, releaseDates);
       
       // H41Report 형식 검증
       if (!h41Report || !h41Report.cards || !Array.isArray(h41Report.cards)) {
@@ -99,10 +138,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // H41Report를 H4Report로 변환
+    // H41Report를 H4Report로 변환 (실제 사용된 release 날짜 전달)
     let normalizedData;
     try {
-      normalizedData = await convertH41ToH4Report(h41Report, date, pdfUrl);
+      // 실제 사용된 release 날짜를 reportDate로 사용
+      normalizedData = await convertH41ToH4Report(h41Report, actualReleaseDate, pdfUrl);
       
       // 검증 로그 출력
       console.log(`[${requestId}] H4 Report converted:`, {

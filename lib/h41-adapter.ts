@@ -145,20 +145,22 @@ export async function convertH41ToH4Report(
   // 연방 준비권 파싱
   const frNotes = convertFRNotes(h41Report, rawText);
   
-  // week ended 날짜 파싱 (fallback으로 선택한 날짜 사용)
+  // week ended 날짜 파싱 (fallback으로 실제 release 날짜 사용)
+  // 실제 파싱된 week ended 날짜를 우선 사용하고, 실패 시 release 날짜를 fallback으로 사용
   const weekEnded = formatDateToISO(h41Report.asOfWeekEndedText, date);
   
   console.log('[convertH41ToH4Report] Date conversion:', {
     asOfWeekEndedText: h41Report.asOfWeekEndedText,
-    reportDate: date,
-    weekEnded,
+    releaseDate: date, // 실제 사용된 release 날짜
+    weekEnded, // 파싱된 week ended 날짜 (실제 대차대조표 기준일)
+    releaseDateText: h41Report.releaseDateText,
   });
   
   return {
     ok: true,
     meta: {
-      reportDate: date,
-      weekEnded, // 이미 fallback 처리됨
+      reportDate: date, // 실제 사용된 release 날짜 (발표일)
+      weekEnded, // 파싱된 week ended 날짜 (기준일, 실제 대차대조표 날짜)
       sourceUrl: h41Report.sourceUrl,
       pdfUrl,
       parsedAt: new Date().toISOString(),
