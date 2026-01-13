@@ -34,9 +34,9 @@ export function calculateYearlyChange(
   try {
     const current = new Date(currentDate);
     const oneYearAgo = new Date(current);
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 364); // 약 52주 전
     
-    // 1년 전 날짜와 가장 가까운 데이터 찾기 (±2주 범위)
+    // 52주 전 날짜와 가장 가까운 데이터 찾기 (±2주 범위)
     const targetDate = oneYearAgo.getTime();
     const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
     
@@ -55,20 +55,50 @@ export function calculateYearlyChange(
     }
     
     if (!closestData) {
+      console.warn(`[calculateYearlyChange] No historical data found for ${fedLabel} (target: ${oneYearAgo.toISOString().split('T')[0]})`);
       return { change: 0, changePercent: 0 };
     }
     
-    const pastCard = closestData.cards.find(c => c.fedLabel === fedLabel);
-    if (!pastCard || pastCard.balance_musd === 0) {
+    // fedLabel이 특수한 경우 (합계 등) 처리
+    let pastValue = 0;
+    if (fedLabel === 'Total Supplying Factors' || fedLabel === 'Total Absorbing Factors' || fedLabel === 'Reserve Balances') {
+      // 합계의 경우, 해당 날짜의 모든 카드를 합산
+      // 이 경우는 convertFactors에서 별도로 처리해야 함
+      const pastCard = closestData.cards.find(c => c.fedLabel === fedLabel);
+      if (pastCard) {
+        pastValue = pastCard.balance_musd;
+      } else {
+        console.warn(`[calculateYearlyChange] Card not found for ${fedLabel} in historical data`);
+        return { change: 0, changePercent: 0 };
+      }
+    } else {
+      const pastCard = closestData.cards.find(c => c.fedLabel === fedLabel);
+      if (!pastCard) {
+        console.warn(`[calculateYearlyChange] Card not found for ${fedLabel} in historical data (date: ${closestData.date})`);
+        return { change: 0, changePercent: 0 };
+      }
+      pastValue = pastCard.balance_musd;
+    }
+    
+    if (pastValue === 0) {
+      console.warn(`[calculateYearlyChange] Past value is 0 for ${fedLabel}`);
       return { change: 0, changePercent: 0 };
     }
     
-    const change = currentValue - pastCard.balance_musd;
-    const changePercent = (change / pastCard.balance_musd) * 100;
+    const change = currentValue - pastValue;
+    const changePercent = (change / pastValue) * 100;
+    
+    console.log(`[calculateYearlyChange] ${fedLabel}:`, {
+      currentValue,
+      pastValue,
+      change,
+      changePercent: changePercent.toFixed(2),
+      historicalDate: closestData.date,
+    });
     
     return { change, changePercent };
   } catch (error) {
-    console.error('Error calculating yearly change:', error);
+    console.error(`[calculateYearlyChange] Error for ${fedLabel}:`, error);
     return { change: 0, changePercent: 0 };
   }
 }

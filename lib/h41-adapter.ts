@@ -121,8 +121,8 @@ export async function convertH41ToH4Report(
   // 개요 데이터 변환 (연간 데이터 포함)
   const overview = await convertOverview(h41Report, date, historicalData, releaseDates);
   
-  // 준비금 요인 변환
-  const factors = convertFactors(h41Report);
+  // 준비금 요인 변환 (연간 데이터 포함)
+  const factors = await convertFactors(h41Report, date, historicalData);
   
   // 요인 요약 변환
   const summary = convertSummary(h41Report);
@@ -433,11 +433,15 @@ async function convertOverview(
 }
 
 /**
- * 준비금 요인 변환
+ * 준비금 요인 변환 (연간 데이터 포함)
  * 공급 요인: Reserve Bank Credit, Securities Held, Treasury Securities, Bills, Notes and Bonds, TIPS, MBS, Repos, Loans, BTFP, CB Swaps, Gold, SDR
  * 흡수 요인: Deposits (Other liabilities and capital을 Deposits로 변경)
  */
-function convertFactors(h41Report: H41Report): H4ReportFactors {
+async function convertFactors(
+  h41Report: H41Report,
+  currentDate: string,
+  historicalData: HistoricalData[]
+): Promise<H4ReportFactors> {
   const cards = h41Report.cards;
   
   // 공급 요인 필드 정의
@@ -467,22 +471,18 @@ function convertFactors(h41Report: H41Report): H4ReportFactors {
     'Other liabilities and capital', // Deposits로 매핑
   ];
   
-  const supplying: Array<{
-    label: string;
-    labelEn: string;
-    value: number;
-    change: number;
-    changePercent: number;
-  }> = [];
-  const absorbing: Array<{
-    label: string;
-    labelEn: string;
-    value: number;
-    change: number;
-    changePercent: number;
-  }> = [];
+  // 직전 주 데이터 찾기
+  const previousWeekData = historicalData.find(h => {
+    const hDate = new Date(h.date);
+    const current = new Date(currentDate);
+    const diffDays = (current.getTime() - hDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays > 0 && diffDays <= 14; // 직전 주 범위
+  });
   
-  // 공급 요인 찾기
+  const supplying: H4ReportFactorRow[] = [];
+  const absorbing: H4ReportFactorRow[] = [];
+  
+  // 공급 요인 찾기 및 연간 변화 계산
   for (const label of supplyingLabels) {
     const card = cards.find(c => {
       const cLabel = c.fedLabel.toLowerCase();
@@ -491,17 +491,36 @@ function convertFactors(h41Report: H41Report): H4ReportFactors {
     });
     
     if (card) {
+      // 주간 변화 재계산 (직전 주 데이터가 있는 경우)
+      let weeklyChange = card.change_musd;
+      if (previousWeekData) {
+        const prevCard = previousWeekData.cards.find(c => c.fedLabel === card.fedLabel);
+        if (prevCard) {
+          weeklyChange = card.balance_musd - prevCard.balance_musd;
+        }
+      }
+      
+      // 연간 변화 계산
+      const yearly = calculateYearlyChange(
+        card.balance_musd,
+        currentDate,
+        historicalData,
+        card.fedLabel
+      );
+      
       supplying.push({
         label: translateLabel(card.fedLabel),
         labelEn: card.fedLabel,
         value: card.balance_musd,
-        change: card.change_musd,
-        changePercent: card.balance_musd ? (card.change_musd / card.balance_musd) * 100 : 0,
+        change: weeklyChange,
+        changePercent: card.balance_musd ? (weeklyChange / card.balance_musd) * 100 : 0,
+        yearlyChange: yearly.change,
+        yearlyChangePercent: yearly.changePercent,
       });
     }
   }
   
-  // 흡수 요인 찾기
+  // 흡수 요인 찾기 및 연간 변화 계산
   for (const label of absorbingLabels) {
     const card = cards.find(c => {
       const cLabel = c.fedLabel.toLowerCase();
@@ -510,6 +529,23 @@ function convertFactors(h41Report: H41Report): H4ReportFactors {
     });
     
     if (card) {
+      // 주간 변화 재계산 (직전 주 데이터가 있는 경우)
+      let weeklyChange = card.change_musd;
+      if (previousWeekData) {
+        const prevCard = previousWeekData.cards.find(c => c.fedLabel === card.fedLabel);
+        if (prevCard) {
+          weeklyChange = card.balance_musd - prevCard.balance_musd;
+        }
+      }
+      
+      // 연간 변화 계산
+      const yearly = calculateYearlyChange(
+        card.balance_musd,
+        currentDate,
+        historicalData,
+        card.fedLabel
+      );
+      
       // Other liabilities and capital을 Deposits로 표시
       const displayLabel = card.fedLabel === 'Other liabilities and capital' 
         ? 'Deposits' 
@@ -519,22 +555,119 @@ function convertFactors(h41Report: H41Report): H4ReportFactors {
         label: displayLabel,
         labelEn: card.fedLabel === 'Other liabilities and capital' ? 'Deposits' : card.fedLabel,
         value: card.balance_musd,
-        change: card.change_musd,
-        changePercent: card.balance_musd ? (card.change_musd / card.balance_musd) * 100 : 0,
+        change: weeklyChange,
+        changePercent: card.balance_musd ? (weeklyChange / card.balance_musd) * 100 : 0,
+        yearlyChange: yearly.change,
+        yearlyChangePercent: yearly.changePercent,
       });
     }
   }
   
+  // 합계 계산
   const supplyingTotal = supplying.reduce((sum, r) => sum + r.value, 0);
   const absorbingTotal = absorbing.reduce((sum, r) => sum + r.value, 0);
+  const netTotal = supplyingTotal - absorbingTotal; // 지급준비금
+  
+  // 합계의 주간 변화 계산
+  let supplyingWeeklyChange = 0;
+  let absorbingWeeklyChange = 0;
+  let netWeeklyChange = 0;
+  
+  if (previousWeekData) {
+    const prevSupplyingTotal = supplying.reduce((sum, row) => {
+      const prevCard = previousWeekData.cards.find(c => c.fedLabel === row.labelEn);
+      return sum + (prevCard?.balance_musd || 0);
+    }, 0);
+    
+    const prevAbsorbingTotal = absorbing.reduce((sum, row) => {
+      const prevCard = previousWeekData.cards.find(c => c.fedLabel === row.labelEn);
+      return sum + (prevCard?.balance_musd || 0);
+    }, 0);
+    
+    supplyingWeeklyChange = supplyingTotal - prevSupplyingTotal;
+    absorbingWeeklyChange = absorbingTotal - prevAbsorbingTotal;
+    netWeeklyChange = netTotal - (prevSupplyingTotal - prevAbsorbingTotal);
+  } else {
+    // 직전 주 데이터가 없으면 개별 변화의 합으로 계산
+    supplyingWeeklyChange = supplying.reduce((sum, r) => sum + r.change, 0);
+    absorbingWeeklyChange = absorbing.reduce((sum, r) => sum + r.change, 0);
+    netWeeklyChange = supplyingWeeklyChange - absorbingWeeklyChange;
+  }
+  
+  // 합계의 연간 변화 계산 (52주 전 데이터에서 동일 항목 합산)
+  const yearAgoData = historicalData.find(h => {
+    const hDate = new Date(h.date);
+    const current = new Date(currentDate);
+    const diffDays = (current.getTime() - hDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays >= 350 && diffDays <= 378; // 약 52주 전 범위
+  });
+  
+  let supplyingYearlyChange = 0;
+  let absorbingYearlyChange = 0;
+  let netYearlyChange = 0;
+  
+  if (yearAgoData) {
+    // 52주 전 공급 요인 합계 계산
+    const prevSupplyingTotal = supplying.reduce((sum, row) => {
+      const prevCard = yearAgoData.cards.find(c => c.fedLabel === row.labelEn);
+      return sum + (prevCard?.balance_musd || 0);
+    }, 0);
+    
+    // 52주 전 흡수 요인 합계 계산
+    const prevAbsorbingTotal = absorbing.reduce((sum, row) => {
+      const prevCard = yearAgoData.cards.find(c => c.fedLabel === row.labelEn);
+      return sum + (prevCard?.balance_musd || 0);
+    }, 0);
+    
+    supplyingYearlyChange = supplyingTotal - prevSupplyingTotal;
+    absorbingYearlyChange = absorbingTotal - prevAbsorbingTotal;
+    netYearlyChange = netTotal - (prevSupplyingTotal - prevAbsorbingTotal);
+    
+    console.log('[convertFactors] Yearly totals calculation:', {
+      current: { supplying: supplyingTotal, absorbing: absorbingTotal, net: netTotal },
+      yearAgo: { supplying: prevSupplyingTotal, absorbing: prevAbsorbingTotal, net: prevSupplyingTotal - prevAbsorbingTotal },
+      changes: { supplying: supplyingYearlyChange, absorbing: absorbingYearlyChange, net: netYearlyChange },
+      yearAgoDate: yearAgoData.date,
+    });
+  } else {
+    console.warn('[convertFactors] No year ago data found for totals calculation');
+  }
+  
+  const supplyingYearlyPercent = supplyingTotal ? (supplyingYearlyChange / supplyingTotal) * 100 : 0;
+  const absorbingYearlyPercent = absorbingTotal ? (absorbingYearlyChange / absorbingTotal) * 100 : 0;
+  const netYearlyPercent = netTotal ? (netYearlyChange / netTotal) * 100 : 0;
+  
+  console.log('[convertFactors] Totals calculation:', {
+    supplying: {
+      total: supplyingTotal,
+      weeklyChange: supplyingWeeklyChange,
+      yearlyChange: supplyingYearly.change,
+    },
+    absorbing: {
+      total: absorbingTotal,
+      weeklyChange: absorbingWeeklyChange,
+      yearlyChange: absorbingYearly.change,
+    },
+    net: {
+      total: netTotal,
+      weeklyChange: netWeeklyChange,
+      yearlyChange: netYearly.change,
+    },
+  });
   
   return {
     supplying,
     absorbing,
     totals: {
       supplying: supplyingTotal,
+      supplyingWeeklyChange,
+      supplyingYearlyChange,
       absorbing: absorbingTotal,
-      net: supplyingTotal - absorbingTotal,
+      absorbingWeeklyChange,
+      absorbingYearlyChange,
+      net: netTotal,
+      netWeeklyChange,
+      netYearlyChange,
     },
   };
 }

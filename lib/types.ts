@@ -64,8 +64,10 @@ export interface H4ReportFactorRow {
   label: string; // 한글화된 라벨
   labelEn: string; // 원문 라벨
   value: number;
-  change: number;
-  changePercent: number;
+  change: number; // 주간 변화
+  changePercent: number; // 주간 변화율
+  yearlyChange: number; // 연간 변화
+  yearlyChangePercent: number; // 연간 변화율
 }
 
 export interface H4ReportFactors {
@@ -73,8 +75,14 @@ export interface H4ReportFactors {
   absorbing: H4ReportFactorRow[];
   totals: {
     supplying: number;
+    supplyingWeeklyChange: number;
+    supplyingYearlyChange: number;
     absorbing: number;
-    net: number;
+    absorbingWeeklyChange: number;
+    absorbingYearlyChange: number;
+    net: number; // 지급준비금 = 공급합계 - 흡수합계
+    netWeeklyChange: number;
+    netYearlyChange: number;
   };
 }
 
