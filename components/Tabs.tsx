@@ -28,6 +28,13 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
     }
 
     if (activeTab === 'overview') {
+      if (!reportData.overview) {
+        return (
+          <div className="text-center py-12 text-gray-400">
+            <p>개요 데이터를 불러올 수 없습니다.</p>
+          </div>
+        );
+      }
       return <OverviewTab overview={reportData.overview} />;
     }
 
