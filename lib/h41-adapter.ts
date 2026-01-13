@@ -59,7 +59,7 @@ async function fetchHistoricalDataForYearlyComparison(
         const yearAgoReport = await fetchH41Report(yearAgoDate, releaseDates);
         historicalData.push({
           date: yearAgoDate,
-          weekEnded: formatDateToISO(yearAgoReport.asOfWeekEndedText),
+          weekEnded: formatDateToISO(yearAgoReport.asOfWeekEndedText, yearAgoDate),
           cards: yearAgoReport.cards.map(c => ({
             fedLabel: c.fedLabel,
             balance_musd: c.balance_musd,
@@ -79,7 +79,7 @@ async function fetchHistoricalDataForYearlyComparison(
         const weekAgoReport = await fetchH41Report(weekAgoDate, releaseDates);
         historicalData.push({
           date: weekAgoDate,
-          weekEnded: formatDateToISO(weekAgoReport.asOfWeekEndedText),
+          weekEnded: formatDateToISO(weekAgoReport.asOfWeekEndedText, weekAgoDate),
           cards: weekAgoReport.cards.map(c => ({
             fedLabel: c.fedLabel,
             balance_musd: c.balance_musd,
@@ -145,11 +145,20 @@ export async function convertH41ToH4Report(
   // 연방 준비권 파싱
   const frNotes = convertFRNotes(h41Report, rawText);
   
+  // week ended 날짜 파싱 (fallback으로 선택한 날짜 사용)
+  const weekEnded = formatDateToISO(h41Report.asOfWeekEndedText, date);
+  
+  console.log('[convertH41ToH4Report] Date conversion:', {
+    asOfWeekEndedText: h41Report.asOfWeekEndedText,
+    reportDate: date,
+    weekEnded,
+  });
+  
   return {
     ok: true,
     meta: {
       reportDate: date,
-      weekEnded: formatDateToISO(h41Report.asOfWeekEndedText) || date, // fallback to date if parsing fails
+      weekEnded, // 이미 fallback 처리됨
       sourceUrl: h41Report.sourceUrl,
       pdfUrl,
       parsedAt: new Date().toISOString(),
@@ -858,8 +867,17 @@ function convertFRNotes(h41Report: H41Report, rawText: string): H4ReportFRNotes 
  * 날짜 문자열을 ISO 형식으로 변환
  * "Dec 17, 2025" -> "2025-12-17"
  */
-function formatDateToISO(dateStr: string): string {
+function formatDateToISO(dateStr: string, fallbackDate?: string): string {
   try {
+    // (unknown)이나 빈 문자열인 경우 fallback 사용
+    if (!dateStr || dateStr === '(unknown)' || dateStr.trim() === '') {
+      if (fallbackDate) {
+        console.warn('[formatDateToISO] Using fallback date:', fallbackDate);
+        return fallbackDate;
+      }
+      return dateStr;
+    }
+    
     // "January 8, 2026" 형식 파싱
     if (dateStr.includes(',') && dateStr.match(/[A-Z][a-z]+\s+\d{1,2},\s+\d{4}/)) {
       const date = new Date(dateStr);
@@ -867,7 +885,9 @@ function formatDateToISO(dateStr: string): string {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        const result = `${year}-${month}-${day}`;
+        console.log('[formatDateToISO] Parsed date:', dateStr, '->', result);
+        return result;
       }
     }
     
@@ -882,14 +902,24 @@ function formatDateToISO(dateStr: string): string {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      const result = `${year}-${month}-${day}`;
+      console.log('[formatDateToISO] Parsed date (general):', dateStr, '->', result);
+      return result;
     }
     
-    // 파싱 실패 시 원본 반환 (하지만 로그 출력)
-    console.warn('[formatDateToISO] Failed to parse date:', dateStr);
+    // 파싱 실패 시 fallback 사용
+    if (fallbackDate) {
+      console.warn('[formatDateToISO] Failed to parse date, using fallback:', dateStr, '->', fallbackDate);
+      return fallbackDate;
+    }
+    
+    console.warn('[formatDateToISO] Failed to parse date (no fallback):', dateStr);
     return dateStr;
   } catch (error) {
     console.error('[formatDateToISO] Error parsing date:', dateStr, error);
+    if (fallbackDate) {
+      return fallbackDate;
+    }
     return dateStr;
   }
 }

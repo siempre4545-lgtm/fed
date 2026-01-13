@@ -216,22 +216,67 @@ async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise
   const releaseDateText = releaseDateLine.replace('Release Date:', '').trim();
 
   let asOfWeekEndedText = '(unknown)';
+  
+  // Week ended 날짜를 찾기 위한 다양한 패턴 시도
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === 'Week ended' && i + 1 < lines.length) {
+    const line = lines[i];
+    
+    // 패턴 1: "Week ended" 다음 줄에 날짜
+    if (line === 'Week ended' && i + 1 < lines.length) {
       const nextLine = lines[i + 1];
       if (!nextLine.toLowerCase().includes('change from') && nextLine.match(/[A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4}/)) {
         asOfWeekEndedText = nextLine.trim();
         break;
       }
     }
-    if (lines[i].includes('Week ended') && !lines[i].toLowerCase().includes('change from')) {
-      const match = lines[i].match(/Week ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/);
+    
+    // 패턴 2: "Week ended January 8, 2026" 형식 (같은 줄)
+    if (line.includes('Week ended') && !line.toLowerCase().includes('change from')) {
+      const match = line.match(/Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+      if (match) {
+        asOfWeekEndedText = match[1].trim();
+        break;
+      }
+    }
+    
+    // 패턴 3: "Week ending" 형식
+    if (line.includes('Week ending') && !line.toLowerCase().includes('change from')) {
+      const match = line.match(/Week\s+ending\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+      if (match) {
+        asOfWeekEndedText = match[1].trim();
+        break;
+      }
+    }
+    
+    // 패턴 4: "As of" 다음에 날짜
+    if (line.includes('As of') && line.match(/[A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4}/)) {
+      const match = line.match(/As\s+of\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
       if (match) {
         asOfWeekEndedText = match[1].trim();
         break;
       }
     }
   }
+  
+  // 여전히 찾지 못한 경우, 원본 텍스트에서 직접 검색
+  if (asOfWeekEndedText === '(unknown)') {
+    const text = $('body').text();
+    const patterns = [
+      /Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
+      /Week\s+ending\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
+      /As\s+of\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        asOfWeekEndedText = match[1].trim();
+        break;
+      }
+    }
+  }
+  
+  console.log('[parseH41Report] Week ended date found:', asOfWeekEndedText);
 
   const weeklyContext = await getWeeklyContext();
 

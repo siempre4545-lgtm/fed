@@ -114,20 +114,27 @@ export default function FedDashboardPage() {
           <div>
             <h1 className="text-2xl font-bold">Fed Dashboard 연준 대차대조표</h1>
             <p className="text-sm text-gray-400 mt-1">
-              {reportData?.meta && (
-                <>
-                  발표일: {new Date(reportData.meta.reportDate).toLocaleDateString('ko-KR', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                  {' '}기준일: {new Date(reportData.meta.weekEnded).toLocaleDateString('ko-KR', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                  })}
-                </>
-              )}
+              {reportData?.meta && (() => {
+                const reportDate = new Date(reportData.meta.reportDate);
+                const weekEndedDate = new Date(reportData.meta.weekEnded);
+                const isValidReportDate = !isNaN(reportDate.getTime());
+                const isValidWeekEnded = !isNaN(weekEndedDate.getTime());
+                
+                return (
+                  <>
+                    발표일: {isValidReportDate ? reportDate.toLocaleDateString('ko-KR', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    }) : reportData.meta.reportDate}
+                    {' '}기준일: {isValidWeekEnded ? weekEndedDate.toLocaleDateString('ko-KR', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    }) : reportData.meta.weekEnded}
+                  </>
+                );
+              })()}
             </p>
           </div>
           <div className="flex items-center gap-4">
