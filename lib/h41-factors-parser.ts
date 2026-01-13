@@ -1326,8 +1326,8 @@ export async function parseFactorsTable1(html: string, sourceUrl: string): Promi
     });
     
     // 검증용 계산값 (오류 로그용)
-    const calcTotalSupplying = filteredSupplying.reduce((sum, r) => sum + r.value, 0);
-    const calcTotalAbsorbing = filteredAbsorbing.reduce((sum, r) => sum + r.value, 0);
+    const calcTotalSupplying = finalSupplying.reduce((sum, r) => sum + r.value, 0);
+    const calcTotalAbsorbing = finalAbsorbing.reduce((sum, r) => sum + r.value, 0);
     console.error('[parseFactorsTable1] Calculated values (for debugging):', {
       calculatedSupplying: calcTotalSupplying,
       calculatedAbsorbing: calcTotalAbsorbing,
