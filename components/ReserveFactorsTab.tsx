@@ -168,6 +168,7 @@ export function ReserveFactorsTab({ factors }: ReserveFactorsTabProps) {
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">흡수 총합</div>
+          <div className="text-xs text-gray-500 mb-1">Total factors, other than reserve balances, absorbing reserve funds</div>
           {factors.totals.absorbing === 0 && factors.absorbing.length > 0 && factors.absorbing.some(r => r.value !== 0) ? (
             <div className="text-sm text-yellow-400">⚠️ 데이터 확인 필요</div>
           ) : (
