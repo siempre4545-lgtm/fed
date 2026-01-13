@@ -35,7 +35,7 @@ export function LoansSecuritiesTab({ loansAndLending }: LoansSecuritiesTabProps)
                     <td className={`px-4 py-2 text-sm text-right ${
                       (row.change || 0) > 0 ? 'text-red-400' : (row.change || 0) < 0 ? 'text-green-400' : 'text-gray-400'
                     }`}>
-                      {formatChange(row.change || 0, row.changePercent || 0)}
+                      {row.change ? (row.change > 0 ? '+' : '') + formatNumber(row.change) + 'M' : '0M'}
                     </td>
                   </tr>
                 ))}
@@ -70,7 +70,7 @@ export function LoansSecuritiesTab({ loansAndLending }: LoansSecuritiesTabProps)
                     <td className={`px-4 py-2 text-sm text-right ${
                       (row.change || 0) > 0 ? 'text-red-400' : (row.change || 0) < 0 ? 'text-green-400' : 'text-gray-400'
                     }`}>
-                      {formatChange(row.change || 0, row.changePercent || 0)}
+                      {row.change ? (row.change > 0 ? '+' : '') + formatNumber(row.change) + 'M' : '0M'}
                     </td>
                   </tr>
                 ))}
