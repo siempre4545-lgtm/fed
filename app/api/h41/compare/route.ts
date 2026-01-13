@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { ParsedTable } from '@/lib/pdf-parser';
 
 /**
  * 두 날짜의 H.4.1 리포트 비교
@@ -47,13 +48,13 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     // 각 테이블의 동일 키 기준으로 비교
-    for (const table of toReport.tables || []) {
-      const fromTable = fromReport.tables?.find(t => t.name === table.name);
+    for (const table of (toReport.tables || []) as ParsedTable[]) {
+      const fromTable = (fromReport.tables || [] as ParsedTable[]).find((t: ParsedTable) => t.name === table.name);
       if (!fromTable) continue;
 
       // 각 행 비교
       for (const toRow of table.rows || []) {
-        const fromRow = fromTable.rows?.find(r => r.label === toRow.label);
+        const fromRow = fromTable.rows?.find((r: Record<string, string | number>) => r.label === toRow.label);
         if (!fromRow) continue;
 
         // 숫자 필드 찾기
