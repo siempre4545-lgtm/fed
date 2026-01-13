@@ -120,6 +120,14 @@ export default function FedDashboardPage() {
                 const isValidReportDate = !isNaN(reportDate.getTime());
                 const isValidWeekEnded = !isNaN(weekEndedDate.getTime());
                 
+                // Release dates 형식: "2026 January 08"
+                const formatReleaseDate = (date: Date): string => {
+                  const year = date.getFullYear();
+                  const month = date.toLocaleDateString('en-US', { month: 'long' });
+                  const day = String(date.getDate()).padStart(2, '0');
+                  return `${year} ${month} ${day}`;
+                };
+                
                 return (
                   <>
                     발표일: {isValidReportDate ? reportDate.toLocaleDateString('ko-KR', { 
@@ -127,11 +135,7 @@ export default function FedDashboardPage() {
                       month: 'long', 
                       day: 'numeric' 
                     }) : reportData.meta.reportDate}
-                    {' '}Release dates: {isValidWeekEnded ? weekEndedDate.toLocaleDateString('ko-KR', { 
-                      year: 'numeric',
-                      month: 'long', 
-                      day: 'numeric' 
-                    }) : reportData.meta.weekEnded}
+                    {' '}Release dates: {isValidReportDate ? formatReleaseDate(reportDate) : reportData.meta.reportDate}
                   </>
                 );
               })()}
