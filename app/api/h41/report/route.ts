@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseH41PDF } from '@/lib/pdf-parser';
-import { normalizeH41Data } from '@/lib/pdf-normalizer';
+import { fetchH41Report, getFedReleaseDates } from '../../../src/h41';
+import { convertH41ToH4Report } from '@/lib/h41-adapter';
 
 /**
  * 특정 날짜의 H.4.1 리포트 가져오기 및 파싱
- * Node.js 런타임 필수 (PDF 파싱은 Edge에서 지원 안 됨)
+ * 기존 HTML 파싱 로직을 재사용하여 안정적인 데이터 추출
+ * Node.js 런타임 필수
  */
 export const runtime = 'nodejs';
 
@@ -33,107 +34,68 @@ export async function GET(request: NextRequest) {
     const cacheKey = `h41:${date}`;
     // TODO: 실제 캐시 구현 (Vercel KV 또는 메모리 캐시)
 
-    // 날짜에서 PDF URL 구성
+    // 날짜에서 PDF URL 구성 (참고용)
     const yyyymmdd = date.replace(/-/g, '');
     const pdfUrl = `https://www.federalreserve.gov/releases/h41/${yyyymmdd}/h41.pdf`;
 
-    // PDF 다운로드 (타임아웃 및 재시도)
-    let pdfBuffer: Buffer;
-    let contentType: string | null = null;
-    
+    // 기존 HTML 파싱 로직 사용 (안정적이고 검증됨)
+    let h41Report;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+      const releaseDates = await getFedReleaseDates();
+      h41Report = await fetchH41Report(date, releaseDates);
       
-      const pdfResponse = await fetch(pdfUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        signal: controller.signal,
-        next: { revalidate: 21600 }, // 6시간 캐시
-      });
-
-      clearTimeout(timeoutId);
-      contentType = pdfResponse.headers.get('content-type');
-
-      // Content-Type 검증
-      if (!pdfResponse.ok || !contentType?.includes('application/pdf')) {
-        // fallback: default.pdf 시도
-        const fallbackUrl = `https://www.federalreserve.gov/releases/h41/${yyyymmdd}/default.pdf`;
-        const fallbackResponse = await fetch(fallbackUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
+      if (debug) {
+        console.log('H41 Report fetched:', {
+          releaseDate: h41Report.releaseDateText,
+          weekEnded: h41Report.asOfWeekEndedText,
+          cardCount: h41Report.cards.length,
+          coreCardCount: h41Report.coreCards.length,
         });
-
-        if (!fallbackResponse.ok) {
-          throw new Error(`PDF not found for date ${date}. Status: ${pdfResponse.status}, Content-Type: ${contentType}`);
-        }
-
-        pdfBuffer = Buffer.from(await fallbackResponse.arrayBuffer());
-      } else {
-        pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
       }
     } catch (error) {
-      console.error('PDF fetch error:', {
+      console.error('H41 fetch error:', {
         date,
-        pdfUrl,
-        contentType,
         error: error instanceof Error ? error.message : String(error),
       });
       
       return NextResponse.json(
         {
           ok: false,
-          error: `Failed to fetch PDF: ${error instanceof Error ? error.message : String(error)}`,
-          ...(debug && { contentType, pdfUrl }),
-        },
-        { status: 404 }
-      );
-    }
-
-    // PDF 파싱
-    let parsedData;
-    try {
-      parsedData = await parseH41PDF(pdfBuffer);
-      
-      if (debug) {
-        console.log('PDF parsed:', {
-          releaseDate: parsedData.releaseDate,
-          weekEnded: parsedData.weekEnded,
-          tableCount: parsedData.tables.length,
-          pdfSize: pdfBuffer.length,
-        });
-      }
-    } catch (error) {
-      console.error('PDF parse error:', error);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Failed to parse PDF: ${error instanceof Error ? error.message : String(error)}`,
-          ...(debug && { rawError: String(error), pdfSize: pdfBuffer.length }),
+          error: `Failed to fetch H.4.1 report: ${error instanceof Error ? error.message : String(error)}`,
+          ...(debug && { date, pdfUrl }),
         },
         { status: 500 }
       );
     }
 
-    // 정규화된 데이터 생성
+    // H41Report를 H4Report로 변환
     let normalizedData;
     try {
-      normalizedData = normalizeH41Data(parsedData, date, pdfUrl);
+      normalizedData = await convertH41ToH4Report(h41Report, date, pdfUrl);
+      
+      if (debug) {
+        console.log('H4 Report converted:', {
+          overview: {
+            totalAssets: normalizedData.overview.totalAssets.value,
+            securitiesHeld: normalizedData.overview.securitiesHeld.value,
+            reserves: normalizedData.overview.reserves.value,
+          },
+          factors: {
+            supplyingCount: normalizedData.factors.supplying.length,
+            absorbingCount: normalizedData.factors.absorbing.length,
+          },
+        });
+      }
     } catch (error) {
-      console.error('Normalization error:', error);
+      console.error('Conversion error:', error);
       return NextResponse.json(
         {
           ok: false,
-          error: `Failed to normalize data: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to convert H41Report to H4Report: ${error instanceof Error ? error.message : String(error)}`,
           ...(debug && { rawError: String(error) }),
         },
         { status: 500 }
       );
-    }
-
-    // 디버그 정보 추가
-    if (debug) {
-      normalizedData.raw = {
-        parsedTables: parsedData.tables,
-      };
     }
 
     return NextResponse.json(normalizedData, {
