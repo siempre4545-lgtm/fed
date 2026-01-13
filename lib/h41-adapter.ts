@@ -10,20 +10,93 @@ import { calculateYearlyChange, type HistoricalData } from './yearly-calculator'
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { parseMaturityDistribution, parseLoans, parseSecuritiesLending, parseConsolidatedStatement, parseRegionalFed, parseFRNotes } from './h41-table-parser';
+import { fetchH41Report, getFedReleaseDates } from './h41-parser';
 
 /**
- * 과거 데이터 로드 (h41-parser와 동일한 로직)
+ * 52주 전 데이터와 직전 주 데이터를 직접 가져오기
  */
-async function loadHistoricalData(): Promise<HistoricalData[]> {
+async function fetchHistoricalDataForYearlyComparison(
+  currentDate: string,
+  releaseDates: string[]
+): Promise<HistoricalData[]> {
+  const historicalData: HistoricalData[] = [];
+  
   try {
-    const DATA_DIR = join(process.cwd(), 'data');
-    const HISTORICAL_DATA_FILE = join(DATA_DIR, 'historical.json');
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    const data = await fs.readFile(HISTORICAL_DATA_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
+    // 현재 날짜를 Date 객체로 변환
+    const current = new Date(currentDate);
+    
+    // 52주 전 날짜 계산 (약 364일 전)
+    const oneYearAgo = new Date(current);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 364);
+    
+    // 직전 주 날짜 계산 (약 7일 전)
+    const oneWeekAgo = new Date(current);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    // releaseDates에서 가장 가까운 날짜 찾기
+    const findClosestDate = (targetDate: Date): string | null => {
+      let closest: string | null = null;
+      let minDiff = Infinity;
+      
+      for (const releaseDate of releaseDates) {
+        const release = new Date(releaseDate);
+        const diff = Math.abs(release.getTime() - targetDate.getTime());
+        // ±14일 범위 내에서 가장 가까운 날짜
+        if (diff <= 14 * 24 * 60 * 60 * 1000 && diff < minDiff) {
+          minDiff = diff;
+          closest = releaseDate;
+        }
+      }
+      
+      return closest;
+    };
+    
+    // 52주 전 데이터 가져오기
+    const yearAgoDate = findClosestDate(oneYearAgo);
+    if (yearAgoDate) {
+      try {
+        console.log(`[fetchHistoricalData] Fetching 52 weeks ago data for ${yearAgoDate}`);
+        const yearAgoReport = await fetchH41Report(yearAgoDate, releaseDates);
+        historicalData.push({
+          date: yearAgoDate,
+          weekEnded: formatDateToISO(yearAgoReport.asOfWeekEndedText),
+          cards: yearAgoReport.cards.map(c => ({
+            fedLabel: c.fedLabel,
+            balance_musd: c.balance_musd,
+            change_musd: c.change_musd,
+          })),
+        });
+      } catch (error) {
+        console.warn(`[fetchHistoricalData] Failed to fetch year ago data for ${yearAgoDate}:`, error);
+      }
+    }
+    
+    // 직전 주 데이터 가져오기 (주간 변화 계산용)
+    const weekAgoDate = findClosestDate(oneWeekAgo);
+    if (weekAgoDate && weekAgoDate !== currentDate) {
+      try {
+        console.log(`[fetchHistoricalData] Fetching previous week data for ${weekAgoDate}`);
+        const weekAgoReport = await fetchH41Report(weekAgoDate, releaseDates);
+        historicalData.push({
+          date: weekAgoDate,
+          weekEnded: formatDateToISO(weekAgoReport.asOfWeekEndedText),
+          cards: weekAgoReport.cards.map(c => ({
+            fedLabel: c.fedLabel,
+            balance_musd: c.balance_musd,
+            change_musd: c.change_musd,
+          })),
+        });
+      } catch (error) {
+        console.warn(`[fetchHistoricalData] Failed to fetch week ago data for ${weekAgoDate}:`, error);
+      }
+    }
+    
+    console.log(`[fetchHistoricalData] Loaded ${historicalData.length} historical data points`);
+  } catch (error) {
+    console.error('[fetchHistoricalData] Error fetching historical data:', error);
   }
+  
+  return historicalData;
 }
 
 /**
@@ -34,11 +107,19 @@ export async function convertH41ToH4Report(
   date: string,
   pdfUrl: string
 ): Promise<H4Report> {
-  // 과거 데이터 로드 (연간 계산용)
-  const historicalData = await loadHistoricalData();
+  // 52주 전 데이터와 직전 주 데이터를 직접 가져오기
+  let releaseDates: string[] = [];
+  try {
+    releaseDates = await getFedReleaseDates();
+    console.log(`[convertH41ToH4Report] Loaded ${releaseDates.length} release dates`);
+  } catch (error) {
+    console.warn('[convertH41ToH4Report] Failed to load release dates:', error);
+  }
+  
+  const historicalData = await fetchHistoricalDataForYearlyComparison(date, releaseDates);
   
   // 개요 데이터 변환 (연간 데이터 포함)
-  const overview = await convertOverview(h41Report, date, historicalData);
+  const overview = await convertOverview(h41Report, date, historicalData, releaseDates);
   
   // 준비금 요인 변환
   const factors = convertFactors(h41Report);
@@ -68,7 +149,7 @@ export async function convertH41ToH4Report(
     ok: true,
     meta: {
       reportDate: date,
-      weekEnded: formatDateToISO(h41Report.asOfWeekEndedText),
+      weekEnded: formatDateToISO(h41Report.asOfWeekEndedText) || date, // fallback to date if parsing fails
       sourceUrl: h41Report.sourceUrl,
       pdfUrl,
       parsedAt: new Date().toISOString(),
@@ -90,7 +171,8 @@ export async function convertH41ToH4Report(
 async function convertOverview(
   h41Report: H41Report,
   currentDate: string,
-  historicalData: HistoricalData[]
+  historicalData: HistoricalData[],
+  releaseDates: string[]
 ): Promise<H4ReportOverview> {
   const cards = h41Report.cards;
   
@@ -100,10 +182,51 @@ async function convertOverview(
   };
   
   // 총 자산 (Total Assets로 명확히 호출)
-  const totalAssetsCard = findCard('Total assets') || 
-    findCard('Total liabilities and capital');
+  // H.4.1 HTML에서 "Total assets" 또는 "Total liabilities and capital"을 찾거나
+  // 모든 자산 항목을 합산하여 계산
+  let totalAssetsCard = findCard('Total assets') || 
+    findCard('Total Assets') ||
+    findCard('Total liabilities and capital') ||
+    findCard('Total Liabilities and Capital');
+  
+  // Total assets 카드를 찾지 못한 경우, HTML에서 직접 파싱 시도
+  if (!totalAssetsCard || totalAssetsCard.balance_musd === 0) {
+    // Reserve Bank credit는 연준의 총 자산을 나타냄 (자산 = 부채 + 자본)
+    const reserveBankCredit = findCard('Reserve Bank credit');
+    if (reserveBankCredit && reserveBankCredit.balance_musd > 0) {
+      // Reserve Bank credit는 자산 측면에서 Total Assets와 유사
+      // 하지만 정확한 Total Assets를 찾기 위해 다른 방법 시도
+      totalAssetsCard = reserveBankCredit;
+    }
+  }
+  
+  // 여전히 찾지 못한 경우, HTML rawText에서 직접 파싱
+  if ((!totalAssetsCard || totalAssetsCard.balance_musd === 0) && (h41Report as any).rawText) {
+    const rawText = (h41Report as any).rawText;
+    const totalAssetsMatch = rawText.match(/Total\s+(?:assets|Assets|liabilities\s+and\s+capital)\s+([\d,]+)/i);
+    if (totalAssetsMatch) {
+      const totalAssetsValue = parseFloat(totalAssetsMatch[1].replace(/,/g, ''));
+      if (totalAssetsValue > 0) {
+        totalAssetsCard = {
+          fedLabel: 'Total assets',
+          balance_musd: totalAssetsValue,
+          change_musd: 0, // 주간 변화는 별도 계산 필요
+        } as any;
+      }
+    }
+  }
+  
   const totalAssets = totalAssetsCard?.balance_musd || 0;
   const totalAssetsChange = totalAssetsCard?.change_musd || 0;
+  
+  // 디버그 로그
+  console.log('[convertOverview] Total Assets search:', {
+    found: !!totalAssetsCard,
+    value: totalAssets,
+    change: totalAssetsChange,
+    fedLabel: totalAssetsCard?.fedLabel,
+    allCardLabels: cards.map(c => c.fedLabel).slice(0, 10),
+  });
   
   // 보유 증권
   const securitiesCard = findCard('Securities held outright');
@@ -137,7 +260,57 @@ async function convertOverview(
   const mbs = mbsCard?.balance_musd || 0;
   const other = securitiesHeld - treasury - mbs;
   
-  // 연간 데이터 계산 (1년 전 데이터와 비교)
+  // 주간 변화 계산: 직전 주 데이터와 비교
+  const previousWeekData = historicalData.find(h => {
+    const hDate = new Date(h.date);
+    const current = new Date(currentDate);
+    const diffDays = (current.getTime() - hDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays > 0 && diffDays <= 14; // 직전 주 범위
+  });
+  
+  // 주간 변화 재계산 (직전 주 데이터가 있는 경우)
+  let totalAssetsWeeklyChange = totalAssetsChange;
+  let securitiesHeldWeeklyChange = securitiesHeldChange;
+  let reservesWeeklyChange = reservesChange;
+  let tgaWeeklyChange = tgaChange;
+  let rrpWeeklyChange = rrpChange;
+  let currencyWeeklyChange = currencyChange;
+  
+  if (previousWeekData) {
+    const prevTotalAssets = previousWeekData.cards.find(c => 
+      c.fedLabel === (totalAssetsCard?.fedLabel || 'Total assets')
+    );
+    if (prevTotalAssets) {
+      totalAssetsWeeklyChange = totalAssets - prevTotalAssets.balance_musd;
+    }
+    
+    const prevSecurities = previousWeekData.cards.find(c => c.fedLabel === 'Securities held outright');
+    if (prevSecurities) {
+      securitiesHeldWeeklyChange = securitiesHeld - prevSecurities.balance_musd;
+    }
+    
+    const prevReserves = previousWeekData.cards.find(c => c.fedLabel === 'Reserve balances with Federal Reserve Banks');
+    if (prevReserves) {
+      reservesWeeklyChange = reserves - prevReserves.balance_musd;
+    }
+    
+    const prevTga = previousWeekData.cards.find(c => c.fedLabel === 'U.S. Treasury, General Account');
+    if (prevTga) {
+      tgaWeeklyChange = tga - prevTga.balance_musd;
+    }
+    
+    const prevRrp = previousWeekData.cards.find(c => c.fedLabel === 'Reverse repurchase agreements');
+    if (prevRrp) {
+      rrpWeeklyChange = rrp - prevRrp.balance_musd;
+    }
+    
+    const prevCurrency = previousWeekData.cards.find(c => c.fedLabel === 'Currency in circulation');
+    if (prevCurrency) {
+      currencyWeeklyChange = currency - prevCurrency.balance_musd;
+    }
+  }
+  
+  // 연간 데이터 계산 (52주 전 데이터와 비교)
   const totalAssetsYearly = calculateYearlyChange(
     totalAssets,
     currentDate,
@@ -175,46 +348,54 @@ async function convertOverview(
     'Currency in circulation'
   );
   
+  // 디버그 로그
+  console.log('[convertOverview] Yearly changes:', {
+    totalAssets: { value: totalAssets, yearly: totalAssetsYearly },
+    securitiesHeld: { value: securitiesHeld, yearly: securitiesYearly },
+    reserves: { value: reserves, yearly: reservesYearly },
+    historicalDataCount: historicalData.length,
+  });
+  
   return {
     totalAssets: {
       value: totalAssets,
-      weeklyChange: totalAssetsChange,
-      weeklyChangePercent: totalAssets ? (totalAssetsChange / totalAssets) * 100 : 0,
+      weeklyChange: totalAssetsWeeklyChange,
+      weeklyChangePercent: totalAssets ? (totalAssetsWeeklyChange / totalAssets) * 100 : 0,
       yearlyChange: totalAssetsYearly.change,
       yearlyChangePercent: totalAssetsYearly.changePercent,
     },
     securitiesHeld: {
       value: securitiesHeld,
-      weeklyChange: securitiesHeldChange,
-      weeklyChangePercent: securitiesHeld ? (securitiesHeldChange / securitiesHeld) * 100 : 0,
+      weeklyChange: securitiesHeldWeeklyChange,
+      weeklyChangePercent: securitiesHeld ? (securitiesHeldWeeklyChange / securitiesHeld) * 100 : 0,
       yearlyChange: securitiesYearly.change,
       yearlyChangePercent: securitiesYearly.changePercent,
     },
     reserves: {
       value: reserves,
-      weeklyChange: reservesChange,
-      weeklyChangePercent: reserves ? (reservesChange / reserves) * 100 : 0,
+      weeklyChange: reservesWeeklyChange,
+      weeklyChangePercent: reserves ? (reservesWeeklyChange / reserves) * 100 : 0,
       yearlyChange: reservesYearly.change,
       yearlyChangePercent: reservesYearly.changePercent,
     },
     tga: {
       value: tga,
-      weeklyChange: tgaChange,
-      weeklyChangePercent: tga ? (tgaChange / tga) * 100 : 0,
+      weeklyChange: tgaWeeklyChange,
+      weeklyChangePercent: tga ? (tgaWeeklyChange / tga) * 100 : 0,
       yearlyChange: tgaYearly.change,
       yearlyChangePercent: tgaYearly.changePercent,
     },
     rrp: {
       value: rrp,
-      weeklyChange: rrpChange,
-      weeklyChangePercent: rrp ? (rrpChange / rrp) * 100 : 0,
+      weeklyChange: rrpWeeklyChange,
+      weeklyChangePercent: rrp ? (rrpWeeklyChange / rrp) * 100 : 0,
       yearlyChange: rrpYearly.change,
       yearlyChangePercent: rrpYearly.changePercent,
     },
     currency: {
       value: currency,
-      weeklyChange: currencyChange,
-      weeklyChangePercent: currency ? (currencyChange / currency) * 100 : 0,
+      weeklyChange: currencyWeeklyChange,
+      weeklyChangePercent: currency ? (currencyWeeklyChange / currency) * 100 : 0,
       yearlyChange: currencyYearly.change,
       yearlyChangePercent: currencyYearly.changePercent,
     },
@@ -679,15 +860,36 @@ function convertFRNotes(h41Report: H41Report, rawText: string): H4ReportFRNotes 
  */
 function formatDateToISO(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
+    // "January 8, 2026" 형식 파싱
+    if (dateStr.includes(',') && dateStr.match(/[A-Z][a-z]+\s+\d{1,2},\s+\d{4}/)) {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    
+    // ISO 형식 (YYYY-MM-DD)인 경우 그대로 반환
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return dateStr;
     }
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
+    
+    // 일반 Date 파싱 시도
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // 파싱 실패 시 원본 반환 (하지만 로그 출력)
+    console.warn('[formatDateToISO] Failed to parse date:', dateStr);
+    return dateStr;
+  } catch (error) {
+    console.error('[formatDateToISO] Error parsing date:', dateStr, error);
     return dateStr;
   }
 }

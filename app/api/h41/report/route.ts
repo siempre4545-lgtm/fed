@@ -102,18 +102,34 @@ export async function GET(request: NextRequest) {
     try {
       normalizedData = await convertH41ToH4Report(h41Report, date, pdfUrl);
       
+      // 검증 로그 출력
+      console.log(`[${requestId}] H4 Report converted:`, {
+        overview: normalizedData.overview ? {
+          totalAssets: {
+            value: normalizedData.overview.totalAssets.value,
+            weeklyChange: normalizedData.overview.totalAssets.weeklyChange,
+            yearlyChange: normalizedData.overview.totalAssets.yearlyChange,
+          },
+          securitiesHeld: {
+            value: normalizedData.overview.securitiesHeld.value,
+            weeklyChange: normalizedData.overview.securitiesHeld.weeklyChange,
+            yearlyChange: normalizedData.overview.securitiesHeld.yearlyChange,
+          },
+          reserves: {
+            value: normalizedData.overview.reserves.value,
+            weeklyChange: normalizedData.overview.reserves.weeklyChange,
+            yearlyChange: normalizedData.overview.reserves.yearlyChange,
+          },
+        } : null,
+        weekEnded: normalizedData.meta.weekEnded,
+        factors: normalizedData.factors ? {
+          supplyingCount: normalizedData.factors.supplying.length,
+          absorbingCount: normalizedData.factors.absorbing.length,
+        } : null,
+      });
+      
       if (debug) {
-        console.log('H4 Report converted:', {
-          overview: normalizedData.overview ? {
-            totalAssets: normalizedData.overview.totalAssets.value,
-            securitiesHeld: normalizedData.overview.securitiesHeld.value,
-            reserves: normalizedData.overview.reserves.value,
-          } : null,
-          factors: normalizedData.factors ? {
-            supplyingCount: normalizedData.factors.supplying.length,
-            absorbingCount: normalizedData.factors.absorbing.length,
-          } : null,
-        });
+        console.log(`[${requestId}] Full H4 Report:`, JSON.stringify(normalizedData, null, 2));
       }
     } catch (error) {
       console.error('Conversion error:', error);
