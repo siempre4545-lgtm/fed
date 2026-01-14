@@ -325,10 +325,31 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   }
   
   // 컬럼 인덱스 찾기 (실제 HTML 구조에 맞게)
-  // 실제 HTML: "Week ended Jan 7, 2026" | "Change from week ended Dec 31, 2025" | "Change from year ago Jan 8, 2025"
-  const valueCol = findColumnIndex($, table, ['Week ended', 'Wednesday', 'Level', 'Averages of daily figures']);
-  const weeklyCol = findColumnIndex($, table, ['Change from week ended', 'Change from previous week', 'Change since']);
-  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:', 'Jan 8, 2025']);
+  // 실제 HTML 구조:
+  // Row 1: "Averages of daily figures | Wednesday Jan 7, 2026 | Change from week ended Dec 31, 2025 | Change from year ago Jan 8, 2025"
+  // Row 2: "Week ended Jan 7, 2026 | Change from week ended Dec 31, 2025 | Change from year ago Jan 8, 2025"
+  // 실제 데이터는 "Week ended" 컬럼에 있음 (두 번째 행)
+  const valueCol = findColumnIndex($, table, [
+    'Week ended',  // 우선순위 1: 두 번째 행의 "Week ended Jan 7, 2026"
+    'Wednesday',  // 우선순위 2: 첫 번째 행의 "Wednesday Jan 7, 2026"
+    'Averages of daily figures',  // 우선순위 3: 첫 번째 행
+    'Level'
+  ]);
+  const weeklyCol = findColumnIndex($, table, [
+    'Change from week ended',  // 우선순위 1
+    'Change from previous week',
+    'Change since'
+  ]);
+  const yearlyCol = findColumnIndex($, table, [
+    'Change from year ago',  // 우선순위 1
+    'Change from:',
+    'Jan 8, 2025'
+  ]);
+  
+  // 디버깅: 컬럼 인덱스 확인
+  if (process.env.NODE_ENV === 'development') {
+    warnings.push(`[Overview] Column indices - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
+  }
   
   // 각 항목 파싱 (라벨 후보 확장)
   const totalAssets = extractValue(table, $, [
@@ -420,6 +441,7 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   const statementSection = findSection($, [
     'Consolidated Statement of Condition',
     'Table 5',
+    'Consolidated Statement',
   ]);
   
   let totalAssetsForComposition: number | null = null;
@@ -428,9 +450,21 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   let otherAssets: number | null = null;
   
   if (statementSection && statementSection.length > 0) {
-    const statementTable = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Assets', 'Liabilities']);
+    const statementTable = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Assets', 'Liabilities', 'Table 5']);
     if (statementTable && statementTable.length > 0) {
-      const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level', 'Wednesday', 'Averages of daily figures']);
+      // Table 5의 구조: "Wednesday Jan 7, 2026 | Change since Wednesday Dec 31, 2025 | Change since Wednesday Jan 8, 2025"
+      const assetsValueCol = findColumnIndex($, statementTable, [
+        'Wednesday',  // 우선순위 1: "Wednesday Jan 7, 2026"
+        'Week ended',  // 우선순위 2
+        'Assets',  // 우선순위 3
+        'Level',
+        'Averages of daily figures'
+      ]);
+      
+      if (process.env.NODE_ENV === 'development') {
+        warnings.push(`[Overview] Statement table assetsValueCol: ${assetsValueCol}`);
+      }
+      
       totalAssetsForComposition = extractValue(statementTable, $, [
         'Total assets',
         'Total'
@@ -446,11 +480,33 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
         'Mortgage backed securities',
         'MBS'
       ], assetsValueCol, warnings);
-      otherAssets = extractValue(statementTable, $, [
-        'Other assets',
-        'Other',
-        'Other assets (including unamortized premiums and discounts)'
-      ], assetsValueCol, warnings);
+      
+      // Other assets는 직접 찾기 어려울 수 있으므로 계산
+      if (totalAssetsForComposition !== null && treasurySecurities !== null && mortgageBackedSecurities !== null) {
+        // Other assets = Total - Treasury - MBS - 기타 알려진 자산들
+        // 또는 직접 찾기 시도
+        otherAssets = extractValue(statementTable, $, [
+          'Other assets',
+          'Other',
+          'Other assets (including unamortized premiums and discounts)',
+          'Other Federal Reserve assets'
+        ], assetsValueCol, warnings);
+        
+        // 찾지 못하면 계산
+        if (otherAssets === null) {
+          // 대략적인 계산 (정확하지 않을 수 있음)
+          const knownAssets = (treasurySecurities || 0) + (mortgageBackedSecurities || 0);
+          otherAssets = totalAssetsForComposition - knownAssets;
+          if (otherAssets < 0) otherAssets = null;
+        }
+      } else {
+        otherAssets = extractValue(statementTable, $, [
+          'Other assets',
+          'Other',
+          'Other assets (including unamortized premiums and discounts)',
+          'Other Federal Reserve assets'
+        ], assetsValueCol, warnings);
+      }
     }
   }
   

@@ -403,19 +403,27 @@ export function findColumnIndex(
     const normalizedKeyword = normalizeLabel(keyword);
     const keywordLower = keyword.toLowerCase();
 
-    // 1. 단일 행에서 직접 매칭 (기존 로직)
-    for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+    // 1. 단일 행에서 직접 매칭 (기존 로직) - "Week ended"를 우선적으로 찾기 위해 역순으로 검색
+    // "Week ended"는 보통 두 번째 행에 있으므로, 나중 행부터 검색
+    for (let rowIdx = headerRows.length - 1; rowIdx >= 0; rowIdx--) {
       const row = headerRows[rowIdx];
       const cells = $(row).find('td, th');
       let currentCol = 0;
 
-      cells.each((_, cell) => {
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cell = cells[cellIdx];
         const cellText = $(cell).text().trim();
         const normalized = normalizeLabel(cellText);
         const colspan = parseInt($(cell).attr('colspan') || '1', 10);
 
         // 완전 일치 또는 부분 일치 확인
-        if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
+        // "Week ended"는 정확히 매칭되어야 함 (다른 텍스트와 혼동 방지)
+        if (keywordLower.includes('week ended')) {
+          // "Week ended"로 시작하는지 확인
+          if (normalized.startsWith('week ended') || cellText.toLowerCase().startsWith('week ended')) {
+            return currentCol;
+          }
+        } else if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
           return currentCol;
         }
 
@@ -429,7 +437,7 @@ export function findColumnIndex(
         }
 
         currentCol += colspan;
-      });
+      }
     }
 
     // 2. 여러 행에 걸친 헤더 매칭 (컬럼별로 수집한 텍스트 조합)
@@ -439,9 +447,24 @@ export function findColumnIndex(
 
       const normalized = normalizeLabel(combinedText);
 
-      // 완전 일치 또는 부분 일치 확인
-      if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
-        return colIdx;
+      // "Week ended"는 정확히 매칭되어야 함
+      if (keywordLower.includes('week ended')) {
+        // "Week ended"로 시작하는지 확인 (다른 텍스트와 혼동 방지)
+        if (normalized.startsWith('week ended') || combinedText.toLowerCase().includes('week ended')) {
+          // "Week ended"가 포함된 경우, 해당 컬럼의 마지막 행 텍스트 확인
+          // 마지막 행에 "Week ended"가 있으면 더 정확함
+          const lastRowText = columnHeaders[colIdx].length > 0 
+            ? columnHeaders[colIdx][columnHeaders[colIdx].length - 1].toLowerCase()
+            : '';
+          if (lastRowText.includes('week ended')) {
+            return colIdx;
+          }
+        }
+      } else {
+        // 완전 일치 또는 부분 일치 확인
+        if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
+          return colIdx;
+        }
       }
 
       // 여러 행 조합에서 날짜 패턴 확인
