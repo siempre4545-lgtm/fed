@@ -1,476 +1,806 @@
 /**
- * H.4.1 HTML 파싱 로직 (src/h41.ts에서 핵심 부분만 추출)
- * Next.js에서 사용 가능하도록 lib로 이동
+ * H.4.1 HTML 파서
+ * Federal Reserve H.4.1 release HTML을 파싱하여 구조화된 데이터로 변환
  */
 
 import * as cheerio from 'cheerio';
+import {
+  parseNumber,
+  normalizeLabel,
+  matchLabel,
+  findSection,
+  findRowByLabel,
+  findColumnIndex,
+  parseDateToISO,
+  formatDateForURL,
+} from './h41-parser-core';
 
-const SOURCE_URL = 'https://www.federalreserve.gov/releases/h41/current/';
-const ARCHIVE_BASE_URL = 'https://www.federalreserve.gov/releases/h41/';
-
-export type H41Card = {
-  key: string;
-  title: string;
-  fedLabel: string;
-  balance_musd: number;
-  change_musd: number;
-  balance_okeusd: number;
-  change_okeusd: number;
-  liquidityTag: '흡수(약재)' | '공급(해열)' | 'QT/자산' | '상태';
-  concept: string;
-  interpretation: string;
-  dataDate: string;
-  qtQeSignal?: 'QT' | 'QE' | '중립';
-};
-
-export type H41Report = {
-  releaseDateText: string;
-  asOfWeekEndedText: string;
-  sourceUrl: string;
-  cards: H41Card[];
-  updatedAtISO: string;
-  warningLevel: 0 | 1 | 2 | 3;
-  assetGuidance: string;
-  teamSignal: { blueTeam: string; whiteTeam: string; summary: string };
-  weeklySummary: string;
-  coreCards: H41Card[];
-  rawText?: string; // 추가 테이블 파싱을 위한 원본 텍스트
-};
-
-const ITEM_DEFS: Array<{
-  key: string;
-  title: string;
-  fedLabel: string;
-  liquidityTag: H41Card['liquidityTag'];
-  isCore?: boolean;
-}> = [
-  { key: 'ⓐ', title: '재무부 일반계정 (TGA)', fedLabel: 'U.S. Treasury, General Account', liquidityTag: '흡수(약재)', isCore: true },
-  { key: 'ⓑ', title: '역리포 (RRP)', fedLabel: 'Reverse repurchase agreements', liquidityTag: '흡수(약재)', isCore: true },
-  { key: 'ⓒ', title: '통화발행 (현금)', fedLabel: 'Currency in circulation', liquidityTag: '흡수(약재)' },
-  { key: 'ⓓ', title: '기타 부채·자본', fedLabel: 'Other liabilities and capital', liquidityTag: '흡수(약재)' },
-  { key: 'ⓔ', title: '리포 (Repo)', fedLabel: 'Repurchase agreements', liquidityTag: '공급(해열)', isCore: true },
-  { key: 'ⓕ', title: 'Primary Credit', fedLabel: 'Primary credit', liquidityTag: '공급(해열)', isCore: true },
-  { key: 'ⓖ', title: '달러 스왑 (중앙은행)', fedLabel: 'Central bank liquidity swaps', liquidityTag: '공급(해열)' },
-  { key: 'ⓗ', title: '보유증권 총계', fedLabel: 'Securities held outright', liquidityTag: 'QT/자산', isCore: true },
-  { key: 'ⓘ', title: '미국 국채 보유 (UST)', fedLabel: 'U.S. Treasury securities', liquidityTag: 'QT/자산' },
-  { key: 'ⓙ', title: 'MBS 보유', fedLabel: 'Mortgage-backed securities', liquidityTag: 'QT/자산' },
-  { key: 'ⓚ', title: '지준금 (Reserve balances)', fedLabel: 'Reserve balances with Federal Reserve Banks', liquidityTag: '상태', isCore: true },
-  { key: 'ⓛ', title: 'Fed 자산 총규모 (Reserve Bank credit)', fedLabel: 'Reserve Bank credit', liquidityTag: '상태' },
-  { key: 'ⓜ', title: '기타 예치금 (지준금 제외)', fedLabel: 'Deposits with F.R. Banks, other than reserve balances', liquidityTag: '상태' },
-  { key: 'ⓝ', title: '흡수 총합 (지준금 제외)', fedLabel: 'Total factors, other than reserve balances,', liquidityTag: '상태' },
-];
-
-const CORE_FED_LABELS = [
-  'U.S. Treasury, General Account',
-  'Reverse repurchase agreements',
-  'Reserve balances with Federal Reserve Banks',
-  'Securities held outright',
-  'Repurchase agreements',
-  'Primary credit',
-];
-
-function parseNumberFromText(t: string): number | null {
-  const cleaned = t.replace(/\u00a0/g, ' ').trim();
-  if (!cleaned) return null;
-  const m = cleaned.match(/^([+-])?\s*([\d,]+)$/);
-  if (!m) return null;
-  const sign = m[1] === '-' ? -1 : 1;
-  const n = Number(m[2].replace(/,/g, ''));
-  if (!Number.isFinite(n)) return null;
-  return sign * n;
+export interface H41ParsedData {
+  ok: boolean;
+  date: string;
+  releaseDate: string;
+  weekEnded: string;
+  sections: {
+    overview: OverviewSection;
+    factors: FactorsSection;
+    summary: SummarySection;
+    maturity: MaturitySection;
+    lending: LendingSection;
+    statement: StatementSection;
+  };
+  warnings: string[];
 }
 
-function toOkEusd(musd: number): number {
-  return musd / 100;
+export interface OverviewSection {
+  totalAssets: number | null;
+  securities: number | null;
+  reserveBalances: number | null;
+  tga: number | null;
+  reverseRepos: number | null;
+  currency: number | null;
+  // 주간/연간 변화
+  totalAssetsWeekly: number | null;
+  totalAssetsYearly: number | null;
+  securitiesWeekly: number | null;
+  securitiesYearly: number | null;
+  reserveBalancesWeekly: number | null;
+  reserveBalancesYearly: number | null;
+  tgaWeekly: number | null;
+  tgaYearly: number | null;
+  reverseReposWeekly: number | null;
+  reverseReposYearly: number | null;
+  currencyWeekly: number | null;
+  currencyYearly: number | null;
+  // 자산 구성
+  totalAssetsForComposition: number | null;
+  treasurySecurities: number | null;
+  mortgageBackedSecurities: number | null;
+  otherAssets: number | null;
 }
 
-function yyyymmddFromISO(iso: string): string {
-  const parts = iso.split('-');
-  if (parts.length !== 3) {
-    throw new Error(`Invalid ISO date format: ${iso}`);
-  }
-  const [y, m, d] = parts;
-  return `${y}${m}${d}`;
+export interface FactorsSection {
+  supplying: FactorsRow[];
+  absorbing: FactorsRow[];
+  totals: {
+    totalSupplying: { value: number | null; weekly: number | null; yearly: number | null };
+    totalAbsorbing: { value: number | null; weekly: number | null; yearly: number | null };
+    reserveBalances: { value: number | null; weekly: number | null; yearly: number | null };
+  };
 }
 
-function findLabelIndex(lines: string[], searchLabel: string): number {
-  let idx = lines.findIndex(l => l === searchLabel);
-  if (idx >= 0) return idx;
-
-  const lowerSearch = searchLabel.toLowerCase();
-  idx = lines.findIndex(l => l.toLowerCase() === lowerSearch);
-  if (idx >= 0) return idx;
-
-  const keywords = searchLabel.toLowerCase().split(/[,\s]+/).filter(k => k.length > 3);
-  for (let i = 0; i < lines.length; i++) {
-    const lineLower = lines[i].toLowerCase();
-    if (keywords.every(kw => lineLower.includes(kw))) {
-      return i;
-    }
-  }
-
-  if (searchLabel.includes('Reverse repurchase')) {
-    idx = lines.findIndex(l =>
-      l.toLowerCase().includes('reverse') &&
-      (l.toLowerCase().includes('repo') || l.toLowerCase().includes('repurchase'))
-    );
-    if (idx >= 0) return idx;
-  }
-  if (searchLabel.includes('Repurchase agreements') && !searchLabel.includes('Reverse')) {
-    idx = lines.findIndex(l =>
-      l.toLowerCase().includes('repurchase') &&
-      !l.toLowerCase().includes('reverse')
-    );
-    if (idx >= 0) return idx;
-  }
-  if (searchLabel.includes('Securities held outright')) {
-    idx = lines.findIndex(l =>
-      l.toLowerCase().includes('securities') &&
-      l.toLowerCase().includes('held') &&
-      l.toLowerCase().includes('outright')
-    );
-    if (idx >= 0) return idx;
-  }
-
-  return -1;
+export interface FactorsRow {
+  label: string;
+  labelKo: string;
+  value: number | null;
+  weekly: number | null;
+  yearly: number | null;
 }
 
-function getConcept(fedLabel: string, liquidityTag: H41Card['liquidityTag']): string {
-  if (fedLabel.includes('Treasury') && fedLabel.includes('General Account')) {
-    return '재무부 일반계정(TGA)은 정부가 징수한 세금과 국채 발행 자금을 보관하는 계정입니다.';
-  }
-  if (fedLabel.includes('Reverse repurchase')) {
-    return '역리포(RRP)는 금융기관이 연준에 단기 자금을 예치하는 수단입니다.';
-  }
-  if (fedLabel.includes('Repurchase agreements') && !fedLabel.includes('Reverse')) {
-    return '리포(Repo)는 연준이 금융기관에 단기 자금을 공급하는 수단입니다.';
-  }
-  if (fedLabel.includes('Primary credit')) {
-    return 'Primary Credit은 은행들이 연준으로부터 직접 차입하는 융자입니다.';
-  }
-  if (fedLabel.includes('Securities held outright')) {
-    return '보유증권 총계는 연준이 보유한 국채와 MBS의 총액입니다.';
-  }
-  if (fedLabel.includes('Reserve balances')) {
-    return '지준금(Reserve balances)은 은행들이 연준에 예치한 준비금입니다.';
-  }
-  return '';
+export interface SummarySection {
+  supplyingTop: FactorsRow[];
+  absorbingTop: FactorsRow[];
 }
 
-function getQtQeSignal(fedLabel: string, change_musd: number): 'QT' | 'QE' | '중립' {
-  if (fedLabel.includes('Securities held outright')) {
-    if (change_musd < -20000) return 'QT';
-    if (change_musd > 20000) return 'QE';
-    return '중립';
-  }
-  return '중립';
+export interface MaturitySection {
+  treasury: MaturityRow;
+  mbs: MaturityRow;
 }
 
-async function getWeeklyContext(): Promise<{ weekNumber: number; month: number; context: string }> {
-  const now = new Date();
-  const weekNumber = Math.ceil(now.getDate() / 7);
-  const month = now.getMonth() + 1;
-  const contexts = [
-    '이번 주는 연준의 통화정책 방향성에 대한 시장의 관심이 높아진 가운데',
-    '최근 금리 변동성과 자금 시장의 스트레스 지표를 고려할 때',
-    '주요 경제 지표와 인플레이션 데이터를 종합하면',
-    '금융 시장의 리스크 선호도 변화와 함께',
-    '글로벌 유동성 환경과 달러 강세를 고려하면',
-  ];
-  return { weekNumber, month, context: contexts[weekNumber % contexts.length] };
+export interface MaturityRow {
+  within15Days: number | null;
+  days16to90: number | null;
+  days91to1Year: number | null;
+  years1to5: number | null;
+  years5to10: number | null;
+  years10AndOver: number | null;
+  total: number | null;
 }
 
-async function interpret(
-  rule: {
-    liquidityTag: H41Card['liquidityTag'];
-    title: string;
-    fedLabel: string;
-    change_musd: number;
-    balance_musd: number;
-  },
-  weeklyContext: { weekNumber: number; month: number; context: string }
-): Promise<string> {
-  const ch = rule.change_musd;
-  if (ch === 0) {
-    return '현재 상태 유지 중입니다.';
-  }
-  // 간단한 해석 (실제로는 더 복잡한 로직)
-  if (ch > 0) {
-    return `${weeklyContext.context} 이 지표가 증가하고 있어요.`;
-  } else {
-    return `${weeklyContext.context} 이 지표가 감소하고 있어요.`;
-  }
+export interface LendingSection {
+  loans: {
+    primaryCredit: number | null;
+    btfp: number | null;
+    total: number | null;
+  };
+  securitiesLending: {
+    overnight: number | null;
+    term: number | null;
+  };
 }
 
-/**
- * H.4.1 리포트 파싱
- */
-async function parseH41Report($: cheerio.CheerioAPI, sourceUrl: string): Promise<H41Report & { rawText?: string }> {
-  const text = $('body').text().replace(/\r/g, '');
-  const lines = text
-    .split('\n')
-    .map(s => s.replace(/\u00a0/g, ' ').trim())
-    .filter(Boolean);
-
-  const releaseDateLine = lines.find(l => l.startsWith('Release Date:')) ?? 'Release Date: (unknown)';
-  const releaseDateText = releaseDateLine.replace('Release Date:', '').trim();
-
-  let asOfWeekEndedText = '(unknown)';
-  
-  // Week ended 날짜를 찾기 위한 다양한 패턴 시도
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // 패턴 1: "Week ended" 다음 줄에 날짜
-    if (line === 'Week ended' && i + 1 < lines.length) {
-      const nextLine = lines[i + 1];
-      if (!nextLine.toLowerCase().includes('change from') && nextLine.match(/[A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4}/)) {
-        asOfWeekEndedText = nextLine.trim();
-        break;
-      }
-    }
-    
-    // 패턴 2: "Week ended January 8, 2026" 형식 (같은 줄)
-    if (line.includes('Week ended') && !line.toLowerCase().includes('change from')) {
-      const match = line.match(/Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-      if (match) {
-        asOfWeekEndedText = match[1].trim();
-        break;
-      }
-    }
-    
-    // 패턴 3: "Week ending" 형식
-    if (line.includes('Week ending') && !line.toLowerCase().includes('change from')) {
-      const match = line.match(/Week\s+ending\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-      if (match) {
-        asOfWeekEndedText = match[1].trim();
-        break;
-      }
-    }
-    
-    // 패턴 4: "As of" 다음에 날짜
-    if (line.includes('As of') && line.match(/[A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4}/)) {
-      const match = line.match(/As\s+of\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
-      if (match) {
-        asOfWeekEndedText = match[1].trim();
-        break;
-      }
-    }
-  }
-  
-  // 여전히 찾지 못한 경우, 원본 텍스트에서 직접 검색
-  if (asOfWeekEndedText === '(unknown)') {
-    const text = $('body').text();
-    const patterns = [
-      /Week\s+ended\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
-      /Week\s+ending\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
-      /As\s+of\s+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i,
-    ];
-    
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        asOfWeekEndedText = match[1].trim();
-        break;
-      }
-    }
-  }
-  
-  console.log('[parseH41Report] Week ended date found:', asOfWeekEndedText);
-
-  const weeklyContext = await getWeeklyContext();
-
-  const cards: H41Card[] = await Promise.all(
-    ITEM_DEFS.map(async def => {
-      const idx = findLabelIndex(lines, def.fedLabel);
-      if (idx < 0) {
-        return {
-          key: def.key,
-          title: def.title,
-          fedLabel: def.fedLabel,
-          balance_musd: 0,
-          change_musd: 0,
-          balance_okeusd: 0,
-          change_okeusd: 0,
-          liquidityTag: def.liquidityTag,
-          concept: getConcept(def.fedLabel, def.liquidityTag),
-          interpretation: '파싱 실패: H.4.1 페이지 구조 변경 가능성이 있습니다.',
-          dataDate: asOfWeekEndedText,
-          qtQeSignal: '중립' as const,
-        };
-      }
-
-      let balance = 0;
-      let change = 0;
-
-      for (let i = 1; i <= 5; i++) {
-        if (idx + i < lines.length) {
-          const num = parseNumberFromText(lines[idx + i]);
-          if (num !== null) {
-            if (balance === 0) {
-              balance = num;
-            } else if (change === 0) {
-              change = num;
-              break;
-            }
-          }
-        }
-      }
-
-      const concept = getConcept(def.fedLabel, def.liquidityTag);
-      const interpretation = await interpret(
-        {
-          liquidityTag: def.liquidityTag,
-          title: def.title,
-          fedLabel: def.fedLabel,
-          change_musd: change,
-          balance_musd: balance,
-        },
-        weeklyContext
-      );
-      const qtQeSignal = getQtQeSignal(def.fedLabel, change);
-
-      return {
-        key: def.key,
-        title: def.title,
-        fedLabel: def.fedLabel,
-        balance_musd: balance,
-        change_musd: change,
-        balance_okeusd: toOkEusd(balance),
-        change_okeusd: toOkEusd(change),
-        liquidityTag: def.liquidityTag,
-        concept,
-        interpretation,
-        dataDate: asOfWeekEndedText,
-        qtQeSignal,
-      };
-    })
-  );
-
-  const coreCards = cards.filter(c => CORE_FED_LABELS.includes(c.fedLabel));
-
-  // 간단한 경고 레벨 계산
-  let warningLevel: 0 | 1 | 2 | 3 = 0;
-  const tga = cards.find(c => c.fedLabel === 'U.S. Treasury, General Account');
-  const rrp = cards.find(c => c.fedLabel === 'Reverse repurchase agreements');
-  const reserves = cards.find(c => c.fedLabel === 'Reserve balances with Federal Reserve Banks');
-  if (tga && tga.change_musd > 50000) warningLevel = Math.max(warningLevel, 1);
-  if (rrp && rrp.change_musd > 30000) warningLevel = Math.max(warningLevel, 1);
-  if (reserves && reserves.change_musd < -50000) warningLevel = Math.max(warningLevel, 1);
-
-  // rawText는 항상 저장 (Table 1 직접 파싱을 위해)
-  const rawText = text || $('body').text().replace(/\r/g, '');
-  
-  return {
-    releaseDateText,
-    asOfWeekEndedText,
-    sourceUrl,
-    cards,
-    updatedAtISO: new Date().toISOString(),
-    warningLevel,
-    assetGuidance: '유동성 환경을 분석하여 자산군 대응 방향을 제시합니다.',
-    teamSignal: {
-      blueTeam: '비중 확대 가능',
-      whiteTeam: '기본 유지',
-      summary: '청팀 우호적 환경 · 백팀 중립',
-    },
-    weeklySummary: '주간 요약 리포트입니다.',
-    coreCards,
-    rawText, // 추가 테이블 파싱을 위해 원본 텍스트 저장
+export interface StatementSection {
+  assets: {
+    gold: number | null;
+    sdr: number | null;
+    securities: number | null;
+    repos: number | null;
+    loans: number | null;
+    swaps: number | null;
+    total: number | null;
+  };
+  liabilities: {
+    currency: number | null;
+    reverseRepos: number | null;
+    deposits: number | null;
+    reserveBalances: number | null;
+    tga: number | null;
+    total: number | null;
   };
 }
 
 /**
- * H.4.1 리포트 가져오기
+ * H.4.1 HTML 파싱 메인 함수
  */
-export async function fetchH41Report(targetDate?: string, availableDates?: string[]): Promise<H41Report> {
-  let url = SOURCE_URL;
-
-  if (targetDate) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      throw new Error(`Invalid date format: ${targetDate}`);
+export async function parseH41HTML(date: string): Promise<H41ParsedData> {
+  const dateStr = formatDateForURL(date);
+  const url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch H.4.1 HTML: ${response.status}`);
     }
-
-    const [yearStr] = targetDate.split('-');
-    const year = parseInt(yearStr, 10);
-
-    if (year < 2023) {
-      throw new Error(`Archive date detected: ${targetDate}`);
-    }
-
-    const ymd = yyyymmddFromISO(targetDate);
-    url = `${ARCHIVE_BASE_URL}${ymd}/default.htm`;
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    // Release Date와 Week Ended 파싱
+    const releaseDate = parseReleaseDate($);
+    const weekEnded = parseWeekEnded($);
+    
+    const warnings: string[] = [];
+    
+    // 각 섹션 파싱
+    const overview = parseOverviewSection($, warnings);
+    const factors = parseFactorsSection($, warnings);
+    const summary = parseSummarySection(factors, warnings);
+    const maturity = parseMaturitySection($, warnings);
+    const lending = parseLendingSection($, warnings);
+    const statement = parseStatementSection($, warnings);
+    
+    return {
+      ok: true,
+      date,
+      releaseDate,
+      weekEnded,
+      sections: {
+        overview,
+        factors,
+        summary,
+        maturity,
+        lending,
+        statement,
+      },
+      warnings,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      date,
+      releaseDate: '',
+      weekEnded: '',
+      sections: {
+        overview: createEmptyOverview(),
+        factors: createEmptyFactors(),
+        summary: createEmptySummary(),
+        maturity: createEmptyMaturity(),
+        lending: createEmptyLending(),
+        statement: createEmptyStatement(),
+      },
+      warnings: [error instanceof Error ? error.message : String(error)],
+    };
   }
-
-  const res = await fetch(url, {
-    headers: { 'user-agent': 'h41-dashboard/1.0 (+cursor)' },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch H.4.1: ${res.status} ${res.statusText}`);
-  }
-
-  const html = await res.text();
-
-  if (targetDate && html.length < 500) {
-    throw new Error(`Failed to fetch H.4.1 archive for date ${targetDate}`);
-  }
-
-  const $ = cheerio.load(html);
-  const report = await parseH41Report($, url);
-
-  const hasValidData = report.cards.some(c => c.balance_musd !== 0 || c.change_musd !== 0);
-  if (!hasValidData) {
-    throw new Error(`Parsed H.4.1 data appears invalid (all zeros) for ${url}`);
-  }
-
-  return report;
 }
 
 /**
- * 발표 날짜 목록 가져오기 (간단한 구현)
+ * Release Date 파싱
+ */
+function parseReleaseDate($: cheerio.CheerioAPI): string {
+  const bodyText = $('body').text();
+  const match = bodyText.match(/Release\s+Date[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+  if (match) {
+    const parsed = parseDateToISO(match[1]);
+    if (parsed) return parsed;
+  }
+  return '';
+}
+
+/**
+ * Week Ended 파싱
+ */
+function parseWeekEnded($: cheerio.CheerioAPI): string {
+  const bodyText = $('body').text();
+  const match = bodyText.match(/Week\s+ended[:\s]+([A-Z][a-z]{2,}\s+\d{1,2},\s+\d{4})/i);
+  if (match) {
+    const parsed = parseDateToISO(match[1]);
+    if (parsed) return parsed;
+  }
+  return '';
+}
+
+/**
+ * Overview 섹션 파싱
+ */
+function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): OverviewSection {
+  // "1. Factors Affecting Reserve Balances" 섹션 찾기
+  const factorsSection = findSection($, [
+    'Factors Affecting Reserve Balances',
+    'Table 1',
+  ]);
+  
+  if (!factorsSection || factorsSection.length === 0) {
+    warnings.push('Overview section not found');
+    return createEmptyOverview();
+  }
+  
+  const table = factorsSection.find('table').first();
+  if (table.length === 0) {
+    warnings.push('Overview table not found');
+    return createEmptyOverview();
+  }
+  
+  // 컬럼 인덱스 찾기
+  const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
+  const weeklyCol = findColumnIndex($, table, ['Change from previous week', 'Change from week ended']);
+  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:']);
+  
+  // 각 항목 파싱
+  const totalAssets = extractValue(table, $, ['Total factors supplying reserve funds'], valueCol, warnings);
+  const securities = extractValue(table, $, ['Securities held outright'], valueCol, warnings);
+  const reserveBalances = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], valueCol, warnings);
+  const tga = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], valueCol, warnings);
+  const reverseRepos = extractValue(table, $, ['Reverse repurchase agreements'], valueCol, warnings);
+  const currency = extractValue(table, $, ['Currency in circulation'], valueCol, warnings);
+  
+  const totalAssetsWeekly = extractValue(table, $, ['Total factors supplying reserve funds'], weeklyCol, warnings);
+  const totalAssetsYearly = extractValue(table, $, ['Total factors supplying reserve funds'], yearlyCol, warnings);
+  const securitiesWeekly = extractValue(table, $, ['Securities held outright'], weeklyCol, warnings);
+  const securitiesYearly = extractValue(table, $, ['Securities held outright'], yearlyCol, warnings);
+  const reserveBalancesWeekly = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], weeklyCol, warnings);
+  const reserveBalancesYearly = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], yearlyCol, warnings);
+  const tgaWeekly = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], weeklyCol, warnings);
+  const tgaYearly = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], yearlyCol, warnings);
+  const reverseReposWeekly = extractValue(table, $, ['Reverse repurchase agreements'], weeklyCol, warnings);
+  const reverseReposYearly = extractValue(table, $, ['Reverse repurchase agreements'], yearlyCol, warnings);
+  const currencyWeekly = extractValue(table, $, ['Currency in circulation'], weeklyCol, warnings);
+  const currencyYearly = extractValue(table, $, ['Currency in circulation'], yearlyCol, warnings);
+  
+  // "5. Consolidated Statement" 섹션에서 자산 구성 파싱
+  const statementSection = findSection($, [
+    'Consolidated Statement of Condition',
+    'Table 5',
+  ]);
+  
+  let totalAssetsForComposition: number | null = null;
+  let treasurySecurities: number | null = null;
+  let mortgageBackedSecurities: number | null = null;
+  let otherAssets: number | null = null;
+  
+  if (statementSection && statementSection.length > 0) {
+    const statementTable = statementSection.find('table').first();
+    if (statementTable.length > 0) {
+      const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level']);
+      totalAssetsForComposition = extractValue(statementTable, $, ['Total assets'], assetsValueCol, warnings);
+      treasurySecurities = extractValue(statementTable, $, ['U.S. Treasury securities'], assetsValueCol, warnings);
+      mortgageBackedSecurities = extractValue(statementTable, $, ['Mortgage-backed securities'], assetsValueCol, warnings);
+      otherAssets = extractValue(statementTable, $, ['Other assets'], assetsValueCol, warnings);
+    }
+  }
+  
+  return {
+    totalAssets,
+    securities,
+    reserveBalances,
+    tga,
+    reverseRepos,
+    currency,
+    totalAssetsWeekly,
+    totalAssetsYearly,
+    securitiesWeekly,
+    securitiesYearly,
+    reserveBalancesWeekly,
+    reserveBalancesYearly,
+    tgaWeekly,
+    tgaYearly,
+    reverseReposWeekly,
+    reverseReposYearly,
+    currencyWeekly,
+    currencyYearly,
+    totalAssetsForComposition,
+    treasurySecurities,
+    mortgageBackedSecurities,
+    otherAssets,
+  };
+}
+
+/**
+ * Factors 섹션 파싱
+ */
+function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): FactorsSection {
+  const factorsSection = findSection($, [
+    'Factors Affecting Reserve Balances',
+    'Table 1',
+  ]);
+  
+  if (!factorsSection || factorsSection.length === 0) {
+    warnings.push('Factors section not found');
+    return createEmptyFactors();
+  }
+  
+  const table = factorsSection.find('table').first();
+  if (table.length === 0) {
+    warnings.push('Factors table not found');
+    return createEmptyFactors();
+  }
+  
+  const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
+  const weeklyCol = findColumnIndex($, table, ['Change from previous week', 'Change from week ended']);
+  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:']);
+  
+  // 공급 요인 13개
+  const supplying: FactorsRow[] = [
+    { label: 'Reserve Bank credit', labelKo: '연준 신용', value: null, weekly: null, yearly: null },
+    { label: 'Securities held outright', labelKo: '보유 증권', value: null, weekly: null, yearly: null },
+    { label: 'U.S. Treasury securities', labelKo: '미 국채', value: null, weekly: null, yearly: null },
+    { label: 'Bills', labelKo: '단기채', value: null, weekly: null, yearly: null },
+    { label: 'Notes and bonds, nominal', labelKo: '중장기채', value: null, weekly: null, yearly: null },
+    { label: 'Notes and bonds, inflation-indexed', labelKo: '물가연동채', value: null, weekly: null, yearly: null },
+    { label: 'Mortgage-backed securities', labelKo: '주택저당증권', value: null, weekly: null, yearly: null },
+    { label: 'Repurchase agreements', labelKo: '레포', value: null, weekly: null, yearly: null },
+    { label: 'Loans', labelKo: '대출', value: null, weekly: null, yearly: null },
+    { label: 'Loans - Bank Term Funding Program', labelKo: '은행기간대출', value: null, weekly: null, yearly: null },
+    { label: 'Central bank liquidity swaps', labelKo: '통화스왑', value: null, weekly: null, yearly: null },
+    { label: 'Gold stock', labelKo: '금', value: null, weekly: null, yearly: null },
+    { label: 'Coin', labelKo: 'SDR 증서', value: null, weekly: null, yearly: null },
+  ];
+  
+  for (const row of supplying) {
+    row.value = extractValue(table, $, [row.label], valueCol, warnings);
+    row.weekly = extractValue(table, $, [row.label], weeklyCol, warnings);
+    row.yearly = extractValue(table, $, [row.label], yearlyCol, warnings);
+  }
+  
+  // 흡수 요인 4개
+  const absorbing: FactorsRow[] = [
+    { label: 'Currency in circulation', labelKo: '유통 통화', value: null, weekly: null, yearly: null },
+    { label: 'Reverse repurchase agreements', labelKo: '역레포', value: null, weekly: null, yearly: null },
+    { label: 'Deposits with F.R. Banks, other than reserve balances', labelKo: '연준 예치금', value: null, weekly: null, yearly: null },
+    { label: 'U.S. Treasury, General Account', labelKo: '재무부 일반계정', value: null, weekly: null, yearly: null },
+  ];
+  
+  for (const row of absorbing) {
+    row.value = extractValue(table, $, [row.label], valueCol, warnings);
+    row.weekly = extractValue(table, $, [row.label], weeklyCol, warnings);
+    row.yearly = extractValue(table, $, [row.label], yearlyCol, warnings);
+  }
+  
+  // 하단 합계 (원문에서 직접 파싱)
+  const totalSupplying = {
+    value: extractValue(table, $, ['Total factors supplying reserve funds'], valueCol, warnings),
+    weekly: extractValue(table, $, ['Total factors supplying reserve funds'], weeklyCol, warnings),
+    yearly: extractValue(table, $, ['Total factors supplying reserve funds'], yearlyCol, warnings),
+  };
+  
+  const totalAbsorbing = {
+    value: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], valueCol, warnings),
+    weekly: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], weeklyCol, warnings),
+    yearly: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], yearlyCol, warnings),
+  };
+  
+  const reserveBalances = {
+    value: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], valueCol, warnings),
+    weekly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], weeklyCol, warnings),
+    yearly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], yearlyCol, warnings),
+  };
+  
+  // 검증
+  if (supplying.length !== 13) {
+    warnings.push(`Supplying items count mismatch: expected 13, got ${supplying.length}`);
+  }
+  if (absorbing.length !== 4) {
+    warnings.push(`Absorbing items count mismatch: expected 4, got ${absorbing.length}`);
+  }
+  
+  return {
+    supplying,
+    absorbing,
+    totals: {
+      totalSupplying,
+      totalAbsorbing,
+      reserveBalances,
+    },
+  };
+}
+
+/**
+ * Summary 섹션 파싱 (factors 데이터 재사용)
+ */
+function parseSummarySection(factors: FactorsSection, warnings: string[]): SummarySection {
+  // 주요 공급 요인: 보유증권, 레포, 대출, 통화스왑
+  const supplyingTop: FactorsRow[] = [
+    factors.supplying.find(r => r.labelKo === '보유 증권') || { label: '', labelKo: '보유 증권', value: null, weekly: null, yearly: null },
+    factors.supplying.find(r => r.labelKo === '레포') || { label: '', labelKo: '레포', value: null, weekly: null, yearly: null },
+    factors.supplying.find(r => r.labelKo === '대출') || { label: '', labelKo: '대출', value: null, weekly: null, yearly: null },
+    factors.supplying.find(r => r.labelKo === '통화스왑') || { label: '', labelKo: '통화스왑', value: null, weekly: null, yearly: null },
+  ].filter(r => r.value !== null);
+  
+  // 주요 흡수 요인: 유통통화, 역레포, TGA, 지급준비금
+  const absorbingTop: FactorsRow[] = [
+    factors.absorbing.find(r => r.labelKo === '유통 통화') || { label: '', labelKo: '유통 통화', value: null, weekly: null, yearly: null },
+    factors.absorbing.find(r => r.labelKo === '역레포') || { label: '', labelKo: '역레포', value: null, weekly: null, yearly: null },
+    factors.absorbing.find(r => r.labelKo === '재무부 일반계정') || { label: '', labelKo: '재무부 일반계정', value: null, weekly: null, yearly: null },
+    { label: 'Reserve balances with Federal Reserve Banks', labelKo: '지급준비금', ...factors.totals.reserveBalances },
+  ].filter(r => r.value !== null);
+  
+  return {
+    supplyingTop,
+    absorbingTop,
+  };
+}
+
+/**
+ * Maturity 섹션 파싱
+ */
+function parseMaturitySection($: cheerio.CheerioAPI, warnings: string[]): MaturitySection {
+  const maturitySection = findSection($, [
+    'Maturity Distribution of Securities',
+    'Table 2',
+  ]);
+  
+  if (!maturitySection || maturitySection.length === 0) {
+    warnings.push('Maturity section not found');
+    return createEmptyMaturity();
+  }
+  
+  const table = maturitySection.find('table').first();
+  if (table.length === 0) {
+    warnings.push('Maturity table not found');
+    return createEmptyMaturity();
+  }
+  
+  // Treasury securities 행 찾기
+  const treasuryRow = findRowByLabel($, table, ['U.S. Treasury securities']);
+  const mbsRow = findRowByLabel($, table, ['Mortgage-backed securities']);
+  
+  const treasury = parseMaturityRow($, treasuryRow, warnings);
+  const mbs = parseMaturityRow($, mbsRow, warnings);
+  
+  return { treasury, mbs };
+}
+
+/**
+ * Maturity 행 파싱
+ */
+function parseMaturityRow(
+  $: cheerio.CheerioAPI,
+  row: cheerio.Cheerio<cheerio.Element> | null,
+  warnings: string[]
+): MaturityRow {
+  if (!row || row.length === 0) {
+    return createEmptyMaturityRow();
+  }
+  
+  const cells = row.find('td, th');
+  // 컬럼 인덱스 찾기 (헤더에서)
+  const within15DaysCol = findColumnIndex($, row.closest('table'), ['within 15 days', '15 days']);
+  const days16to90Col = findColumnIndex($, row.closest('table'), ['16-90 days', '16 to 90']);
+  const days91to1YearCol = findColumnIndex($, row.closest('table'), ['91 days to 1 year', '91-365']);
+  const years1to5Col = findColumnIndex($, row.closest('table'), ['1-5 years', '1 to 5']);
+  const years5to10Col = findColumnIndex($, row.closest('table'), ['5-10 years', '5 to 10']);
+  const years10AndOverCol = findColumnIndex($, row.closest('table'), ['10 years and over', '10+']);
+  const totalCol = findColumnIndex($, row.closest('table'), ['Total']);
+  
+  return {
+    within15Days: within15DaysCol >= 0 ? parseNumber($(cells[within15DaysCol]).text()) : null,
+    days16to90: days16to90Col >= 0 ? parseNumber($(cells[days16to90Col]).text()) : null,
+    days91to1Year: days91to1YearCol >= 0 ? parseNumber($(cells[days91to1YearCol]).text()) : null,
+    years1to5: years1to5Col >= 0 ? parseNumber($(cells[years1to5Col]).text()) : null,
+    years5to10: years5to10Col >= 0 ? parseNumber($(cells[years5to10Col]).text()) : null,
+    years10AndOver: years10AndOverCol >= 0 ? parseNumber($(cells[years10AndOverCol]).text()) : null,
+    total: totalCol >= 0 ? parseNumber($(cells[totalCol]).text()) : null,
+  };
+}
+
+/**
+ * Lending 섹션 파싱
+ */
+function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): LendingSection {
+  const factorsSection = findSection($, ['Factors Affecting Reserve Balances']);
+  const memoSection = findSection($, ['Memorandum Items', '1A']);
+  
+  let primaryCredit: number | null = null;
+  let btfp: number | null = null;
+  let loansTotal: number | null = null;
+  let overnight: number | null = null;
+  let term: number | null = null;
+  
+  if (factorsSection && factorsSection.length > 0) {
+    const table = factorsSection.find('table').first();
+    if (table.length > 0) {
+      const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
+      primaryCredit = extractValue(table, $, ['Loans - Primary credit'], valueCol, warnings);
+      btfp = extractValue(table, $, ['Loans - Bank Term Funding Program'], valueCol, warnings);
+      loansTotal = extractValue(table, $, ['Loans'], valueCol, warnings);
+    }
+  }
+  
+  if (memoSection && memoSection.length > 0) {
+    const table = memoSection.find('table').first();
+    if (table.length > 0) {
+      const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
+      overnight = extractValue(table, $, ['Securities lent to dealers - Overnight facility'], valueCol, warnings);
+      term = extractValue(table, $, ['Securities lent to dealers - Term facility'], valueCol, warnings);
+    }
+  }
+  
+  return {
+    loans: {
+      primaryCredit,
+      btfp,
+      total: loansTotal,
+    },
+    securitiesLending: {
+      overnight,
+      term,
+    },
+  };
+}
+
+/**
+ * Statement 섹션 파싱
+ */
+function parseStatementSection($: cheerio.CheerioAPI, warnings: string[]): StatementSection {
+  const statementSection = findSection($, [
+    'Consolidated Statement of Condition',
+    'Table 5',
+  ]);
+  
+  if (!statementSection || statementSection.length === 0) {
+    warnings.push('Statement section not found');
+    return createEmptyStatement();
+  }
+  
+  const table = statementSection.find('table').first();
+  if (table.length === 0) {
+    warnings.push('Statement table not found');
+    return createEmptyStatement();
+  }
+  
+  const assetsValueCol = findColumnIndex($, table, ['Assets', 'Level']);
+  const liabilitiesValueCol = findColumnIndex($, table, ['Liabilities', 'Level']);
+  
+  return {
+    assets: {
+      gold: extractValue(table, $, ['Gold stock'], assetsValueCol, warnings),
+      sdr: extractValue(table, $, ['Coin'], assetsValueCol, warnings),
+      securities: extractValue(table, $, ['Securities held outright'], assetsValueCol, warnings),
+      repos: extractValue(table, $, ['Repurchase agreements'], assetsValueCol, warnings),
+      loans: extractValue(table, $, ['Loans'], assetsValueCol, warnings),
+      swaps: extractValue(table, $, ['Central bank liquidity swaps'], assetsValueCol, warnings),
+      total: extractValue(table, $, ['Total assets'], assetsValueCol, warnings),
+    },
+    liabilities: {
+      currency: extractValue(table, $, ['Currency in circulation'], liabilitiesValueCol, warnings),
+      reverseRepos: extractValue(table, $, ['Reverse repurchase agreements'], liabilitiesValueCol, warnings),
+      deposits: extractValue(table, $, ['Deposits with F.R. Banks, other than reserve balances'], liabilitiesValueCol, warnings),
+      reserveBalances: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], liabilitiesValueCol, warnings),
+      tga: extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], liabilitiesValueCol, warnings),
+      total: extractValue(table, $, ['Total liabilities'], liabilitiesValueCol, warnings),
+    },
+  };
+}
+
+/**
+ * 테이블에서 값 추출 헬퍼
+ */
+function extractValue(
+  table: cheerio.Cheerio<cheerio.Element>,
+  $: cheerio.CheerioAPI,
+  labelCandidates: string[],
+  columnIndex: number,
+  warnings: string[]
+): number | null {
+  if (columnIndex < 0) {
+    return null;
+  }
+  
+  const row = findRowByLabel($, table, labelCandidates);
+  if (!row || row.length === 0) {
+    warnings.push(`Row not found for labels: ${labelCandidates.join(', ')}`);
+    return null;
+  }
+  
+  const cells = row.find('td, th');
+  if (cells.length <= columnIndex) {
+    warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]}`);
+    return null;
+  }
+  
+  const valueText = $(cells[columnIndex]).text().trim();
+  const value = parseNumber(valueText);
+  
+  if (value === null && valueText) {
+    warnings.push(`Failed to parse number from "${valueText}" for ${labelCandidates[0]}`);
+  }
+  
+  return value;
+}
+
+// Empty creators
+function createEmptyOverview(): OverviewSection {
+  return {
+    totalAssets: null,
+    securities: null,
+    reserveBalances: null,
+    tga: null,
+    reverseRepos: null,
+    currency: null,
+    totalAssetsWeekly: null,
+    totalAssetsYearly: null,
+    securitiesWeekly: null,
+    securitiesYearly: null,
+    reserveBalancesWeekly: null,
+    reserveBalancesYearly: null,
+    tgaWeekly: null,
+    tgaYearly: null,
+    reverseReposWeekly: null,
+    reverseReposYearly: null,
+    currencyWeekly: null,
+    currencyYearly: null,
+    totalAssetsForComposition: null,
+    treasurySecurities: null,
+    mortgageBackedSecurities: null,
+    otherAssets: null,
+  };
+}
+
+function createEmptyFactors(): FactorsSection {
+  return {
+    supplying: [],
+    absorbing: [],
+    totals: {
+      totalSupplying: { value: null, weekly: null, yearly: null },
+      totalAbsorbing: { value: null, weekly: null, yearly: null },
+      reserveBalances: { value: null, weekly: null, yearly: null },
+    },
+  };
+}
+
+function createEmptySummary(): SummarySection {
+  return {
+    supplyingTop: [],
+    absorbingTop: [],
+  };
+}
+
+function createEmptyMaturity(): MaturitySection {
+  return {
+    treasury: createEmptyMaturityRow(),
+    mbs: createEmptyMaturityRow(),
+  };
+}
+
+function createEmptyMaturityRow(): MaturityRow {
+  return {
+    within15Days: null,
+    days16to90: null,
+    days91to1Year: null,
+    years1to5: null,
+    years5to10: null,
+    years10AndOver: null,
+    total: null,
+  };
+}
+
+function createEmptyLending(): LendingSection {
+  return {
+    loans: {
+      primaryCredit: null,
+      btfp: null,
+      total: null,
+    },
+    securitiesLending: {
+      overnight: null,
+      term: null,
+    },
+  };
+}
+
+function createEmptyStatement(): StatementSection {
+  return {
+    assets: {
+      gold: null,
+      sdr: null,
+      securities: null,
+      repos: null,
+      loans: null,
+      swaps: null,
+      total: null,
+    },
+    liabilities: {
+      currency: null,
+      reverseRepos: null,
+      deposits: null,
+      reserveBalances: null,
+      tga: null,
+      total: null,
+    },
+  };
+}
+
+/**
+ * H.4.1 HTML 리포트 가져오기
+ * @param dateISO YYYY-MM-DD 형식의 날짜 (필수)
+ * @param availableDates 선택적 날짜 목록 (호환성을 위해 유지, 사용하지 않음)
+ * @returns HTML 문자열과 URL
+ */
+export async function fetchH41Report(
+  dateISO: string,
+  availableDates?: string[]
+): Promise<{ html: string; url: string }> {
+  const dateStr = formatDateForURL(dateISO);
+  const url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    cache: 'no-store',
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch H.4.1 HTML: ${response.status} ${response.statusText}`);
+  }
+  
+  const html = await response.text();
+  return { html, url };
+}
+
+/**
+ * Fed H.4.1 release 날짜 목록 가져오기
+ * @returns YYYY-MM-DD 형식의 날짜 배열 (최신순)
  */
 export async function getFedReleaseDates(): Promise<string[]> {
-  try {
-    const feedUrl = 'https://www.federalreserve.gov/feeds/h41.html';
-    const response = await fetch(feedUrl, {
-      headers: { 'User-Agent': 'h41-dashboard/1.0' },
-      cache: 'no-store',
-    });
-
-    if (!response.ok) return [];
-
-    const feedText = await response.text();
-    const dates: string[] = [];
-    const dateSet = new Set<string>();
-
-    const patterns = [/\/releases\/h41\/(\d{8})\//g, /\/h41\/(\d{8})\//g];
-
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(feedText)) !== null) {
-        const dateStr = match[1];
-        const year = dateStr.substring(0, 4);
-        const month = dateStr.substring(4, 6);
-        const day = dateStr.substring(6, 8);
-        const isoDate = `${year}-${month}-${day}`;
-
-        const yearNum = parseInt(year);
-        const currentYear = new Date().getFullYear();
-        const minYear = currentYear - 2;
-
-        if (yearNum >= minYear && yearNum <= 2100 && !dateSet.has(isoDate)) {
-          dates.push(isoDate);
-          dateSet.add(isoDate);
-        }
-      }
-    }
-
-    dates.sort((a, b) => b.localeCompare(a));
-    return dates;
-  } catch (e) {
-    console.warn('Error fetching release dates:', e);
-    return [];
+  const response = await fetch('https://www.federalreserve.gov/releases/h41/', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    cache: 'no-store',
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch H.4.1 main page: ${response.status}`);
   }
+  
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  
+  const dates: string[] = [];
+  
+  // 링크에서 날짜 추출
+  $('a[href*="/releases/h41/"]').each((_, el) => {
+    const href = $(el).attr('href') || '';
+    const match = href.match(/\/releases\/h41\/(\d{8})\//);
+    if (match) {
+      const dateStr = match[1];
+      // YYYYMMDD -> YYYY-MM-DD
+      const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+      dates.push(formatted);
+    }
+  });
+  
+  // 중복 제거 및 정렬 (최신순)
+  const uniqueDates = Array.from(new Set(dates)).sort().reverse();
+  
+  if (uniqueDates.length === 0) {
+    throw new Error('No release dates found');
+  }
+  
+  return uniqueDates;
 }

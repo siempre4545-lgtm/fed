@@ -1,104 +1,107 @@
 'use client';
 
-import type { H4ReportMaturity } from '@/lib/types';
-import { formatNumber, formatMillions } from '@/lib/translations';
+import type { MaturitySection } from '@/lib/h41-parser';
 
 interface MaturityTabProps {
-  maturity: H4ReportMaturity;
+  data: MaturitySection;
 }
 
-export function MaturityTab({ maturity }: MaturityTabProps) {
-  const maturityRanges = ['15일↓', '16-90일', '91일-1년', '1-5년', '5-10년', '10년↑'];
-  
+function formatNumber(value: number | null): string {
+  if (value === null) return '—';
+  return `${(value / 1000).toFixed(1)}B`;
+}
+
+export function MaturityTab({ data }: MaturityTabProps) {
   return (
     <div className="space-y-6">
-      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-        <h3 className="text-xl font-bold mb-2">만기별 증권 분포</h3>
-        <p className="text-sm text-gray-400 mb-6">Maturity Distribution · 단위: 백만 달러</p>
-        
-        {maturity.tableRows.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <p>만기 분포 데이터가 없습니다.</p>
-            <p className="text-xs mt-2">H.4.1 PDF에서 만기 분포 정보를 추출하는 중입니다.</p>
-          </div>
-        ) : (
-          <>
-            {/* 테이블 */}
-            <div className="overflow-x-auto mb-6">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">잔존만기</th>
-                    {maturityRanges.map((range) => (
-                      <th key={range} className="px-4 py-3 text-right text-sm font-medium text-gray-400">
-                        {range}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">합계</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {maturity.tableRows.map((row, idx) => (
-                    <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
-                      <td className="px-4 py-3 text-sm">
-                        <div>{row.label}</div>
-                        {row.label === '미 국채' && (
-                          <div className="text-xs text-gray-500">Treasury</div>
-                        )}
-                        {row.label === 'MBS' && (
-                          <div className="text-xs text-gray-500">Mortgage-Backed</div>
-                        )}
-                      </td>
-                      {maturityRanges.map((range) => (
-                        <td key={range} className="px-4 py-3 text-sm text-right">
-                          {formatNumber(row.buckets[range] || 0)}
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 text-sm text-right font-medium">
-                        {formatNumber(row.total)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* 바 차트 */}
-            <div className="mt-8">
-              <h4 className="text-sm font-medium text-gray-400 mb-4">만기 구간별 합계</h4>
-              <div className="flex items-end gap-2 h-64">
-                {maturityRanges.map((range) => {
-                  const total = maturity.tableRows.reduce((sum, row) => sum + (row.buckets[range] || 0), 0);
-                  const maxValue = Math.max(...maturityRanges.map(r => 
-                    maturity.tableRows.reduce((sum, row) => sum + (row.buckets[r] || 0), 0)
-                  ));
-                  const height = maxValue > 0 ? (total / maxValue) * 100 : 0;
-                  
-                  return (
-                    <div key={range} className="flex-1 flex flex-col items-center">
-                      <div className="w-full flex flex-col items-center justify-end" style={{ height: '240px' }}>
-                        <div
-                          className="w-full rounded-t"
-                          style={{
-                            height: `${height}%`,
-                            background: 'linear-gradient(180deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)',
-                            minHeight: total > 0 ? '4px' : '0',
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2 text-center">
-                        <div className="text-xs text-gray-400 mb-1">{range}</div>
-                        <div className="text-sm font-medium">
-                          ${formatMillions(total).replace('M', 'B').replace('T', 'T')}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
+      {/* Treasury Securities */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">미 국채 (Treasury Securities)</h3>
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-700">
+              <tr>
+                <th className="px-4 py-2 text-left text-sm">구간</th>
+                <th className="px-4 py-2 text-right text-sm">금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">15일 이하</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.within15Days)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">16-90일</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.days16to90)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">91일-1년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.days91to1Year)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">1-5년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.years1to5)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">5-10년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.years5to10)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">10년 이상</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.years10AndOver)}</td>
+              </tr>
+              <tr className="border-t-2 border-gray-600 font-semibold">
+                <td className="px-4 py-2 text-sm">합계</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.treasury.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* MBS */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">주택저당증권 (MBS)</h3>
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-700">
+              <tr>
+                <th className="px-4 py-2 text-left text-sm">구간</th>
+                <th className="px-4 py-2 text-right text-sm">금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">15일 이하</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.within15Days)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">16-90일</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.days16to90)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">91일-1년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.days91to1Year)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">1-5년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.years1to5)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">5-10년</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.years5to10)}</td>
+              </tr>
+              <tr className="border-t border-gray-700">
+                <td className="px-4 py-2 text-sm">10년 이상</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.years10AndOver)}</td>
+              </tr>
+              <tr className="border-t-2 border-gray-600 font-semibold">
+                <td className="px-4 py-2 text-sm">합계</td>
+                <td className="px-4 py-2 text-right text-sm">{formatNumber(data.mbs.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
