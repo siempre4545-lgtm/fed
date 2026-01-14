@@ -787,67 +787,89 @@ export function getTable1ColumnIndices(
     }
 
     // 실제 데이터 행에서 날짜 패턴이 있는 컬럼 찾기
-    // 헤더 행(특히 두 번째 행)과 데이터 행 모두 확인
+    // colspan을 고려하여 실제 컬럼 인덱스를 계산
     const dateCols: Array<{ colIdx: number; dateText: string; source: string }> = [];
-    
-    // 실제 데이터 행에서 날짜 패턴이 있는 컬럼 찾기
-    // valueCol과 "Change from week ended" 컬럼은 제외
     const dataRows = table.find('tr').slice(headerRows.length);
     
-    // 데이터 행에서 날짜 찾기 (valueCol 제외)
+    // 데이터 행에서 날짜 찾기 (실제 셀 인덱스 사용, colspan 고려)
     for (let rowIdx = 0; rowIdx < Math.min(3, dataRows.length); rowIdx++) {
       const row = $(dataRows[rowIdx]);
       const cells = row.find('td, th');
+      let actualColIdx = 0; // colspan을 고려한 실제 컬럼 인덱스
+      
       for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cell = $(cells[cellIdx]);
+        const cellText = cell.text().trim();
+        const colspan = parseInt(cell.attr('colspan') || '1', 10);
+        
         // valueCol은 제외
-        if (excludeCols.includes(cellIdx)) {
+        if (excludeCols.includes(actualColIdx)) {
+          actualColIdx += colspan;
           continue;
         }
         
         // "Change from week ended" 컬럼도 제외
-        if (changeFromWeekEndedCol >= 0 && cellIdx === changeFromWeekEndedCol) {
+        if (changeFromWeekEndedCol >= 0 && actualColIdx === changeFromWeekEndedCol) {
+          actualColIdx += colspan;
           continue;
         }
         
-        const cellText = $(cells[cellIdx]).text().trim();
+        // "Change from week ended" 이후만 확인
+        if (changeFromWeekEndedCol >= 0 && actualColIdx <= changeFromWeekEndedCol) {
+          actualColIdx += colspan;
+          continue;
+        }
+        
         const dateMatch = cellText.match(datePattern);
         if (dateMatch) {
           // 이미 추가되지 않은 컬럼만 추가
-          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
-            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `data-row-${rowIdx}` });
+          if (!dateCols.some(dc => dc.colIdx === actualColIdx)) {
+            dateCols.push({ colIdx: actualColIdx, dateText: dateMatch[0], source: `data-row-${rowIdx}` });
           }
         }
+        
+        actualColIdx += colspan;
       }
     }
     
-    // 헤더 행에서도 날짜 찾기 (valueCol 제외, "Change from week ended" 이후만)
+    // 헤더 행에서도 날짜 찾기 (colspan 고려)
     for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
       const row = $(headerRows[rowIdx]);
       const cells = row.find('td, th');
+      let actualColIdx = 0; // colspan을 고려한 실제 컬럼 인덱스
+      
       for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cell = $(cells[cellIdx]);
+        const cellText = cell.text().trim();
+        const colspan = parseInt(cell.attr('colspan') || '1', 10);
+        
         // valueCol은 제외
-        if (excludeCols.includes(cellIdx)) {
+        if (excludeCols.includes(actualColIdx)) {
+          actualColIdx += colspan;
           continue;
         }
         
         // "Change from week ended" 컬럼도 제외
-        if (changeFromWeekEndedCol >= 0 && cellIdx === changeFromWeekEndedCol) {
+        if (changeFromWeekEndedCol >= 0 && actualColIdx === changeFromWeekEndedCol) {
+          actualColIdx += colspan;
           continue;
         }
         
         // "Change from week ended" 이후만
-        if (changeFromWeekEndedCol >= 0 && cellIdx <= changeFromWeekEndedCol) {
+        if (changeFromWeekEndedCol >= 0 && actualColIdx <= changeFromWeekEndedCol) {
+          actualColIdx += colspan;
           continue;
         }
         
-        const cellText = $(cells[cellIdx]).text().trim();
         const dateMatch = cellText.match(datePattern);
         if (dateMatch) {
           // 이미 추가되지 않은 컬럼만 추가
-          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
-            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `header-row-${rowIdx}` });
+          if (!dateCols.some(dc => dc.colIdx === actualColIdx)) {
+            dateCols.push({ colIdx: actualColIdx, dateText: dateMatch[0], source: `header-row-${rowIdx}` });
           }
         }
+        
+        actualColIdx += colspan;
       }
     }
 
