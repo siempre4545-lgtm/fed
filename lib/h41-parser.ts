@@ -346,9 +346,78 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
     'Jan 8, 2025'
   ]);
   
-  // 디버깅: 컬럼 인덱스 확인
-  if (process.env.NODE_ENV === 'development') {
+  // 디버깅: 컬럼 인덱스 확인 및 테이블 구조 로깅
+  if (valueCol < 0 || weeklyCol < 0 || yearlyCol < 0) {
+    // 컬럼을 찾지 못한 경우, 테이블 구조를 확인
+    const headerRows = table.find('tr').slice(0, 3);
+    const headerInfo = Array.from(headerRows).map((row, idx) => {
+      const cells = $(row).find('td, th');
+      return Array.from(cells).map((cell, cellIdx) => ({
+        row: idx,
+        col: cellIdx,
+        text: $(cell).text().trim(),
+        colspan: $(cell).attr('colspan') || '1',
+      }));
+    });
     warnings.push(`[Overview] Column indices - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
+    warnings.push(`[Overview] Table headers: ${JSON.stringify(headerInfo)}`);
+  }
+  
+  // 컬럼 인덱스를 찾지 못한 경우, 대체 방법 시도
+  let actualValueCol = valueCol;
+  if (valueCol < 0) {
+    // 모든 행을 검색하여 "Week ended" 또는 날짜가 포함된 컬럼 찾기
+    const allRows = table.find('tr');
+    for (let rowIdx = 0; rowIdx < Math.min(3, allRows.length); rowIdx++) {
+      const row = $(allRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        if (cellText.toLowerCase().includes('week ended') || 
+            /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}/i.test(cellText)) {
+          actualValueCol = cellIdx;
+          warnings.push(`[Overview] Found value column at index ${cellIdx} using fallback method`);
+          break;
+        }
+      }
+      if (actualValueCol >= 0) break;
+    }
+  }
+  
+  let actualWeeklyCol = weeklyCol;
+  if (weeklyCol < 0) {
+    const allRows = table.find('tr');
+    for (let rowIdx = 0; rowIdx < Math.min(3, allRows.length); rowIdx++) {
+      const row = $(allRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        if (cellText.toLowerCase().includes('change from week ended')) {
+          actualWeeklyCol = cellIdx;
+          warnings.push(`[Overview] Found weekly column at index ${cellIdx} using fallback method`);
+          break;
+        }
+      }
+      if (actualWeeklyCol >= 0) break;
+    }
+  }
+  
+  let actualYearlyCol = yearlyCol;
+  if (yearlyCol < 0) {
+    const allRows = table.find('tr');
+    for (let rowIdx = 0; rowIdx < Math.min(3, allRows.length); rowIdx++) {
+      const row = $(allRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        if (cellText.toLowerCase().includes('change from year ago')) {
+          actualYearlyCol = cellIdx;
+          warnings.push(`[Overview] Found yearly column at index ${cellIdx} using fallback method`);
+          break;
+        }
+      }
+      if (actualYearlyCol >= 0) break;
+    }
   }
   
   // 각 항목 파싱 (라벨 후보 확장)
@@ -356,86 +425,86 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
     'Total factors supplying reserve funds',
     'Total factors supplying',
     'Total supplying'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   const securities = extractValue(table, $, [
     'Securities held outright',
     'Securities held',
     'Securities'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   const reserveBalances = extractValue(table, $, [
     'Reserve balances with Federal Reserve Banks',
     'Reserve balances',
     'Reserves'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   const tga = extractValue(table, $, [
     'U.S. Treasury, General Account',
     'Treasury General Account',
     'Treasury, General Account',
     'TGA'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   const reverseRepos = extractValue(table, $, [
     'Reverse repurchase agreements',
     'Reverse repos',
     'Reverse repurchase'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   const currency = extractValue(table, $, [
     'Currency in circulation',
     'Currency',
     'Federal Reserve notes'
-  ], valueCol, warnings);
+  ], actualValueCol, warnings);
   
   const totalAssetsWeekly = extractValue(table, $, [
     'Total factors supplying reserve funds',
     'Total factors supplying'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const totalAssetsYearly = extractValue(table, $, [
     'Total factors supplying reserve funds',
     'Total factors supplying'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   const securitiesWeekly = extractValue(table, $, [
     'Securities held outright',
     'Securities held'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const securitiesYearly = extractValue(table, $, [
     'Securities held outright',
     'Securities held'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   const reserveBalancesWeekly = extractValue(table, $, [
     'Reserve balances with Federal Reserve Banks',
     'Reserve balances',
     'Reserves'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const reserveBalancesYearly = extractValue(table, $, [
     'Reserve balances with Federal Reserve Banks',
     'Reserve balances',
     'Reserves'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   const tgaWeekly = extractValue(table, $, [
     'U.S. Treasury, General Account',
     'Treasury General Account',
     'TGA'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const tgaYearly = extractValue(table, $, [
     'U.S. Treasury, General Account',
     'Treasury General Account',
     'TGA'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   const reverseReposWeekly = extractValue(table, $, [
     'Reverse repurchase agreements',
     'Reverse repos'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const reverseReposYearly = extractValue(table, $, [
     'Reverse repurchase agreements',
     'Reverse repos'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   const currencyWeekly = extractValue(table, $, [
     'Currency in circulation',
     'Currency'
-  ], weeklyCol, warnings);
+  ], actualWeeklyCol, warnings);
   const currencyYearly = extractValue(table, $, [
     'Currency in circulation',
     'Currency'
-  ], yearlyCol, warnings);
+  ], actualYearlyCol, warnings);
   
   // "5. Consolidated Statement" 섹션에서 자산 구성 파싱
   const statementSection = findSection($, [
@@ -1212,7 +1281,7 @@ function expandLabelCandidates(candidates: string[]): string[] {
 }
 
 /**
- * 테이블에서 값 추출 헬퍼
+ * 테이블에서 값 추출 헬퍼 (개선된 버전)
  */
 function extractValue(
   table: cheerio.Cheerio<any>,
@@ -1228,7 +1297,34 @@ function extractValue(
   // 라벨 후보 확장 (변형 버전 추가)
   const expandedCandidates = expandLabelCandidates(labelCandidates);
   
-  const row = findRowByLabel($, table, expandedCandidates);
+  // 먼저 정확한 라벨로 찾기 시도
+  let row = findRowByLabel($, table, expandedCandidates);
+  
+  // 찾지 못한 경우, 더 유연한 검색 시도
+  if (!row || row.length === 0) {
+    const allRows = table.find('tr');
+    for (let i = 0; i < allRows.length; i++) {
+      const currentRow = $(allRows[i]);
+      const firstCell = currentRow.find('td, th').first();
+      const cellText = firstCell.text().trim();
+      
+      // 각 라벨 후보와 비교 (부분 일치 포함)
+      for (const candidate of labelCandidates) {
+        const normalizedCandidate = normalizeLabel(candidate);
+        const normalizedCell = normalizeLabel(cellText);
+        
+        // 완전 일치 또는 주요 키워드가 모두 포함되는지 확인
+        if (normalizedCell === normalizedCandidate || 
+            normalizedCell.includes(normalizedCandidate) ||
+            normalizedCandidate.split(/\s+/).filter(w => w.length > 3).every(kw => normalizedCell.includes(kw))) {
+          row = currentRow;
+          break;
+        }
+      }
+      if (row && row.length > 0) break;
+    }
+  }
+  
   if (!row || row.length === 0) {
     // 경고는 디버그 모드에서만 (너무 많아서)
     if (process.env.NODE_ENV === 'development') {
@@ -1240,7 +1336,7 @@ function extractValue(
   const cells = row.find('td, th');
   if (cells.length <= columnIndex) {
     if (process.env.NODE_ENV === 'development') {
-      warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]}`);
+      warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]} (found ${cells.length} cells)`);
     }
     return null;
   }

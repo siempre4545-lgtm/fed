@@ -419,8 +419,13 @@ export function findColumnIndex(
         // 완전 일치 또는 부분 일치 확인
         // "Week ended"는 정확히 매칭되어야 함 (다른 텍스트와 혼동 방지)
         if (keywordLower.includes('week ended')) {
-          // "Week ended"로 시작하는지 확인
-          if (normalized.startsWith('week ended') || cellText.toLowerCase().startsWith('week ended')) {
+          // "Week ended"로 시작하는지 확인 (대소문자 무시)
+          const cellLower = cellText.toLowerCase();
+          if (cellLower.startsWith('week ended') || normalized.startsWith('week ended')) {
+            return currentCol;
+          }
+          // "Week ended"가 포함되어 있고 날짜 패턴도 있으면 매칭
+          if (cellLower.includes('week ended') && datePattern.test(cellText)) {
             return currentCol;
           }
         } else if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
@@ -434,6 +439,16 @@ export function findColumnIndex(
               keywordLower.includes('level') || keywordLower.includes('averages')) {
             return currentCol;
           }
+        }
+        
+        // "Change from week ended" 같은 패턴도 확인
+        if (keywordLower.includes('change from week ended') && cellText.toLowerCase().includes('change from week ended')) {
+          return currentCol;
+        }
+        
+        // "Change from year ago" 패턴 확인
+        if (keywordLower.includes('change from year ago') && cellText.toLowerCase().includes('change from year ago')) {
+          return currentCol;
         }
 
         currentCol += colspan;
