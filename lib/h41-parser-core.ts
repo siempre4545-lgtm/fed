@@ -774,24 +774,14 @@ export function getTable1ColumnIndices(
     }
   }
 
-  // weeklyCol/yearlyCol을 찾지 못한 경우, 'Change from week ended' 그룹 아래 날짜 2개 컬럼 찾기
+  // weeklyCol/yearlyCol을 찾지 못한 경우, 데이터 행에서 직접 날짜 컬럼 찾기
   if (result.weeklyCol < 0 || result.yearlyCol < 0) {
-    // 'Change from week ended'가 포함된 컬럼 찾기 (이 컬럼 자체가 아니라 그 다음 컬럼들이 데이터)
-    let changeFromWeekEndedCol = -1;
-    for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
-      const text = colHeaderTexts[colIdx].toLowerCase();
-      if (text.includes('change from week ended')) {
-        changeFromWeekEndedCol = colIdx;
-        break;
-      }
-    }
-
     // 실제 데이터 행에서 날짜 패턴이 있는 컬럼 찾기
     // colspan을 고려하여 실제 컬럼 인덱스를 계산
     const dateCols: Array<{ colIdx: number; dateText: string; source: string }> = [];
     const dataRows = table.find('tr').slice(headerRows.length);
     
-    // 데이터 행에서 날짜 찾기 (실제 셀 인덱스 사용, colspan 고려)
+    // 데이터 행에서 날짜 찾기 (valueCol 이후의 모든 날짜 컬럼)
     for (let rowIdx = 0; rowIdx < Math.min(3, dataRows.length); rowIdx++) {
       const row = $(dataRows[rowIdx]);
       const cells = row.find('td, th');
@@ -808,14 +798,8 @@ export function getTable1ColumnIndices(
           continue;
         }
         
-        // "Change from week ended" 컬럼도 제외
-        if (changeFromWeekEndedCol >= 0 && actualColIdx === changeFromWeekEndedCol) {
-          actualColIdx += colspan;
-          continue;
-        }
-        
-        // "Change from week ended" 이후만 확인
-        if (changeFromWeekEndedCol >= 0 && actualColIdx <= changeFromWeekEndedCol) {
+        // valueCol 이후의 날짜만 찾기
+        if (result.valueCol >= 0 && actualColIdx <= result.valueCol) {
           actualColIdx += colspan;
           continue;
         }
@@ -832,7 +816,7 @@ export function getTable1ColumnIndices(
       }
     }
     
-    // 헤더 행에서도 날짜 찾기 (colspan 고려)
+    // 헤더 행에서도 날짜 찾기 (valueCol 이후만, colspan 고려)
     for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
       const row = $(headerRows[rowIdx]);
       const cells = row.find('td, th');
@@ -849,14 +833,8 @@ export function getTable1ColumnIndices(
           continue;
         }
         
-        // "Change from week ended" 컬럼도 제외
-        if (changeFromWeekEndedCol >= 0 && actualColIdx === changeFromWeekEndedCol) {
-          actualColIdx += colspan;
-          continue;
-        }
-        
-        // "Change from week ended" 이후만
-        if (changeFromWeekEndedCol >= 0 && actualColIdx <= changeFromWeekEndedCol) {
+        // valueCol 이후만
+        if (result.valueCol >= 0 && actualColIdx <= result.valueCol) {
           actualColIdx += colspan;
           continue;
         }
@@ -876,27 +854,12 @@ export function getTable1ColumnIndices(
     // 날짜 컬럼들을 컬럼 인덱스 순으로 정렬
     dateCols.sort((a, b) => a.colIdx - b.colIdx);
 
-    // 'Change from week ended' 컬럼 이후의 날짜 컬럼들을 찾기
-    // valueCol과 다른 컬럼만 선택
-    const changeGroupDateCols = changeFromWeekEndedCol >= 0
-      ? dateCols.filter(dc => dc.colIdx > changeFromWeekEndedCol && !excludeCols.includes(dc.colIdx))
-      : dateCols.filter(dc => !excludeCols.includes(dc.colIdx));
-
-    // 첫 번째 날짜 컬럼 → weeklyCol, 두 번째 날짜 컬럼 → yearlyCol
-    if (changeGroupDateCols.length >= 1 && result.weeklyCol < 0) {
-      result.weeklyCol = changeGroupDateCols[0].colIdx;
+    // valueCol 이후의 첫 번째 날짜 컬럼 → weeklyCol, 두 번째 → yearlyCol
+    if (dateCols.length >= 1 && result.weeklyCol < 0) {
+      result.weeklyCol = dateCols[0].colIdx;
     }
-    if (changeGroupDateCols.length >= 2 && result.yearlyCol < 0) {
-      result.yearlyCol = changeGroupDateCols[1].colIdx;
-    }
-    
-    // 그래도 못 찾으면 모든 날짜 컬럼에서 첫 번째/두 번째 선택 (valueCol 제외)
-    const availableDateCols = dateCols.filter(dc => !excludeCols.includes(dc.colIdx));
-    if (result.weeklyCol < 0 && availableDateCols.length >= 1) {
-      result.weeklyCol = availableDateCols[0].colIdx;
-    }
-    if (result.yearlyCol < 0 && availableDateCols.length >= 2) {
-      result.yearlyCol = availableDateCols[1].colIdx;
+    if (dateCols.length >= 2 && result.yearlyCol < 0) {
+      result.yearlyCol = dateCols[1].colIdx;
     }
   }
 
