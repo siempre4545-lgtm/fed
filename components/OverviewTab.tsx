@@ -164,11 +164,11 @@ function Card({
       <div className="space-y-2">
         <div className={`text-sm ${getChangeColor(weekly)}`}>
           주간: {weekly !== null ? `${weekly >= 0 ? '+' : ''}${(weekly / 1000).toFixed(1)}B` : '—'} 
-          {weeklyPercent !== null && ` (${weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
+          {weeklyPercent !== null && weekly !== null && ` (${weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
         </div>
         <div className={`text-sm ${getChangeColor(yearly)}`}>
           연간: {yearly !== null ? `${yearly >= 0 ? '+' : ''}${(yearly / 1000).toFixed(1)}B` : '—'} 
-          {yearlyPercent !== null && ` (${yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
+          {yearlyPercent !== null && yearly !== null && ` (${yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
         </div>
       </div>
     </div>

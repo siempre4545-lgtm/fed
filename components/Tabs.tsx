@@ -31,7 +31,7 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
     }
 
     if (activeTab === 'trend') {
-      return <TrendTab baseDate={selectedDate} />;
+      return <TrendTab />;
     }
 
     if (activeTab === 'overview') {
@@ -42,7 +42,8 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
           </div>
         );
       }
-      return <OverviewTab overview={reportData.overview} />;
+      // Tabs.tsx는 구형 H4Report 타입을 사용하므로 타입 단언 필요
+      return <OverviewTab data={reportData.overview as any} />;
     }
 
     if (activeTab === 'reserve-factors') {
@@ -53,7 +54,7 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
           </div>
         );
       }
-      return <ReserveFactorsTab factors={reportData.factors} />;
+      return <ReserveFactorsTab data={reportData.factors as any} />;
     }
 
     if (activeTab === 'factors-summary') {
@@ -64,7 +65,7 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
           </div>
         );
       }
-      return <FactorsSummaryTab summary={reportData.summary} />;
+      return <FactorsSummaryTab data={reportData.summary as any} />;
     }
 
     if (activeTab === 'maturity') {
@@ -75,7 +76,7 @@ export function Tabs({ tabs, activeTab, onTabChange, reportData, selectedDate }:
           </div>
         );
       }
-      return <MaturityTab maturity={reportData.maturity} />;
+      return <MaturityTab data={reportData.maturity as any} />;
     }
 
     if (activeTab === 'loans-securities') {

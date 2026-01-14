@@ -67,11 +67,11 @@ export function ReserveFactorsTab({ data }: ReserveFactorsTabProps) {
                       <td className="px-4 py-2 text-right text-sm">{formatValue(row.value)}</td>
                       <td className={`px-4 py-2 text-right text-sm ${getChangeColor(row.weekly)}`}>
                         {row.weekly !== null ? `${row.weekly >= 0 ? '+' : ''}${(row.weekly / 1000).toFixed(1)}B` : '—'}
-                        {weeklyPercent !== null && ` (${row.weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
+                        {weeklyPercent !== null && row.weekly !== null && ` (${row.weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
                       </td>
                       <td className={`px-4 py-2 text-right text-sm ${getChangeColor(row.yearly)}`}>
                         {row.yearly !== null ? `${row.yearly >= 0 ? '+' : ''}${(row.yearly / 1000).toFixed(1)}B` : '—'}
-                        {yearlyPercent !== null && ` (${row.yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
+                        {yearlyPercent !== null && row.yearly !== null && ` (${row.yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
                       </td>
                     </tr>
                   );
@@ -109,11 +109,11 @@ export function ReserveFactorsTab({ data }: ReserveFactorsTabProps) {
                       <td className="px-4 py-2 text-right text-sm">{formatValue(row.value)}</td>
                       <td className={`px-4 py-2 text-right text-sm ${getChangeColor(row.weekly)}`}>
                         {row.weekly !== null ? `${row.weekly >= 0 ? '+' : ''}${(row.weekly / 1000).toFixed(1)}B` : '—'}
-                        {weeklyPercent !== null && ` (${row.weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
+                        {weeklyPercent !== null && row.weekly !== null && ` (${row.weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
                       </td>
                       <td className={`px-4 py-2 text-right text-sm ${getChangeColor(row.yearly)}`}>
                         {row.yearly !== null ? `${row.yearly >= 0 ? '+' : ''}${(row.yearly / 1000).toFixed(1)}B` : '—'}
-                        {yearlyPercent !== null && ` (${row.yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
+                        {yearlyPercent !== null && row.yearly !== null && ` (${row.yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
                       </td>
                     </tr>
                   );
@@ -180,11 +180,11 @@ function Card({
       <div className="space-y-2">
         <div className={`text-sm ${getChangeColor(weekly)}`}>
           주간: {weekly !== null ? `${weekly >= 0 ? '+' : ''}${(weekly / 1000).toFixed(1)}B` : '—'} 
-          {weeklyPercent !== null && ` (${weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
+          {weeklyPercent !== null && weekly !== null && ` (${weekly >= 0 ? '+' : ''}${weeklyPercent}%)`}
         </div>
         <div className={`text-sm ${getChangeColor(yearly)}`}>
           연간: {yearly !== null ? `${yearly >= 0 ? '+' : ''}${(yearly / 1000).toFixed(1)}B` : '—'} 
-          {yearlyPercent !== null && ` (${yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
+          {yearlyPercent !== null && yearly !== null && ` (${yearly >= 0 ? '+' : ''}${yearlyPercent}%)`}
         </div>
       </div>
     </div>

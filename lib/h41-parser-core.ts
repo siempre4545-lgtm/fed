@@ -89,7 +89,7 @@ export function matchLabel(
  */
 export function extractValueFromRow(
   $: cheerio.CheerioAPI,
-  row: cheerio.Element,
+  row: any,
   labelColumnIndex: number,
   valueColumnIndex: number
 ): number | null {
@@ -111,7 +111,7 @@ export function extractValueFromRow(
 export function findSection(
   $: cheerio.CheerioAPI,
   sectionKeywords: string[]
-): cheerio.Cheerio<cheerio.Element> | null {
+): cheerio.Cheerio<any> | null {
   const body = $('body');
   const bodyText = body.text();
   
@@ -123,7 +123,7 @@ export function findSection(
     
     // 먼저 h1-h6, p, strong, b 태그에서 키워드 찾기 (헤더일 가능성 높음)
     const headerSelectors = 'h1, h2, h3, h4, h5, h6, p, strong, b, div[class*="title"], div[class*="header"]';
-    let foundElement: cheerio.Element | null = null;
+    let foundElement: any | null = null;
     
     $(headerSelectors).each((_, el) => {
       const text = $(el).text();
@@ -185,9 +185,9 @@ export function findSection(
  */
 export function findFirstTableNearSection(
   $: cheerio.CheerioAPI,
-  sectionRoot: cheerio.Cheerio<cheerio.Element>,
+  sectionRoot: cheerio.Cheerio<any>,
   sectionKeywords?: string[]
-): cheerio.Cheerio<cheerio.Element> | null {
+): cheerio.Cheerio<any> | null {
   if (sectionRoot.length === 0) {
     return null;
   }
@@ -317,9 +317,9 @@ export function findFirstTableNearSection(
  */
 export function findRowByLabel(
   $: cheerio.CheerioAPI,
-  table: cheerio.Cheerio<cheerio.Element>,
+  table: cheerio.Cheerio<any>,
   labelCandidates: string[]
-): cheerio.Cheerio<cheerio.Element> | null {
+): cheerio.Cheerio<any> | null {
   const rows = table.find('tr');
   
   for (let i = 0; i < rows.length; i++) {
@@ -345,7 +345,7 @@ export function findRowByLabel(
  */
 export function findColumnIndex(
   $: cheerio.CheerioAPI,
-  table: cheerio.Cheerio<cheerio.Element>,
+  table: cheerio.Cheerio<any>,
   headerKeywords: string[]
 ): number {
   const headerRows = table.find('tr').slice(0, 3); // 처음 3개 행을 헤더 후보로 검색

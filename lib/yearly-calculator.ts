@@ -3,7 +3,8 @@
  * 1년 전 데이터와 비교하여 연간 변동값 계산
  */
 
-import type { H41Card } from './h41-parser';
+// 구형 타입 - 더 이상 사용되지 않음
+// import type { H41Card } from './h41-parser';
 
 export interface HistoricalCard {
   fedLabel: string;

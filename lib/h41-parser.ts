@@ -573,8 +573,8 @@ function parseMaturitySection($: cheerio.CheerioAPI, warnings: string[]): Maturi
  */
 function parseMaturityRow(
   $: cheerio.CheerioAPI,
-  row: cheerio.Cheerio<cheerio.Element> | null,
-  table: cheerio.Cheerio<cheerio.Element>,
+  row: cheerio.Cheerio<any> | null,
+  table: cheerio.Cheerio<any>,
   within15DaysCol: number,
   days16to90Col: number,
   days91to1YearCol: number,
@@ -767,7 +767,7 @@ function expandLabelCandidates(candidates: string[]): string[] {
  * 테이블에서 값 추출 헬퍼
  */
 function extractValue(
-  table: cheerio.Cheerio<cheerio.Element>,
+  table: cheerio.Cheerio<any>,
   $: cheerio.CheerioAPI,
   labelCandidates: string[],
   columnIndex: number,

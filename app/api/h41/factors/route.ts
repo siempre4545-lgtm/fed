@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 import { parseFactorsTable1 } from '@/lib/h41-factors-parser';
 import { fetchH41Report, getFedReleaseDates } from '@/lib/h41-parser';
 
@@ -65,33 +66,48 @@ export async function GET(request: NextRequest) {
     console.log(`[${requestId}] Fetching factors for date: ${date} -> actual: ${actualReleaseDate}`);
     
     // H.4.1 리포트 가져오기
-    let h41Report;
+    let html: string = '';
+    let sourceUrl: string = '';
     try {
-      h41Report = await fetchH41Report(actualReleaseDate, releaseDates);
+      const report = await fetchH41Report(actualReleaseDate, releaseDates);
+      html = report.html;
+      sourceUrl = report.url;
       
-      if (!h41Report.rawText) {
-        throw new Error('rawText not available in H41Report');
+      if (!html || html.length < 100) {
+        throw new Error(`HTML is too short or empty: ${html?.length || 0} chars`);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[${requestId}] Failed to fetch H.4.1 report:`, errorMsg);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error(`[${requestId}] Failed to fetch H.4.1 report:`, {
+        error: errorMsg,
+        stack: errorStack,
+        url: sourceUrl || 'unknown',
+        date,
+        actualReleaseDate,
+      });
       
       return NextResponse.json(
         {
           ok: false,
           error: `Failed to fetch H.4.1 report: ${errorMsg}`,
-          ...(debug && { date, actualReleaseDate }),
+          url: sourceUrl || 'unknown',
+          ...(debug && { date, actualReleaseDate, stack: errorStack }),
         },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
     // Table 1 직접 파싱
     let factorsData;
+    const $ = cheerio.load(html);
+    const rawText = $('body').text(); // 텍스트만 추출 (디버그용)
+    
     const debugInfo: any = {
-      sourceUrl: h41Report.sourceUrl,
+      sourceUrl,
       httpStatus: 200,
-      htmlLength: h41Report.rawText?.length || 0,
+      htmlLength: html.length,
+      rawTextLength: rawText.length,
       sectionFound: false,
       tablesFound: 0,
       rowsSupplying: 0,
@@ -100,21 +116,20 @@ export async function GET(request: NextRequest) {
     };
     
     try {
-      console.log(`[${requestId}] Parsing Table 1. rawText length:`, h41Report.rawText?.length || 0);
+      console.log(`[${requestId}] Parsing Table 1. HTML length:`, html.length);
       
-      if (!h41Report.rawText || h41Report.rawText.length < 100) {
-        throw new Error(`rawText is too short or empty: ${h41Report.rawText?.length || 0} chars`);
+      if (!html || html.length < 100) {
+        throw new Error(`HTML is too short or empty: ${html?.length || 0} chars`);
       }
       
       // 섹션 찾기 확인
-      const text = h41Report.rawText.toLowerCase();
+      const text = html.toLowerCase();
       debugInfo.sectionFound = text.includes('factors affecting reserve balances');
       
       // 테이블 개수 확인
-      const $ = require('cheerio').load(h41Report.rawText);
       debugInfo.tablesFound = $('table').length;
       
-      factorsData = await parseFactorsTable1(h41Report.rawText, h41Report.sourceUrl);
+      factorsData = await parseFactorsTable1(html, sourceUrl);
       
       debugInfo.rowsSupplying = factorsData.supplying.length;
       debugInfo.rowsAbsorbing = factorsData.absorbing.length;
@@ -173,8 +188,8 @@ export async function GET(request: NextRequest) {
       console.error(`[${requestId}] Failed to parse Table 1:`, {
         error: errorMsg,
         stack: errorStack,
-        rawTextLength: h41Report.rawText?.length || 0,
-        sourceUrl: h41Report.sourceUrl,
+        htmlLength: html?.length || 0,
+        sourceUrl,
         debugInfo,
       });
       
@@ -182,11 +197,12 @@ export async function GET(request: NextRequest) {
         {
           ok: false,
           error: `Failed to parse Factors Table 1: ${errorMsg}`,
+          url: sourceUrl,
           debug: {
             ...debugInfo,
             date,
             actualReleaseDate,
-            rawTextPreview: h41Report.rawText?.substring(0, 500) || '',
+            htmlPreview: html?.substring(0, 500) || '',
             stack: errorStack,
           },
         },
@@ -207,11 +223,18 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error(`[${requestId}] Error in factors route:`, error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error(`[${requestId}] Error in factors route:`, {
+      error: errorMsg,
+      stack: errorStack,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
+        url: 'unknown',
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       },
       { status: 500 }
     );

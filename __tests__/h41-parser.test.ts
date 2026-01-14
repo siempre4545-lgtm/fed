@@ -3,6 +3,7 @@
  * Fixture 기반 테스트 (네트워크 없음)
  */
 
+import { describe, it, expect, beforeAll } from 'vitest';
 import * as cheerio from 'cheerio';
 import { readFileSync } from 'fs';
 import { join } from 'path';
