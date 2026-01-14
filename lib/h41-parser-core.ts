@@ -570,9 +570,11 @@ export function formatDateFromURL(dateStr: string): string {
 export function pickH41Table(
   $: cheerio.CheerioAPI,
   scope: cheerio.Cheerio<any>,
-  mustHaveLabels: string[]
+  mustHaveLabels: string[],
+  warnings?: string[]
 ): cheerio.Cheerio<any> | null {
   if (scope.length === 0) {
+    if (warnings) warnings.push('[pickH41Table] Scope is empty');
     return null;
   }
 
@@ -582,11 +584,17 @@ export function pickH41Table(
     if (scope.prop('tagName')?.toLowerCase() === 'table') {
       return scope;
     }
+    if (warnings) warnings.push('[pickH41Table] No tables found in scope');
     return null;
+  }
+
+  if (warnings) {
+    warnings.push(`[pickH41Table] Found ${allTables.length} tables in scope, searching for labels: ${mustHaveLabels.join(', ')}`);
   }
 
   let bestMatch: cheerio.Cheerio<any> | null = null;
   let bestScore = 0;
+  const matchDetails: Array<{ index: number; score: number; matches: string[] }> = [];
 
   for (let i = 0; i < allTables.length; i++) {
     const table = allTables.eq(i);
@@ -594,18 +602,34 @@ export function pickH41Table(
     
     // mustHaveLabels 중 몇 개가 포함되는지 계산
     let matchCount = 0;
+    const matchedLabels: string[] = [];
     for (const label of mustHaveLabels) {
       const normalizedLabel = normalizeLabel(label);
-      if (tableText.includes(normalizedLabel)) {
+      // 원본 라벨과 정규화된 라벨 모두 확인
+      if (tableText.includes(normalizedLabel) || tableText.includes(label.toLowerCase())) {
         matchCount++;
+        matchedLabels.push(label);
       }
     }
+
+    matchDetails.push({ index: i, score: matchCount, matches: matchedLabels });
 
     // 2개 이상 매칭되면 후보
     if (matchCount >= 2 && matchCount > bestScore) {
       bestMatch = table;
       bestScore = matchCount;
     }
+  }
+
+  if (warnings && bestMatch === null) {
+    const topMatches = matchDetails
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(m => `Table ${m.index}: score=${m.score}, matches=[${m.matches.join(', ')}]`)
+      .join('; ');
+    warnings.push(`[pickH41Table] No table found with 2+ matches. Top matches: ${topMatches}`);
+  } else if (warnings && bestMatch) {
+    warnings.push(`[pickH41Table] Selected table with score ${bestScore}`);
   }
 
   return bestMatch;

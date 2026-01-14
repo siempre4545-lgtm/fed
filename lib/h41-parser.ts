@@ -348,16 +348,21 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   }
   
   // Table 1을 정확히 선택 (pickH41Table 사용)
-  const table = pickH41Table($, factorsSection, [
+  let table = pickH41Table($, factorsSection, [
     'Reserve Bank credit',
     'Total factors supplying reserve funds',
     'Currency in circulation',
     'U.S. Treasury, General Account',
-  ]);
+  ], warnings);
   
+  // pickH41Table이 실패하면 findFirstTableNearSection으로 폴백
   if (!table || table.length === 0) {
-    warnings.push('[Overview] Table 1 not found using pickH41Table');
-    return createEmptyOverview();
+    warnings.push('[Overview] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
+    table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+    if (!table || table.length === 0) {
+      warnings.push('[Overview] Table 1 not found using fallback method');
+      return createEmptyOverview();
+    }
   }
   
   // 로깅: 선택된 테이블 정보
@@ -607,16 +612,21 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
   }
   
   // Table 1을 정확히 선택 (pickH41Table 사용, overview와 동일한 테이블)
-  const table = pickH41Table($, factorsSection, [
+  let table = pickH41Table($, factorsSection, [
     'Reserve Bank credit',
     'Total factors supplying reserve funds',
     'Currency in circulation',
     'U.S. Treasury, General Account',
-  ]);
+  ], warnings);
   
+  // pickH41Table이 실패하면 findFirstTableNearSection으로 폴백
   if (!table || table.length === 0) {
-    warnings.push('[Factors] Table 1 not found using pickH41Table');
-    return createEmptyFactors();
+    warnings.push('[Factors] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
+    table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+    if (!table || table.length === 0) {
+      warnings.push('[Factors] Table 1 not found using fallback method');
+      return createEmptyFactors();
+    }
   }
   
   // 로깅: 선택된 테이블 정보
