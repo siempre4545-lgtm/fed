@@ -330,26 +330,91 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   const weeklyCol = findColumnIndex($, table, ['Change from week ended', 'Change from previous week', 'Change since']);
   const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:', 'Jan 8, 2025']);
   
-  // 각 항목 파싱
-  const totalAssets = extractValue(table, $, ['Total factors supplying reserve funds'], valueCol, warnings);
-  const securities = extractValue(table, $, ['Securities held outright'], valueCol, warnings);
-  const reserveBalances = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], valueCol, warnings);
-  const tga = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], valueCol, warnings);
-  const reverseRepos = extractValue(table, $, ['Reverse repurchase agreements'], valueCol, warnings);
-  const currency = extractValue(table, $, ['Currency in circulation'], valueCol, warnings);
+  // 각 항목 파싱 (라벨 후보 확장)
+  const totalAssets = extractValue(table, $, [
+    'Total factors supplying reserve funds',
+    'Total factors supplying',
+    'Total supplying'
+  ], valueCol, warnings);
+  const securities = extractValue(table, $, [
+    'Securities held outright',
+    'Securities held',
+    'Securities'
+  ], valueCol, warnings);
+  const reserveBalances = extractValue(table, $, [
+    'Reserve balances with Federal Reserve Banks',
+    'Reserve balances',
+    'Reserves'
+  ], valueCol, warnings);
+  const tga = extractValue(table, $, [
+    'U.S. Treasury, General Account',
+    'Treasury General Account',
+    'Treasury, General Account',
+    'TGA'
+  ], valueCol, warnings);
+  const reverseRepos = extractValue(table, $, [
+    'Reverse repurchase agreements',
+    'Reverse repos',
+    'Reverse repurchase'
+  ], valueCol, warnings);
+  const currency = extractValue(table, $, [
+    'Currency in circulation',
+    'Currency',
+    'Federal Reserve notes'
+  ], valueCol, warnings);
   
-  const totalAssetsWeekly = extractValue(table, $, ['Total factors supplying reserve funds'], weeklyCol, warnings);
-  const totalAssetsYearly = extractValue(table, $, ['Total factors supplying reserve funds'], yearlyCol, warnings);
-  const securitiesWeekly = extractValue(table, $, ['Securities held outright'], weeklyCol, warnings);
-  const securitiesYearly = extractValue(table, $, ['Securities held outright'], yearlyCol, warnings);
-  const reserveBalancesWeekly = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], weeklyCol, warnings);
-  const reserveBalancesYearly = extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], yearlyCol, warnings);
-  const tgaWeekly = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], weeklyCol, warnings);
-  const tgaYearly = extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account'], yearlyCol, warnings);
-  const reverseReposWeekly = extractValue(table, $, ['Reverse repurchase agreements'], weeklyCol, warnings);
-  const reverseReposYearly = extractValue(table, $, ['Reverse repurchase agreements'], yearlyCol, warnings);
-  const currencyWeekly = extractValue(table, $, ['Currency in circulation'], weeklyCol, warnings);
-  const currencyYearly = extractValue(table, $, ['Currency in circulation'], yearlyCol, warnings);
+  const totalAssetsWeekly = extractValue(table, $, [
+    'Total factors supplying reserve funds',
+    'Total factors supplying'
+  ], weeklyCol, warnings);
+  const totalAssetsYearly = extractValue(table, $, [
+    'Total factors supplying reserve funds',
+    'Total factors supplying'
+  ], yearlyCol, warnings);
+  const securitiesWeekly = extractValue(table, $, [
+    'Securities held outright',
+    'Securities held'
+  ], weeklyCol, warnings);
+  const securitiesYearly = extractValue(table, $, [
+    'Securities held outright',
+    'Securities held'
+  ], yearlyCol, warnings);
+  const reserveBalancesWeekly = extractValue(table, $, [
+    'Reserve balances with Federal Reserve Banks',
+    'Reserve balances',
+    'Reserves'
+  ], weeklyCol, warnings);
+  const reserveBalancesYearly = extractValue(table, $, [
+    'Reserve balances with Federal Reserve Banks',
+    'Reserve balances',
+    'Reserves'
+  ], yearlyCol, warnings);
+  const tgaWeekly = extractValue(table, $, [
+    'U.S. Treasury, General Account',
+    'Treasury General Account',
+    'TGA'
+  ], weeklyCol, warnings);
+  const tgaYearly = extractValue(table, $, [
+    'U.S. Treasury, General Account',
+    'Treasury General Account',
+    'TGA'
+  ], yearlyCol, warnings);
+  const reverseReposWeekly = extractValue(table, $, [
+    'Reverse repurchase agreements',
+    'Reverse repos'
+  ], weeklyCol, warnings);
+  const reverseReposYearly = extractValue(table, $, [
+    'Reverse repurchase agreements',
+    'Reverse repos'
+  ], yearlyCol, warnings);
+  const currencyWeekly = extractValue(table, $, [
+    'Currency in circulation',
+    'Currency'
+  ], weeklyCol, warnings);
+  const currencyYearly = extractValue(table, $, [
+    'Currency in circulation',
+    'Currency'
+  ], yearlyCol, warnings);
   
   // "5. Consolidated Statement" 섹션에서 자산 구성 파싱
   const statementSection = findSection($, [
@@ -365,11 +430,27 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   if (statementSection && statementSection.length > 0) {
     const statementTable = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Assets', 'Liabilities']);
     if (statementTable && statementTable.length > 0) {
-      const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level']);
-      totalAssetsForComposition = extractValue(statementTable, $, ['Total assets'], assetsValueCol, warnings);
-      treasurySecurities = extractValue(statementTable, $, ['U.S. Treasury securities'], assetsValueCol, warnings);
-      mortgageBackedSecurities = extractValue(statementTable, $, ['Mortgage-backed securities'], assetsValueCol, warnings);
-      otherAssets = extractValue(statementTable, $, ['Other assets'], assetsValueCol, warnings);
+      const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level', 'Wednesday', 'Averages of daily figures']);
+      totalAssetsForComposition = extractValue(statementTable, $, [
+        'Total assets',
+        'Total'
+      ], assetsValueCol, warnings);
+      treasurySecurities = extractValue(statementTable, $, [
+        'U.S. Treasury securities',
+        'U.S. Treasury',
+        'Treasury securities',
+        'Treasury'
+      ], assetsValueCol, warnings);
+      mortgageBackedSecurities = extractValue(statementTable, $, [
+        'Mortgage-backed securities',
+        'Mortgage backed securities',
+        'MBS'
+      ], assetsValueCol, warnings);
+      otherAssets = extractValue(statementTable, $, [
+        'Other assets',
+        'Other',
+        'Other assets (including unamortized premiums and discounts)'
+      ], assetsValueCol, warnings);
     }
   }
   
@@ -446,6 +527,23 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     { label: 'Special drawing rights certificate account', labelKo: 'SDR 증서', value: null, weekly: null, yearly: null },
   ];
   
+  // 각 항목에 대한 라벨 후보 확장 (더 정확한 매칭을 위해)
+  const labelCandidates: Record<string, string[]> = {
+    'Reserve Bank credit': ['Reserve Bank credit', 'Reserve bank credit'],
+    'Securities held outright': ['Securities held outright', 'Securities held'],
+    'U.S. Treasury securities': ['U.S. Treasury securities', 'U.S. Treasury', 'Treasury securities'],
+    'Bills': ['Bills', 'Treasury bills'],
+    'Notes and bonds, nominal': ['Notes and bonds, nominal', 'Notes and bonds nominal', 'Nominal notes and bonds'],
+    'Notes and bonds, inflation-indexed': ['Notes and bonds, inflation-indexed', 'Notes and bonds inflation-indexed', 'Inflation-indexed notes and bonds', 'TIPS'],
+    'Mortgage-backed securities': ['Mortgage-backed securities', 'Mortgage backed securities', 'MBS'],
+    'Repurchase agreements': ['Repurchase agreements', 'Repos'],
+    'Loans': ['Loans', 'Total loans'],
+    'Bank Term Funding Program': ['Bank Term Funding Program', 'BTFP', 'Bank term funding program'],
+    'Central bank liquidity swaps': ['Central bank liquidity swaps', 'Central bank swaps', 'Liquidity swaps'],
+    'Gold stock': ['Gold stock', 'Gold certificate account', 'Gold'],
+    'Special drawing rights certificate account': ['Special drawing rights certificate account', 'SDR certificate account', 'SDR'],
+  };
+  
   // 통화스왑은 "6. Statement of Condition of Each Federal Reserve Bank" 섹션에서 찾기 시도
   const swapsRow = supplying.find(r => r.label === 'Central bank liquidity swaps');
   if (swapsRow) {
@@ -496,10 +594,52 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     }
   }
   
+  // 공급 요인 파싱 (라벨 후보 사용)
   for (const row of supplying) {
-    row.value = extractValue(table, $, [row.label], valueCol, warnings);
-    row.weekly = extractValue(table, $, [row.label], weeklyCol, warnings);
-    row.yearly = extractValue(table, $, [row.label], yearlyCol, warnings);
+    const candidates = labelCandidates[row.label] || [row.label];
+    row.value = extractValue(table, $, candidates, valueCol, warnings);
+    row.weekly = extractValue(table, $, candidates, weeklyCol, warnings);
+    row.yearly = extractValue(table, $, candidates, yearlyCol, warnings);
+    
+    // 중첩된 항목 (Bills, Notes and bonds)은 Treasury securities 하위에서 찾기
+    if (row.label === 'Bills' || row.label === 'Notes and bonds, nominal' || row.label === 'Notes and bonds, inflation-indexed') {
+      if (row.value === null) {
+        // Treasury securities 행을 찾아서 하위 항목 확인
+        const treasuryRow = findRowByLabel($, table, ['U.S. Treasury securities', 'Treasury securities']);
+        if (treasuryRow && treasuryRow.length > 0) {
+          // 다음 행들을 확인 (들여쓰기된 하위 항목)
+          const allRows = table.find('tr');
+          let foundTreasury = false;
+          for (let i = 0; i < allRows.length; i++) {
+            const currentRow = $(allRows[i]);
+            const firstCell = currentRow.find('td, th').first();
+            const cellText = firstCell.text().trim();
+            
+            if (matchLabel(cellText, ['U.S. Treasury securities', 'Treasury securities'])) {
+              foundTreasury = true;
+              continue;
+            }
+            
+            if (foundTreasury) {
+              // 들여쓰기 확인 (공백이나 특수 문자로 시작)
+              if (cellText.match(/^\s+/) || cellText.match(/^[•·\-\s]/)) {
+                const matched = matchLabel(cellText, candidates);
+                if (matched) {
+                  const cells = currentRow.find('td, th');
+                  row.value = valueCol >= 0 && cells.length > valueCol ? parseNumber($(cells[valueCol]).text()) : null;
+                  row.weekly = weeklyCol >= 0 && cells.length > weeklyCol ? parseNumber($(cells[weeklyCol]).text()) : null;
+                  row.yearly = yearlyCol >= 0 && cells.length > yearlyCol ? parseNumber($(cells[yearlyCol]).text()) : null;
+                  break;
+                }
+              } else {
+                // 더 이상 하위 항목이 아니면 중단
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
   }
   
   // 흡수 요인 4개
@@ -510,29 +650,90 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     { label: 'U.S. Treasury, General Account', labelKo: '재무부 일반계정', value: null, weekly: null, yearly: null },
   ];
   
+  // 흡수 요인 라벨 후보
+  const absorbingLabelCandidates: Record<string, string[]> = {
+    'Currency in circulation': ['Currency in circulation', 'Currency', 'Federal Reserve notes'],
+    'Reverse repurchase agreements': ['Reverse repurchase agreements', 'Reverse repos', 'Reverse repurchase'],
+    'Deposits with F.R. Banks, other than reserve balances': [
+      'Deposits with F.R. Banks, other than reserve balances',
+      'Deposits with F.R. Banks',
+      'Deposits other than reserve balances',
+      'Other deposits'
+    ],
+    'U.S. Treasury, General Account': [
+      'U.S. Treasury, General Account',
+      'Treasury General Account',
+      'Treasury, General Account',
+      'TGA',
+      'U.S. Treasury General Account'
+    ],
+  };
+  
+  // 흡수 요인 파싱 (라벨 후보 사용)
   for (const row of absorbing) {
-    row.value = extractValue(table, $, [row.label], valueCol, warnings);
-    row.weekly = extractValue(table, $, [row.label], weeklyCol, warnings);
-    row.yearly = extractValue(table, $, [row.label], yearlyCol, warnings);
+    const candidates = absorbingLabelCandidates[row.label] || [row.label];
+    row.value = extractValue(table, $, candidates, valueCol, warnings);
+    row.weekly = extractValue(table, $, candidates, weeklyCol, warnings);
+    row.yearly = extractValue(table, $, candidates, yearlyCol, warnings);
   }
   
-  // 하단 합계 (원문에서 직접 파싱)
+  // 하단 합계 (원문에서 직접 파싱) - 라벨 후보 확장
   const totalSupplying = {
-    value: extractValue(table, $, ['Total factors supplying reserve funds'], valueCol, warnings),
-    weekly: extractValue(table, $, ['Total factors supplying reserve funds'], weeklyCol, warnings),
-    yearly: extractValue(table, $, ['Total factors supplying reserve funds'], yearlyCol, warnings),
+    value: extractValue(table, $, [
+      'Total factors supplying reserve funds',
+      'Total factors supplying',
+      'Total supplying',
+      'Total factors'
+    ], valueCol, warnings),
+    weekly: extractValue(table, $, [
+      'Total factors supplying reserve funds',
+      'Total factors supplying',
+      'Total supplying'
+    ], weeklyCol, warnings),
+    yearly: extractValue(table, $, [
+      'Total factors supplying reserve funds',
+      'Total factors supplying',
+      'Total supplying'
+    ], yearlyCol, warnings),
   };
   
   const totalAbsorbing = {
-    value: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], valueCol, warnings),
-    weekly: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], weeklyCol, warnings),
-    yearly: extractValue(table, $, ['Total factors, other than reserve balances, absorbing reserve funds'], yearlyCol, warnings),
+    value: extractValue(table, $, [
+      'Total factors, other than reserve balances, absorbing reserve funds',
+      'Total factors absorbing reserve funds',
+      'Total factors absorbing',
+      'Total absorbing',
+      'Total factors other than reserve balances'
+    ], valueCol, warnings),
+    weekly: extractValue(table, $, [
+      'Total factors, other than reserve balances, absorbing reserve funds',
+      'Total factors absorbing reserve funds',
+      'Total factors absorbing'
+    ], weeklyCol, warnings),
+    yearly: extractValue(table, $, [
+      'Total factors, other than reserve balances, absorbing reserve funds',
+      'Total factors absorbing reserve funds',
+      'Total factors absorbing'
+    ], yearlyCol, warnings),
   };
   
   const reserveBalances = {
-    value: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], valueCol, warnings),
-    weekly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], weeklyCol, warnings),
-    yearly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks'], yearlyCol, warnings),
+    value: extractValue(table, $, [
+      'Reserve balances with Federal Reserve Banks',
+      'Reserve balances',
+      'Reserves',
+      'Reserve balances at Federal Reserve Banks'
+    ], valueCol, warnings),
+    weekly: extractValue(table, $, [
+      'Reserve balances with Federal Reserve Banks',
+      'Reserve balances',
+      'Reserves'
+    ], weeklyCol, warnings),
+    yearly: extractValue(table, $, [
+      'Reserve balances with Federal Reserve Banks',
+      'Reserve balances',
+      'Reserves'
+    ], yearlyCol, warnings),
   };
   
   // 검증
@@ -602,18 +803,71 @@ function parseMaturitySection($: cheerio.CheerioAPI, warnings: string[]): Maturi
     return createEmptyMaturity();
   }
   
-  // 컬럼 인덱스 찾기 (헤더에서)
-  const within15DaysCol = findColumnIndex($, table, ['Within 15 days', 'within 15 days', '15 days']);
-  const days16to90Col = findColumnIndex($, table, ['16 days to 90 days', '16-90 days', '16 to 90']);
-  const days91to1YearCol = findColumnIndex($, table, ['91 days to 1 year', '91일-1년', '91-365']);
-  const years1to5Col = findColumnIndex($, table, ['Over 1 year to 5 years', '1-5 years', '1 to 5']);
-  const years5to10Col = findColumnIndex($, table, ['Over 5 years to 10 years', '5-10 years', '5 to 10']);
-  const years10AndOverCol = findColumnIndex($, table, ['Over 10 years', '10 years and over', '10+']);
-  const totalCol = findColumnIndex($, table, ['All', 'Total']);
+  // 컬럼 인덱스 찾기 (헤더에서) - 라벨 후보 확장
+  const within15DaysCol = findColumnIndex($, table, [
+    'Within 15 days',
+    'within 15 days',
+    '15 days',
+    '15 days or less',
+    '0-15 days'
+  ]);
+  const days16to90Col = findColumnIndex($, table, [
+    '16 days to 90 days',
+    '16-90 days',
+    '16 to 90',
+    '16-90',
+    '16 days to 90'
+  ]);
+  const days91to1YearCol = findColumnIndex($, table, [
+    '91 days to 1 year',
+    '91일-1년',
+    '91-365',
+    '91 days to 365 days',
+    '91-365 days'
+  ]);
+  const years1to5Col = findColumnIndex($, table, [
+    'Over 1 year to 5 years',
+    '1-5 years',
+    '1 to 5',
+    '1-5',
+    'Over 1 year to 5'
+  ]);
+  const years5to10Col = findColumnIndex($, table, [
+    'Over 5 years to 10 years',
+    '5-10 years',
+    '5 to 10',
+    '5-10',
+    'Over 5 years to 10'
+  ]);
+  const years10AndOverCol = findColumnIndex($, table, [
+    'Over 10 years',
+    '10 years and over',
+    '10+',
+    'Over 10',
+    '10 years or more'
+  ]);
+  const totalCol = findColumnIndex($, table, [
+    'All',
+    'Total',
+    'All maturities',
+    'Total all maturities'
+  ]);
   
-  // Treasury securities 행 찾기
-  const treasuryRow = findRowByLabel($, table, ['U.S. Treasury securities', 'Treasury securities']);
-  const mbsRow = findRowByLabel($, table, ['Mortgage-backed securities', 'MBS']);
+  // Treasury securities 행 찾기 - 라벨 후보 확장
+  const treasuryRow = findRowByLabel($, table, [
+    'U.S. Treasury securities',
+    'Treasury securities',
+    'U.S. Treasury',
+    'Treasury',
+    'Treasury debt'
+  ]);
+  const mbsRow = findRowByLabel($, table, [
+    'Mortgage-backed securities',
+    'Mortgage backed securities',
+    'MBS',
+    'Mortgage-backed',
+    'Mortgage securities'
+  ]);
   
   const treasury = parseMaturityRow($, treasuryRow, table, within15DaysCol, days16to90Col, days91to1YearCol, years1to5Col, years5to10Col, years10AndOverCol, totalCol, warnings);
   const mbs = parseMaturityRow($, mbsRow, table, within15DaysCol, days16to90Col, days91to1YearCol, years1to5Col, years5to10Col, years10AndOverCol, totalCol, warnings);
@@ -664,26 +918,72 @@ function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): Lending
   let primaryCredit: number | null = null;
   let btfp: number | null = null;
   let loansTotal: number | null = null;
+  let primaryCreditWeekly: number | null = null;
+  let btfpWeekly: number | null = null;
+  let loansTotalWeekly: number | null = null;
   let overnight: number | null = null;
   let term: number | null = null;
   
   if (factorsSection && factorsSection.length > 0) {
     const table = findFirstTableNearSection($, factorsSection, ['Loans', 'Primary credit', 'BTFP']);
     if (table && table.length > 0) {
-      const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
-      primaryCredit = extractValue(table, $, ['Loans - Primary credit'], valueCol, warnings);
-      btfp = extractValue(table, $, ['Loans - Bank Term Funding Program'], valueCol, warnings);
-      loansTotal = extractValue(table, $, ['Loans'], valueCol, warnings);
+      const valueCol = findColumnIndex($, table, ['Week ended', 'Wednesday', 'Level', 'Averages of daily figures']);
+      const weeklyCol = findColumnIndex($, table, ['Change from week ended', 'Change from previous week', 'Change since']);
+      
+      // Loans 항목 파싱 (라벨 후보 확장)
+      primaryCredit = extractValue(table, $, [
+        'Loans - Primary credit',
+        'Primary credit',
+        'Loans Primary credit',
+        'Primary credit loans'
+      ], valueCol, warnings);
+      primaryCreditWeekly = extractValue(table, $, [
+        'Loans - Primary credit',
+        'Primary credit',
+        'Loans Primary credit'
+      ], weeklyCol, warnings);
+      
+      btfp = extractValue(table, $, [
+        'Loans - Bank Term Funding Program',
+        'Bank Term Funding Program',
+        'BTFP',
+        'Loans BTFP'
+      ], valueCol, warnings);
+      btfpWeekly = extractValue(table, $, [
+        'Loans - Bank Term Funding Program',
+        'Bank Term Funding Program',
+        'BTFP'
+      ], weeklyCol, warnings);
+      
+      loansTotal = extractValue(table, $, [
+        'Loans',
+        'Total loans',
+        'Loans total'
+      ], valueCol, warnings);
+      loansTotalWeekly = extractValue(table, $, [
+        'Loans',
+        'Total loans'
+      ], weeklyCol, warnings);
     }
   }
   
   if (memoSection && memoSection.length > 0) {
     const table = findFirstTableNearSection($, memoSection, ['Memorandum Items', 'Securities lent', 'Overnight', 'Term']);
     if (table && table.length > 0) {
-      const valueCol = findColumnIndex($, table, ['Week ended', 'Level', 'Wednesday']);
-      overnight = extractValue(table, $, ['Securities lent to dealers - Overnight facility', 'Overnight facility'], valueCol, warnings);
+      const valueCol = findColumnIndex($, table, ['Week ended', 'Level', 'Wednesday', 'Averages of daily figures']);
+      overnight = extractValue(table, $, [
+        'Securities lent to dealers - Overnight facility',
+        'Overnight facility',
+        'Securities lent Overnight',
+        'Overnight'
+      ], valueCol, warnings);
       // 기간물은 찾기 어려울 수 있으므로 여러 후보 시도
-      term = extractValue(table, $, ['Securities lent to dealers - Term facility', 'Term facility'], valueCol, warnings);
+      term = extractValue(table, $, [
+        'Securities lent to dealers - Term facility',
+        'Term facility',
+        'Securities lent Term',
+        'Term'
+      ], valueCol, warnings);
     }
   }
   
@@ -730,51 +1030,90 @@ function parseStatementSection($: cheerio.CheerioAPI, warnings: string[]): State
   const liabilitiesWeeklyCol = findColumnIndex($, table, ['Change since', 'Change from previous week']);
   const liabilitiesYearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:']);
   
+  // 자산 항목 라벨 후보
+  const assetsLabels = {
+    gold: ['Gold certificate account', 'Gold stock', 'Gold'],
+    sdr: ['Special drawing rights certificate account', 'SDR certificate account', 'SDR', 'Coin'],
+    securities: ['Securities held outright', 'Securities held', 'Securities'],
+    repos: ['Repurchase agreements', 'Repos', 'Repurchase'],
+    loans: ['Loans', 'Total loans'],
+    swaps: ['Central bank liquidity swaps', 'Central bank swaps', 'Liquidity swaps', 'Swaps'],
+    total: ['Total assets', 'Total'],
+  };
+  
+  // 부채 항목 라벨 후보
+  const liabilitiesLabels = {
+    currency: ['Federal Reserve notes', 'Currency in circulation', 'Currency', 'F.R. notes'],
+    reverseRepos: ['Reverse repurchase agreements', 'Reverse repos', 'Reverse repurchase'],
+    deposits: [
+      'Deposits with F.R. Banks, other than reserve balances',
+      'Deposits with F.R. Banks',
+      'Deposits other than reserve balances',
+      'Deposits',
+      'Other deposits'
+    ],
+    reserveBalances: [
+      'Reserve balances with Federal Reserve Banks',
+      'Reserve balances',
+      'Reserves',
+      'Reserve balances at Federal Reserve Banks'
+    ],
+    tga: [
+      'U.S. Treasury, General Account',
+      'Treasury General Account',
+      'Treasury, General Account',
+      'TGA',
+      'U.S. Treasury General Account',
+      'Treasury'
+    ],
+    total: ['Total liabilities', 'Total'],
+  };
+  
   return {
     assets: {
-      gold: extractValue(table, $, ['Gold certificate account', 'Gold stock'], assetsValueCol, warnings),
-      sdr: extractValue(table, $, ['Special drawing rights certificate account', 'Coin'], assetsValueCol, warnings),
-      securities: extractValue(table, $, ['Securities held outright'], assetsValueCol, warnings),
-      repos: extractValue(table, $, ['Repurchase agreements'], assetsValueCol, warnings),
-      loans: extractValue(table, $, ['Loans'], assetsValueCol, warnings),
-      swaps: extractValue(table, $, ['Central bank liquidity swaps'], assetsValueCol, warnings),
-      total: extractValue(table, $, ['Total assets'], assetsValueCol, warnings),
+      gold: extractValue(table, $, assetsLabels.gold, assetsValueCol, warnings),
+      sdr: extractValue(table, $, assetsLabels.sdr, assetsValueCol, warnings),
+      securities: extractValue(table, $, assetsLabels.securities, assetsValueCol, warnings),
+      repos: extractValue(table, $, assetsLabels.repos, assetsValueCol, warnings),
+      loans: extractValue(table, $, assetsLabels.loans, assetsValueCol, warnings),
+      swaps: extractValue(table, $, assetsLabels.swaps, assetsValueCol, warnings),
+      total: extractValue(table, $, assetsLabels.total, assetsValueCol, warnings),
       // 주간/연간 변동
-      goldWeekly: extractValue(table, $, ['Gold certificate account', 'Gold stock'], assetsWeeklyCol, warnings),
-      goldYearly: extractValue(table, $, ['Gold certificate account', 'Gold stock'], assetsYearlyCol, warnings),
-      sdrWeekly: extractValue(table, $, ['Special drawing rights certificate account', 'Coin'], assetsWeeklyCol, warnings),
-      sdrYearly: extractValue(table, $, ['Special drawing rights certificate account', 'Coin'], assetsYearlyCol, warnings),
-      securitiesWeekly: extractValue(table, $, ['Securities held outright'], assetsWeeklyCol, warnings),
-      securitiesYearly: extractValue(table, $, ['Securities held outright'], assetsYearlyCol, warnings),
-      reposWeekly: extractValue(table, $, ['Repurchase agreements'], assetsWeeklyCol, warnings),
-      reposYearly: extractValue(table, $, ['Repurchase agreements'], assetsYearlyCol, warnings),
-      loansWeekly: extractValue(table, $, ['Loans'], assetsWeeklyCol, warnings),
-      loansYearly: extractValue(table, $, ['Loans'], assetsYearlyCol, warnings),
-      swapsWeekly: extractValue(table, $, ['Central bank liquidity swaps'], assetsWeeklyCol, warnings),
-      swapsYearly: extractValue(table, $, ['Central bank liquidity swaps'], assetsYearlyCol, warnings),
-      totalWeekly: extractValue(table, $, ['Total assets'], assetsWeeklyCol, warnings),
-      totalYearly: extractValue(table, $, ['Total assets'], assetsYearlyCol, warnings),
+      goldWeekly: extractValue(table, $, assetsLabels.gold, assetsWeeklyCol, warnings),
+      goldYearly: extractValue(table, $, assetsLabels.gold, assetsYearlyCol, warnings),
+      sdrWeekly: extractValue(table, $, assetsLabels.sdr, assetsWeeklyCol, warnings),
+      sdrYearly: extractValue(table, $, assetsLabels.sdr, assetsYearlyCol, warnings),
+      securitiesWeekly: extractValue(table, $, assetsLabels.securities, assetsWeeklyCol, warnings),
+      securitiesYearly: extractValue(table, $, assetsLabels.securities, assetsYearlyCol, warnings),
+      reposWeekly: extractValue(table, $, assetsLabels.repos, assetsWeeklyCol, warnings),
+      reposYearly: extractValue(table, $, assetsLabels.repos, assetsYearlyCol, warnings),
+      loansWeekly: extractValue(table, $, assetsLabels.loans, assetsWeeklyCol, warnings),
+      loansYearly: extractValue(table, $, assetsLabels.loans, assetsYearlyCol, warnings),
+      swapsWeekly: extractValue(table, $, assetsLabels.swaps, assetsWeeklyCol, warnings),
+      swapsYearly: extractValue(table, $, assetsLabels.swaps, assetsYearlyCol, warnings),
+      totalWeekly: extractValue(table, $, assetsLabels.total, assetsWeeklyCol, warnings),
+      totalYearly: extractValue(table, $, assetsLabels.total, assetsYearlyCol, warnings),
     },
     liabilities: {
-      currency: extractValue(table, $, ['Federal Reserve notes', 'Currency in circulation'], liabilitiesValueCol, warnings),
-      reverseRepos: extractValue(table, $, ['Reverse repurchase agreements'], liabilitiesValueCol, warnings),
-      deposits: extractValue(table, $, ['Deposits with F.R. Banks, other than reserve balances', 'Deposits'], liabilitiesValueCol, warnings),
-      reserveBalances: extractValue(table, $, ['Reserve balances with Federal Reserve Banks', 'Reserves'], liabilitiesValueCol, warnings),
-      tga: extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account', 'Treasury'], liabilitiesValueCol, warnings),
-      total: extractValue(table, $, ['Total liabilities'], liabilitiesValueCol, warnings),
+      currency: extractValue(table, $, liabilitiesLabels.currency, liabilitiesValueCol, warnings),
+      reverseRepos: extractValue(table, $, liabilitiesLabels.reverseRepos, liabilitiesValueCol, warnings),
+      deposits: extractValue(table, $, liabilitiesLabels.deposits, liabilitiesValueCol, warnings),
+      reserveBalances: extractValue(table, $, liabilitiesLabels.reserveBalances, liabilitiesValueCol, warnings),
+      tga: extractValue(table, $, liabilitiesLabels.tga, liabilitiesValueCol, warnings),
+      total: extractValue(table, $, liabilitiesLabels.total, liabilitiesValueCol, warnings),
       // 주간/연간 변동
-      currencyWeekly: extractValue(table, $, ['Federal Reserve notes', 'Currency in circulation'], liabilitiesWeeklyCol, warnings),
-      currencyYearly: extractValue(table, $, ['Federal Reserve notes', 'Currency in circulation'], liabilitiesYearlyCol, warnings),
-      reverseReposWeekly: extractValue(table, $, ['Reverse repurchase agreements'], liabilitiesWeeklyCol, warnings),
-      reverseReposYearly: extractValue(table, $, ['Reverse repurchase agreements'], liabilitiesYearlyCol, warnings),
-      depositsWeekly: extractValue(table, $, ['Deposits with F.R. Banks, other than reserve balances', 'Deposits'], liabilitiesWeeklyCol, warnings),
-      depositsYearly: extractValue(table, $, ['Deposits with F.R. Banks, other than reserve balances', 'Deposits'], liabilitiesYearlyCol, warnings),
-      reserveBalancesWeekly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks', 'Reserves'], liabilitiesWeeklyCol, warnings),
-      reserveBalancesYearly: extractValue(table, $, ['Reserve balances with Federal Reserve Banks', 'Reserves'], liabilitiesYearlyCol, warnings),
-      tgaWeekly: extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account', 'Treasury'], liabilitiesWeeklyCol, warnings),
-      tgaYearly: extractValue(table, $, ['U.S. Treasury, General Account', 'Treasury General Account', 'Treasury'], liabilitiesYearlyCol, warnings),
-      totalWeekly: extractValue(table, $, ['Total liabilities'], liabilitiesWeeklyCol, warnings),
-      totalYearly: extractValue(table, $, ['Total liabilities'], liabilitiesYearlyCol, warnings),
+      currencyWeekly: extractValue(table, $, liabilitiesLabels.currency, liabilitiesWeeklyCol, warnings),
+      currencyYearly: extractValue(table, $, liabilitiesLabels.currency, liabilitiesYearlyCol, warnings),
+      reverseReposWeekly: extractValue(table, $, liabilitiesLabels.reverseRepos, liabilitiesWeeklyCol, warnings),
+      reverseReposYearly: extractValue(table, $, liabilitiesLabels.reverseRepos, liabilitiesYearlyCol, warnings),
+      depositsWeekly: extractValue(table, $, liabilitiesLabels.deposits, liabilitiesWeeklyCol, warnings),
+      depositsYearly: extractValue(table, $, liabilitiesLabels.deposits, liabilitiesYearlyCol, warnings),
+      reserveBalancesWeekly: extractValue(table, $, liabilitiesLabels.reserveBalances, liabilitiesWeeklyCol, warnings),
+      reserveBalancesYearly: extractValue(table, $, liabilitiesLabels.reserveBalances, liabilitiesYearlyCol, warnings),
+      tgaWeekly: extractValue(table, $, liabilitiesLabels.tga, liabilitiesWeeklyCol, warnings),
+      tgaYearly: extractValue(table, $, liabilitiesLabels.tga, liabilitiesYearlyCol, warnings),
+      totalWeekly: extractValue(table, $, liabilitiesLabels.total, liabilitiesWeeklyCol, warnings),
+      totalYearly: extractValue(table, $, liabilitiesLabels.total, liabilitiesYearlyCol, warnings),
     },
   };
 }
