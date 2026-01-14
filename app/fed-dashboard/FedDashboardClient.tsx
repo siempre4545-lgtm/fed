@@ -33,9 +33,8 @@ export default function FedDashboardClient() {
   const [date, setDate] = useState<string>(() => {
     const paramDate = searchParams.get('date');
     if (paramDate) return paramDate;
-    // 기본값: 오늘 날짜
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    // 기본값: 빈 문자열 (날짜 선택 전)
+    return '';
   });
   
   const [activeTab, setActiveTab] = useState<TabId>(() => {
@@ -49,15 +48,18 @@ export default function FedDashboardClient() {
   const [apiUrl, setApiUrl] = useState<string>('');
   const [apiResponse, setApiResponse] = useState<{ ok: boolean; warnings?: string[]; error?: string } | null>(null);
   
-  // 최신 날짜 가져오기
+  // 최신 날짜 가져오기 (날짜가 없을 때만)
   useEffect(() => {
+    if (date) return; // 이미 날짜가 있으면 스킵
+    
     const fetchLatest = async () => {
       try {
         const res = await fetch('/api/h41/latest');
         const result = await res.json();
         if (result.ok && result.date) {
-          setDate(result.date);
-          updateURL(result.date, activeTab);
+          // 자동으로 날짜를 설정하지 않고, 사용자가 선택하도록 함
+          // setDate(result.date);
+          // updateURL(result.date, activeTab);
         }
       } catch (err) {
         console.error('Failed to fetch latest date:', err);
@@ -65,7 +67,7 @@ export default function FedDashboardClient() {
     };
     
     fetchLatest();
-  }, []);
+  }, [date]);
   
   // 데이터 로드
   useEffect(() => {
