@@ -277,16 +277,21 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   const factorsSection = findSection($, [
     'Factors Affecting Reserve Balances',
     'Table 1',
+    'Factors affecting reserve balances',
   ]);
   
   if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('Overview section not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Overview section not found');
+    }
     return createEmptyOverview();
   }
   
-  const table = findFirstTableNearSection($, factorsSection);
+  const table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
   if (!table || table.length === 0) {
-    warnings.push('Overview table not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Overview table not found');
+    }
     return createEmptyOverview();
   }
   
@@ -328,7 +333,7 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   let otherAssets: number | null = null;
   
   if (statementSection && statementSection.length > 0) {
-    const statementTable = findFirstTableNearSection($, statementSection);
+    const statementTable = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Assets', 'Liabilities']);
     if (statementTable && statementTable.length > 0) {
       const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level']);
       totalAssetsForComposition = extractValue(statementTable, $, ['Total assets'], assetsValueCol, warnings);
@@ -371,16 +376,21 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
   const factorsSection = findSection($, [
     'Factors Affecting Reserve Balances',
     'Table 1',
+    'Factors affecting reserve balances',
   ]);
   
   if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('Factors section not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Factors section not found');
+    }
     return createEmptyFactors();
   }
   
-  const table = findFirstTableNearSection($, factorsSection);
+  const table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
   if (!table || table.length === 0) {
-    warnings.push('Factors table not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Factors table not found');
+    }
     return createEmptyFactors();
   }
   
@@ -503,9 +513,11 @@ function parseMaturitySection($: cheerio.CheerioAPI, warnings: string[]): Maturi
     return createEmptyMaturity();
   }
   
-  const table = findFirstTableNearSection($, maturitySection);
+  const table = findFirstTableNearSection($, maturitySection, ['Maturity', 'Treasury', 'Mortgage']);
   if (!table || table.length === 0) {
-    warnings.push('Maturity table not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Maturity table not found');
+    }
     return createEmptyMaturity();
   }
   
@@ -566,7 +578,7 @@ function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): Lending
   let term: number | null = null;
   
   if (factorsSection && factorsSection.length > 0) {
-    const table = findFirstTableNearSection($, factorsSection);
+    const table = findFirstTableNearSection($, factorsSection, ['Loans', 'Primary credit', 'BTFP']);
     if (table && table.length > 0) {
       const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
       primaryCredit = extractValue(table, $, ['Loans - Primary credit'], valueCol, warnings);
@@ -576,7 +588,7 @@ function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): Lending
   }
   
   if (memoSection && memoSection.length > 0) {
-    const table = findFirstTableNearSection($, memoSection);
+    const table = findFirstTableNearSection($, memoSection, ['Securities lent', 'Overnight', 'Term']);
     if (table && table.length > 0) {
       const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
       overnight = extractValue(table, $, ['Securities lent to dealers - Overnight facility'], valueCol, warnings);
@@ -611,9 +623,11 @@ function parseStatementSection($: cheerio.CheerioAPI, warnings: string[]): State
     return createEmptyStatement();
   }
   
-  const table = findFirstTableNearSection($, statementSection);
+  const table = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Statement of Condition']);
   if (!table || table.length === 0) {
-    warnings.push('Statement table not found');
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push('Statement table not found');
+    }
     return createEmptyStatement();
   }
   
@@ -697,21 +711,29 @@ function extractValue(
   
   const row = findRowByLabel($, table, expandedCandidates);
   if (!row || row.length === 0) {
-    warnings.push(`Row not found for labels: ${labelCandidates.join(', ')}`);
+    // 경고는 디버그 모드에서만 (너무 많아서)
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push(`Row not found for labels: ${labelCandidates.join(', ')}`);
+    }
     return null;
   }
   
   const cells = row.find('td, th');
   if (cells.length <= columnIndex) {
-    warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]}`);
+    if (process.env.NODE_ENV === 'development') {
+      warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]}`);
+    }
     return null;
   }
   
   const valueText = $(cells[columnIndex]).text().trim();
   const value = parseNumber(valueText);
   
-  if (value === null && valueText) {
-    warnings.push(`Failed to parse number from "${valueText}" for ${labelCandidates[0]}`);
+  if (value === null && valueText && process.env.NODE_ENV === 'development') {
+    // 숫자가 아닌 텍스트만 있는 경우는 경고하지 않음 (예: "Coin")
+    if (/\d/.test(valueText)) {
+      warnings.push(`Failed to parse number from "${valueText}" for ${labelCandidates[0]}`);
+    }
   }
   
   return value;

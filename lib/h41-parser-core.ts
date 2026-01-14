@@ -14,11 +14,16 @@ export function parseNumber(text: string | null | undefined): number | null {
   if (!text) return null;
   
   // non-breaking space를 일반 공백으로 변환
-  const cleaned = text.replace(/\u00a0/g, ' ').trim();
+  let cleaned = text.replace(/\u00a0/g, ' ').trim();
   if (!cleaned) return null;
   
-  // 부호(+/-) 보존, 콤마 제거
-  const m = cleaned.match(/^([+-])?\s*([\d,]+(?:\.[\d]+)?)$/);
+  // 각주 번호나 불필요한 텍스트 제거 (예: "Coin", "Total assets" 등)
+  // 숫자가 아닌 텍스트만 있는 경우 null 반환
+  const hasNumber = /\d/.test(cleaned);
+  if (!hasNumber) return null;
+  
+  // 부호(+/-) 보존, 콤마 제거, 각주 번호 제거
+  const m = cleaned.match(/^([+-])?\s*([\d,]+(?:\.[\d]+)?)/);
   if (!m) return null;
   
   const sign = m[1] === '-' ? -1 : 1;
@@ -38,6 +43,7 @@ export function normalizeLabel(label: string): string {
     .replace(/\./g, ' ') // 마침표 제거
     .replace(/&/g, 'and') // &를 and로 변환
     .replace(/,/g, ' ') // 쉼표 제거
+    .replace(/\d+$/g, '') // 끝에 붙은 각주 번호 제거 (예: "Securities held outright1" -> "Securities held outright")
     .replace(/\s+/g, ' ') // 연속 공백을 하나로
     .toLowerCase()
     .trim();
@@ -115,36 +121,55 @@ export function findSection(
       continue;
     }
     
-    // 모든 요소를 순회하며 키워드 포함 요소 찾기
-    const allElements = body.find('*');
+    // 먼저 h1-h6, p, strong, b 태그에서 키워드 찾기 (헤더일 가능성 높음)
+    const headerSelectors = 'h1, h2, h3, h4, h5, h6, p, strong, b, div[class*="title"], div[class*="header"]';
     let foundElement: cheerio.Element | null = null;
     
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i];
+    $(headerSelectors).each((_, el) => {
       const text = $(el).text();
-      
-      // 키워드가 포함된 경우
       if (text.includes(keyword)) {
-        // 가장 작은 요소 (가장 구체적인 매칭) 선택
-        if (!foundElement || $(el).children().length < $(foundElement).children().length) {
-          foundElement = el;
+        foundElement = el;
+        return false; // break
+      }
+    });
+    
+    // 헤더에서 못 찾으면 모든 요소에서 찾기
+    if (!foundElement) {
+      const allElements = body.find('*');
+      
+      for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        const text = $(el).text();
+        
+        // 키워드가 포함된 경우
+        if (text.includes(keyword)) {
+          // 가장 작은 요소 (가장 구체적인 매칭) 선택
+          if (!foundElement || $(el).children().length < $(foundElement).children().length) {
+            foundElement = el;
+          }
         }
       }
     }
     
     if (foundElement) {
-      // 테이블을 포함한 부모 요소 찾기
+      // 테이블을 포함한 부모 요소 찾기 (더 넓은 범위로)
       let section = $(foundElement).closest('table');
       if (section.length === 0) {
-        section = $(foundElement).closest('div, section');
+        // div, section, article 등도 시도
+        section = $(foundElement).closest('div, section, article, main');
       }
       if (section.length === 0) {
+        // 부모 요소로
         section = $(foundElement).parent();
       }
       
+      // body가 아닌 경우에만 반환
       if (section.length > 0 && section[0] !== body[0]) {
         return section;
       }
+      
+      // 그래도 없으면 foundElement 자체를 반환 (다음 단계에서 처리)
+      return $(foundElement);
     }
   }
   
@@ -155,38 +180,52 @@ export function findSection(
  * 섹션 근처에서 첫 번째 테이블 찾기
  * @param $ cheerio 인스턴스
  * @param sectionRoot 섹션 루트 요소
+ * @param sectionKeywords 섹션 키워드 (테이블 찾기 실패 시 사용)
  * @returns 테이블 요소 또는 null
  */
 export function findFirstTableNearSection(
   $: cheerio.CheerioAPI,
-  sectionRoot: cheerio.Cheerio<cheerio.Element>
+  sectionRoot: cheerio.Cheerio<cheerio.Element>,
+  sectionKeywords?: string[]
 ): cheerio.Cheerio<cheerio.Element> | null {
   if (sectionRoot.length === 0) {
     return null;
   }
   
-  // 1. sectionRoot 내부에 table이 있으면 첫 번째 반환
+  // 1. sectionRoot 자체가 table인 경우
+  const tagName = sectionRoot.prop('tagName')?.toLowerCase();
+  if (tagName === 'table') {
+    return sectionRoot;
+  }
+  
+  // 2. sectionRoot 내부에 table이 있으면 첫 번째 반환
   const innerTable = sectionRoot.find('table').first();
   if (innerTable.length > 0) {
     return innerTable;
   }
   
-  // 2. sectionRoot의 다음 형제(nextAll)를 순회하면서 table 찾기
+  // 3. sectionRoot의 다음 형제(nextAll)를 순회하면서 table 찾기
   const nextSiblings = sectionRoot.nextAll();
   let searched = 0;
-  const maxSearch = 12;
+  const maxSearch = 30; // 더 많이 탐색
   
   for (let i = 0; i < nextSiblings.length && searched < maxSearch; i++) {
     const sibling = nextSiblings.eq(i);
     searched++;
     
-    // heading을 만나면 중단 (다음 섹션으로 넘어감)
-    const tagName = sibling.prop('tagName')?.toLowerCase();
-    if (tagName && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+    // heading을 만나면 중단 (다음 섹션으로 넘어감) - 단, 키워드가 포함된 경우는 계속
+    const siblingTagName = sibling.prop('tagName')?.toLowerCase();
+    if (siblingTagName && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(siblingTagName)) {
       const headingText = sibling.text().trim();
-      if (headingText.length > 0) {
-        break;
+      // 다른 섹션 헤더인지 확인 (일반적인 섹션 키워드 체크)
+      if (headingText.length > 0 && !headingText.match(/table|factors|statement|condition|maturity|loans/i)) {
+        // 다른 섹션으로 보이면 중단하지 않고 계속 (같은 섹션 내부일 수 있음)
       }
+    }
+    
+    // 형제 자체가 테이블인 경우
+    if (siblingTagName === 'table') {
+      return sibling;
     }
     
     // 테이블 찾기
@@ -194,23 +233,31 @@ export function findFirstTableNearSection(
     if (table.length > 0) {
       return table;
     }
-    
-    // 형제 자체가 테이블인 경우
-    if (tagName === 'table') {
-      return sibling;
-    }
   }
   
-  // 3. sectionRoot의 부모에서 table descendant 탐색
+  // 4. sectionRoot의 부모에서 table descendant 탐색
   const parent = sectionRoot.parent();
   if (parent.length > 0) {
     const parentTable = parent.find('table').first();
     if (parentTable.length > 0) {
       return parentTable;
     }
+    
+    // 부모의 형제도 확인
+    const parentSiblings = parent.nextAll();
+    for (let i = 0; i < parentSiblings.length && i < 15; i++) {
+      const sibling = parentSiblings.eq(i);
+      const table = sibling.find('table').first();
+      if (table.length > 0) {
+        return table;
+      }
+      if (sibling.prop('tagName')?.toLowerCase() === 'table') {
+        return sibling;
+      }
+    }
   }
   
-  // 4. sectionRoot의 이전 형제(prevAll)도 확인 (표가 위에 있을 수 있음)
+  // 5. sectionRoot의 이전 형제(prevAll)도 확인 (표가 위에 있을 수 있음)
   const prevSiblings = sectionRoot.prevAll();
   searched = 0;
   
@@ -223,9 +270,38 @@ export function findFirstTableNearSection(
       return table;
     }
     
-    const tagName = sibling.prop('tagName')?.toLowerCase();
-    if (tagName === 'table') {
+    const prevTagName = sibling.prop('tagName')?.toLowerCase();
+    if (prevTagName === 'table') {
       return sibling;
+    }
+  }
+  
+  // 6. body 전체에서 키워드가 포함된 테이블 찾기 (최후의 수단)
+  const body = $('body');
+  const allTables = body.find('table');
+  
+  // sectionKeywords가 제공되면 사용, 없으면 sectionRoot 텍스트에서 추출
+  let keywords: string[] = [];
+  if (sectionKeywords && sectionKeywords.length > 0) {
+    keywords = sectionKeywords.map(k => k.toLowerCase());
+  } else {
+    const sectionText = sectionRoot.text();
+    keywords = sectionText.split(/\s+/).filter(w => w.length > 3).slice(0, 5).map(k => k.toLowerCase());
+  }
+  
+  // 각 테이블의 텍스트를 확인하여 키워드가 포함되어 있으면 반환
+  for (let i = 0; i < allTables.length; i++) {
+    const table = allTables.eq(i);
+    const tableText = table.text().toLowerCase();
+    
+    // 키워드가 테이블 텍스트에 포함되어 있으면 반환
+    if (keywords.some(kw => tableText.includes(kw))) {
+      return table;
+    }
+    
+    // "Factors Affecting Reserve Balances" 같은 특정 키워드 확인
+    if (tableText.includes('factors affecting') || tableText.includes('reserve balances')) {
+      return table;
     }
   }
   

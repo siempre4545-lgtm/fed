@@ -120,6 +120,45 @@ export default function FedDashboardClient() {
     updateURL(date, newTab);
   };
   
+  // 날짜가 선택되지 않았거나 데이터가 없으면 날짜 선택 UI만 표시
+  if (!date || !data) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-3xl font-bold">Fed Dashboard 연준 대차대조표</h1>
+              <div className="flex items-center gap-4">
+                <Link 
+                  href="https://fedreportsh.vercel.app/"
+                  className="px-4 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 text-sm"
+                >
+                  돌아가기
+                </Link>
+                <SettingsPanel />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 max-w-md w-full">
+              <h2 className="text-2xl font-semibold mb-4 text-center">날짜 선택</h2>
+              <p className="text-gray-400 mb-6 text-center">
+                데이터를 보려면 날짜를 선택하세요
+              </p>
+              <DateSelector value={date} onChange={handleDateChange} />
+              {loading && (
+                <div className="mt-4 text-center text-gray-400">
+                  데이터를 불러오는 중...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-8">
