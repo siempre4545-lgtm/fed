@@ -120,8 +120,8 @@ export default function FedDashboardClient() {
     updateURL(date, newTab);
   };
   
-  // 날짜가 선택되지 않았거나 데이터가 없으면 날짜 선택 UI만 표시
-  if (!date || !data) {
+  // 날짜가 선택되지 않았을 때만 날짜 선택 UI 표시
+  if (!date) {
     return (
       <div className="min-h-screen bg-gray-900 text-white">
         <div className="container mx-auto px-4 py-8">
@@ -147,11 +147,6 @@ export default function FedDashboardClient() {
                 데이터를 보려면 날짜를 선택하세요
               </p>
               <DateSelector value={date} onChange={handleDateChange} />
-              {loading && (
-                <div className="mt-4 text-center text-gray-400">
-                  데이터를 불러오는 중...
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -217,6 +212,8 @@ export default function FedDashboardClient() {
             <div className="space-y-1 text-gray-300">
               <div>선택 날짜: {date}</div>
               <div>API URL: {apiUrl || '—'}</div>
+              <div>로딩 중: {loading ? 'true' : 'false'}</div>
+              <div>데이터 있음: {data ? 'true' : 'false'}</div>
               <div>응답 OK: {apiResponse?.ok !== undefined ? String(apiResponse.ok) : '—'}</div>
               {apiResponse?.warnings && apiResponse.warnings.length > 0 && (
                 <div>
@@ -234,13 +231,30 @@ export default function FedDashboardClient() {
         {/* Content */}
         {loading && (
           <div className="text-center py-12">
-            <div className="text-gray-400">데이터를 불러오는 중...</div>
+            <div className="text-gray-400 text-lg">데이터를 불러오는 중...</div>
+            <div className="text-gray-500 text-sm mt-2">잠시만 기다려주세요</div>
           </div>
         )}
         
-        {error && (
+        {!loading && error && (
           <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6">
-            <div className="text-red-400">⚠️ 오류: {error}</div>
+            <div className="text-red-400 font-semibold mb-2">⚠️ 오류 발생</div>
+            <div className="text-red-300">{error}</div>
+            <div className="mt-4 text-sm text-gray-400">
+              날짜를 다시 선택하거나 다른 날짜를 시도해보세요.
+            </div>
+          </div>
+        )}
+        
+        {!loading && !error && !data && (
+          <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
+            <div className="text-yellow-400 font-semibold mb-2">⚠️ 데이터 없음</div>
+            <div className="text-yellow-300">
+              선택한 날짜({date})에 대한 데이터를 찾을 수 없습니다.
+            </div>
+            <div className="mt-4 text-sm text-gray-400">
+              다른 날짜를 선택해보세요.
+            </div>
           </div>
         )}
         
