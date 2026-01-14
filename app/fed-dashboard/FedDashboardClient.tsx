@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { H41ParsedData } from '@/lib/h41-parser';
 import { OverviewTab } from '@/components/OverviewTab';
 import { ReserveFactorsTab } from '@/components/ReserveFactorsTab';
@@ -45,6 +46,8 @@ export default function FedDashboardClient() {
   const [data, setData] = useState<H41ParsedData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiUrl, setApiUrl] = useState<string>('');
+  const [apiResponse, setApiResponse] = useState<{ ok: boolean; warnings?: string[]; error?: string } | null>(null);
   
   // 최신 날짜 가져오기
   useEffect(() => {
@@ -70,17 +73,29 @@ export default function FedDashboardClient() {
     
     setLoading(true);
     setError(null);
+    const url = `/api/h41/release?date=${date}`;
+    setApiUrl(url);
     
-    fetch(`/api/h41/release?date=${date}`)
+    fetch(url)
       .then(res => res.json())
       .then((result: H41ParsedData) => {
         setData(result);
+        setApiResponse({
+          ok: result.ok,
+          warnings: result.warnings,
+          error: result.ok ? undefined : result.warnings.join(', ') || 'Failed to parse data',
+        });
         if (!result.ok) {
           setError(result.warnings.join(', ') || 'Failed to parse data');
         }
       })
       .catch(err => {
-        setError(err.message || 'Failed to load data');
+        const errorMsg = err.message || 'Failed to load data';
+        setError(errorMsg);
+        setApiResponse({
+          ok: false,
+          error: errorMsg,
+        });
         setData(null);
       })
       .finally(() => {
@@ -112,7 +127,15 @@ export default function FedDashboardClient() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">Fed Dashboard 연준 대차대조표</h1>
-            <SettingsPanel />
+            <div className="flex items-center gap-4">
+              <Link 
+                href="https://fedreportsh.vercel.app/"
+                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 text-sm"
+              >
+                돌아가기
+              </Link>
+              <SettingsPanel />
+            </div>
           </div>
           
           <div className="flex items-center gap-4 mb-4">
@@ -147,6 +170,27 @@ export default function FedDashboardClient() {
             ))}
           </div>
         </div>
+        
+        {/* 디버그 패널 (개발 모드만) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700 text-xs">
+            <div className="font-semibold mb-2 text-yellow-400">🔍 디버그 정보 (개발 모드)</div>
+            <div className="space-y-1 text-gray-300">
+              <div>선택 날짜: {date}</div>
+              <div>API URL: {apiUrl || '—'}</div>
+              <div>응답 OK: {apiResponse?.ok !== undefined ? String(apiResponse.ok) : '—'}</div>
+              {apiResponse?.warnings && apiResponse.warnings.length > 0 && (
+                <div>
+                  경고 ({apiResponse.warnings.length}개): {apiResponse.warnings.slice(0, 3).join('; ')}
+                  {apiResponse.warnings.length > 3 && ` ... (+${apiResponse.warnings.length - 3}개)`}
+                </div>
+              )}
+              {apiResponse?.error && (
+                <div className="text-red-400">오류: {apiResponse.error}</div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Content */}
         {loading && (

@@ -107,28 +107,125 @@ export function findSection(
   sectionKeywords: string[]
 ): cheerio.Cheerio<cheerio.Element> | null {
   const body = $('body');
+  const bodyText = body.text();
   
   for (const keyword of sectionKeywords) {
-    // cheerio의 :contains 선택자 사용 (대소문자 무시)
-    const normalizedKeyword = keyword.toLowerCase();
-    const elements = body.find('*');
+    // 전체 텍스트에서 키워드 위치 찾기
+    if (!bodyText.includes(keyword)) {
+      continue;
+    }
     
-    for (let i = 0; i < elements.length; i++) {
-      const el = elements[i];
-      const text = $(el).text().toLowerCase();
+    // 모든 요소를 순회하며 키워드 포함 요소 찾기
+    const allElements = body.find('*');
+    let foundElement: cheerio.Element | null = null;
+    
+    for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i];
+      const text = $(el).text();
       
-      if (text.includes(normalizedKeyword)) {
-        // 테이블을 포함한 부모 요소 찾기
-        const section = $(el).closest('table, div, section');
-        if (section.length > 0) {
-          return section;
-        }
-        // 테이블이 없으면 부모 요소
-        const parent = $(el).parent();
-        if (parent.length > 0 && parent[0] !== body[0]) {
-          return parent;
+      // 키워드가 포함된 경우
+      if (text.includes(keyword)) {
+        // 가장 작은 요소 (가장 구체적인 매칭) 선택
+        if (!foundElement || $(el).children().length < $(foundElement).children().length) {
+          foundElement = el;
         }
       }
+    }
+    
+    if (foundElement) {
+      // 테이블을 포함한 부모 요소 찾기
+      let section = $(foundElement).closest('table');
+      if (section.length === 0) {
+        section = $(foundElement).closest('div, section');
+      }
+      if (section.length === 0) {
+        section = $(foundElement).parent();
+      }
+      
+      if (section.length > 0 && section[0] !== body[0]) {
+        return section;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * 섹션 근처에서 첫 번째 테이블 찾기
+ * @param $ cheerio 인스턴스
+ * @param sectionRoot 섹션 루트 요소
+ * @returns 테이블 요소 또는 null
+ */
+export function findFirstTableNearSection(
+  $: cheerio.CheerioAPI,
+  sectionRoot: cheerio.Cheerio<cheerio.Element>
+): cheerio.Cheerio<cheerio.Element> | null {
+  if (sectionRoot.length === 0) {
+    return null;
+  }
+  
+  // 1. sectionRoot 내부에 table이 있으면 첫 번째 반환
+  const innerTable = sectionRoot.find('table').first();
+  if (innerTable.length > 0) {
+    return innerTable;
+  }
+  
+  // 2. sectionRoot의 다음 형제(nextAll)를 순회하면서 table 찾기
+  const nextSiblings = sectionRoot.nextAll();
+  let searched = 0;
+  const maxSearch = 12;
+  
+  for (let i = 0; i < nextSiblings.length && searched < maxSearch; i++) {
+    const sibling = nextSiblings.eq(i);
+    searched++;
+    
+    // heading을 만나면 중단 (다음 섹션으로 넘어감)
+    const tagName = sibling.prop('tagName')?.toLowerCase();
+    if (tagName && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+      const headingText = sibling.text().trim();
+      if (headingText.length > 0) {
+        break;
+      }
+    }
+    
+    // 테이블 찾기
+    const table = sibling.find('table').first();
+    if (table.length > 0) {
+      return table;
+    }
+    
+    // 형제 자체가 테이블인 경우
+    if (tagName === 'table') {
+      return sibling;
+    }
+  }
+  
+  // 3. sectionRoot의 부모에서 table descendant 탐색
+  const parent = sectionRoot.parent();
+  if (parent.length > 0) {
+    const parentTable = parent.find('table').first();
+    if (parentTable.length > 0) {
+      return parentTable;
+    }
+  }
+  
+  // 4. sectionRoot의 이전 형제(prevAll)도 확인 (표가 위에 있을 수 있음)
+  const prevSiblings = sectionRoot.prevAll();
+  searched = 0;
+  
+  for (let i = 0; i < prevSiblings.length && searched < maxSearch; i++) {
+    const sibling = prevSiblings.eq(i);
+    searched++;
+    
+    const table = sibling.find('table').first();
+    if (table.length > 0) {
+      return table;
+    }
+    
+    const tagName = sibling.prop('tagName')?.toLowerCase();
+    if (tagName === 'table') {
+      return sibling;
     }
   }
   

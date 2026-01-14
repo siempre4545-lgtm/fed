@@ -13,6 +13,7 @@ import {
   findColumnIndex,
   parseDateToISO,
   formatDateForURL,
+  findFirstTableNearSection,
 } from './h41-parser-core';
 
 export interface H41ParsedData {
@@ -133,21 +134,65 @@ export interface StatementSection {
  */
 export async function parseH41HTML(date: string): Promise<H41ParsedData> {
   const dateStr = formatDateForURL(date);
-  const url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
   
   try {
-    const response = await fetch(url, {
+    // 1차 URL 시도 (디렉토리)
+    let url = `https://www.federalreserve.gov/releases/h41/${dateStr}/`;
+    let response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
       },
       cache: 'no-store',
+      redirect: 'follow',
+    });
+    
+    // 404면 fallback URL 시도
+    if (response.status === 404) {
+      url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+        cache: 'no-store',
+        redirect: 'follow',
+      });
+    }
+    
+    // 로깅: 요청 정보
+    const contentType = response.headers.get('content-type') || 'unknown';
+    const html = await response.text();
+    const htmlPreview = html.replace(/\s+/g, ' ').substring(0, 500);
+    
+    // 차단 키워드 확인
+    const blockedKeywords = ['Access Denied', 'robot', 'captcha', 'Request Rejected', 'Forbidden'];
+    const flagged = blockedKeywords.some(kw => html.toLowerCase().includes(kw.toLowerCase()));
+    
+    console.warn(`[parseH41HTML] Fetch result for ${dateStr}:`, {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      htmlLength: html.length,
+      htmlPreview,
+      flagged,
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch H.4.1 HTML: ${response.status}`);
+      throw new Error(`Failed to fetch H.4.1 HTML: ${response.status} ${response.statusText}`);
     }
     
-    const html = await response.text();
+    if (flagged) {
+      console.warn(`[parseH41HTML] WARNING: Blocked keywords detected in HTML for ${dateStr}`);
+    }
+    
     const $ = cheerio.load(html);
     
     // Release Date와 Week Ended 파싱
@@ -239,8 +284,8 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
     return createEmptyOverview();
   }
   
-  const table = factorsSection.find('table').first();
-  if (table.length === 0) {
+  const table = findFirstTableNearSection($, factorsSection);
+  if (!table || table.length === 0) {
     warnings.push('Overview table not found');
     return createEmptyOverview();
   }
@@ -283,8 +328,8 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
   let otherAssets: number | null = null;
   
   if (statementSection && statementSection.length > 0) {
-    const statementTable = statementSection.find('table').first();
-    if (statementTable.length > 0) {
+    const statementTable = findFirstTableNearSection($, statementSection);
+    if (statementTable && statementTable.length > 0) {
       const assetsValueCol = findColumnIndex($, statementTable, ['Assets', 'Level']);
       totalAssetsForComposition = extractValue(statementTable, $, ['Total assets'], assetsValueCol, warnings);
       treasurySecurities = extractValue(statementTable, $, ['U.S. Treasury securities'], assetsValueCol, warnings);
@@ -333,8 +378,8 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     return createEmptyFactors();
   }
   
-  const table = factorsSection.find('table').first();
-  if (table.length === 0) {
+  const table = findFirstTableNearSection($, factorsSection);
+  if (!table || table.length === 0) {
     warnings.push('Factors table not found');
     return createEmptyFactors();
   }
@@ -458,8 +503,8 @@ function parseMaturitySection($: cheerio.CheerioAPI, warnings: string[]): Maturi
     return createEmptyMaturity();
   }
   
-  const table = maturitySection.find('table').first();
-  if (table.length === 0) {
+  const table = findFirstTableNearSection($, maturitySection);
+  if (!table || table.length === 0) {
     warnings.push('Maturity table not found');
     return createEmptyMaturity();
   }
@@ -521,8 +566,8 @@ function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): Lending
   let term: number | null = null;
   
   if (factorsSection && factorsSection.length > 0) {
-    const table = factorsSection.find('table').first();
-    if (table.length > 0) {
+    const table = findFirstTableNearSection($, factorsSection);
+    if (table && table.length > 0) {
       const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
       primaryCredit = extractValue(table, $, ['Loans - Primary credit'], valueCol, warnings);
       btfp = extractValue(table, $, ['Loans - Bank Term Funding Program'], valueCol, warnings);
@@ -531,8 +576,8 @@ function parseLendingSection($: cheerio.CheerioAPI, warnings: string[]): Lending
   }
   
   if (memoSection && memoSection.length > 0) {
-    const table = memoSection.find('table').first();
-    if (table.length > 0) {
+    const table = findFirstTableNearSection($, memoSection);
+    if (table && table.length > 0) {
       const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
       overnight = extractValue(table, $, ['Securities lent to dealers - Overnight facility'], valueCol, warnings);
       term = extractValue(table, $, ['Securities lent to dealers - Term facility'], valueCol, warnings);
@@ -566,8 +611,8 @@ function parseStatementSection($: cheerio.CheerioAPI, warnings: string[]): State
     return createEmptyStatement();
   }
   
-  const table = statementSection.find('table').first();
-  if (table.length === 0) {
+  const table = findFirstTableNearSection($, statementSection);
+  if (!table || table.length === 0) {
     warnings.push('Statement table not found');
     return createEmptyStatement();
   }
@@ -597,6 +642,43 @@ function parseStatementSection($: cheerio.CheerioAPI, warnings: string[]): State
 }
 
 /**
+ * 라벨 후보 확장 (변형 버전 추가)
+ */
+function expandLabelCandidates(candidates: string[]): string[] {
+  const expanded = new Set<string>();
+  
+  for (const candidate of candidates) {
+    expanded.add(candidate);
+    
+    // 콤마 제거 버전
+    const withoutComma = candidate.replace(/,/g, '');
+    if (withoutComma !== candidate) {
+      expanded.add(withoutComma);
+    }
+    
+    // 괄호 제거 버전
+    const withoutParens = candidate.replace(/[()]/g, '');
+    if (withoutParens !== candidate) {
+      expanded.add(withoutParens);
+    }
+    
+    // 연속 공백을 1개로
+    const singleSpace = candidate.replace(/\s+/g, ' ');
+    if (singleSpace !== candidate) {
+      expanded.add(singleSpace);
+    }
+    
+    // 콤마와 괄호 모두 제거
+    const cleaned = candidate.replace(/[,()]/g, '').replace(/\s+/g, ' ');
+    if (cleaned !== candidate) {
+      expanded.add(cleaned);
+    }
+  }
+  
+  return Array.from(expanded);
+}
+
+/**
  * 테이블에서 값 추출 헬퍼
  */
 function extractValue(
@@ -610,7 +692,10 @@ function extractValue(
     return null;
   }
   
-  const row = findRowByLabel($, table, labelCandidates);
+  // 라벨 후보 확장 (변형 버전 추가)
+  const expandedCandidates = expandLabelCandidates(labelCandidates);
+  
+  const row = findRowByLabel($, table, expandedCandidates);
   if (!row || row.length === 0) {
     warnings.push(`Row not found for labels: ${labelCandidates.join(', ')}`);
     return null;
@@ -745,20 +830,64 @@ export async function fetchH41Report(
   availableDates?: string[]
 ): Promise<{ html: string; url: string }> {
   const dateStr = formatDateForURL(dateISO);
-  const url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
   
-  const response = await fetch(url, {
+  // 1차 URL 시도 (디렉토리)
+  let url = `https://www.federalreserve.gov/releases/h41/${dateStr}/`;
+  let response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
     },
     cache: 'no-store',
+    redirect: 'follow',
+  });
+  
+  // 404면 fallback URL 시도
+  if (response.status === 404) {
+    url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
+    response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+      cache: 'no-store',
+      redirect: 'follow',
+    });
+  }
+  
+  // 로깅: 요청 정보
+  const contentType = response.headers.get('content-type') || 'unknown';
+  const html = await response.text();
+  const htmlPreview = html.replace(/\s+/g, ' ').substring(0, 500);
+  
+  // 차단 키워드 확인
+  const blockedKeywords = ['Access Denied', 'robot', 'captcha', 'Request Rejected', 'Forbidden'];
+  const flagged = blockedKeywords.some(kw => html.toLowerCase().includes(kw.toLowerCase()));
+  
+  console.warn(`[fetchH41Report] Fetch result for ${dateStr}:`, {
+    url,
+    status: response.status,
+    statusText: response.statusText,
+    contentType,
+    htmlLength: html.length,
+    htmlPreview,
+    flagged,
   });
   
   if (!response.ok) {
     throw new Error(`Failed to fetch H.4.1 HTML: ${response.status} ${response.statusText}`);
   }
   
-  const html = await response.text();
+  if (flagged) {
+    console.warn(`[fetchH41Report] WARNING: Blocked keywords detected in HTML for ${dateStr}`);
+  }
+  
   return { html, url };
 }
 

@@ -33,9 +33,23 @@ export async function GET(request: NextRequest) {
   try {
     const data = await parseH41HTML(date);
     
+    // 로깅: 파싱 결과
+    console.warn(`[H41 Release API] Parse result for ${date}:`, {
+      ok: data.ok,
+      warnings: data.warnings,
+      warningsCount: data.warnings.length,
+      hasOverviewData: data.sections.overview.totalAssets !== null,
+      hasFactorsData: data.sections.factors.supplying.length > 0,
+    });
+    
+    // 파싱 실패 시 캐시 방지
+    const cacheControl = data.ok 
+      ? 'public, s-maxage=21600, stale-while-revalidate=86400'
+      : 'no-store';
+    
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400',
+        'Cache-Control': cacheControl,
       },
     });
   } catch (error) {
@@ -46,7 +60,12 @@ export async function GET(request: NextRequest) {
         error: error instanceof Error ? error.message : String(error),
         date,
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
     );
   }
 }
