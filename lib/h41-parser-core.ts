@@ -749,49 +749,98 @@ export function getTable1ColumnIndices(
   }
 
   // B) weeklyCol/yearlyCol 찾기
-  // 우선 'Change from previous week' / 'Change from year ago' 문구가 있으면 선택
+  // 주의: 'Change from week ended'는 헤더 텍스트일 뿐, 실제 데이터는 그 다음 컬럼에 있음
+  // 따라서 'Change from week ended'를 포함하는 컬럼을 weeklyCol로 설정하지 말고,
+  // 그 다음에 오는 날짜 컬럼들을 찾아야 함
+  
+  // 'Change from year ago'가 명시적으로 있으면 사용
   for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
     const text = colHeaderTexts[colIdx].toLowerCase();
-    
-    if (result.weeklyCol < 0 && (
-      text.includes('change from previous week') ||
-      text.includes('change from week ended')
-    )) {
-      result.weeklyCol = colIdx;
-    }
     
     if (result.yearlyCol < 0 && text.includes('change from year ago')) {
       result.yearlyCol = colIdx;
     }
   }
+  
+  // 'Change from previous week'이 명시적으로 있으면 사용
+  for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+    const text = colHeaderTexts[colIdx].toLowerCase();
+    
+    if (result.weeklyCol < 0 && text.includes('change from previous week')) {
+      result.weeklyCol = colIdx;
+    }
+  }
 
   // weeklyCol/yearlyCol을 찾지 못한 경우, 'Change from week ended' 그룹 아래 날짜 2개 컬럼 찾기
   if (result.weeklyCol < 0 || result.yearlyCol < 0) {
-    const changeFromWeekEndedCols: number[] = [];
-    
-    // 'Change from week ended'가 포함된 컬럼들 찾기
+    // 'Change from week ended'가 포함된 컬럼 찾기 (이 컬럼 자체가 아니라 그 다음 컬럼들이 데이터)
+    let changeFromWeekEndedCol = -1;
     for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
       const text = colHeaderTexts[colIdx].toLowerCase();
       if (text.includes('change from week ended')) {
-        changeFromWeekEndedCols.push(colIdx);
+        changeFromWeekEndedCol = colIdx;
+        break;
       }
     }
 
-    // 날짜 패턴이 있는 컬럼 찾기
-    const dateCols: Array<{ colIdx: number; dateText: string }> = [];
-    for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
-      const text = colHeaderTexts[colIdx];
-      const dateMatch = text.match(datePattern);
-      if (dateMatch) {
-        dateCols.push({ colIdx, dateText: dateMatch[0] });
+    // 실제 데이터 행에서 날짜 패턴이 있는 컬럼 찾기
+    // 헤더 행(특히 두 번째 행)과 데이터 행 모두 확인
+    const dateCols: Array<{ colIdx: number; dateText: string; source: string }> = [];
+    
+    // 1. 헤더 행에서 날짜 찾기 (특히 두 번째 행)
+    for (let rowIdx = 1; rowIdx < Math.min(3, headerRows.length); rowIdx++) {
+      const row = $(headerRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        const dateMatch = cellText.match(datePattern);
+        if (dateMatch) {
+          // 이미 추가되지 않은 컬럼만 추가
+          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
+            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `header-row-${rowIdx}` });
+          }
+        }
       }
     }
+    
+    // 2. 데이터 행에서 날짜 찾기 (첫 번째 데이터 행)
+    const dataRows = table.find('tr').slice(headerRows.length);
+    for (let rowIdx = 0; rowIdx < Math.min(2, dataRows.length); rowIdx++) {
+      const row = $(dataRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        const dateMatch = cellText.match(datePattern);
+        if (dateMatch) {
+          // 이미 추가되지 않은 컬럼만 추가
+          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
+            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `data-row-${rowIdx}` });
+          }
+        }
+      }
+    }
+
+    // 날짜 컬럼들을 컬럼 인덱스 순으로 정렬
+    dateCols.sort((a, b) => a.colIdx - b.colIdx);
+
+    // 'Change from week ended' 컬럼 이후의 날짜 컬럼들을 찾기
+    const changeGroupDateCols = changeFromWeekEndedCol >= 0
+      ? dateCols.filter(dc => dc.colIdx > changeFromWeekEndedCol)
+      : dateCols;
 
     // 첫 번째 날짜 컬럼 → weeklyCol, 두 번째 날짜 컬럼 → yearlyCol
-    if (dateCols.length >= 1 && result.weeklyCol < 0) {
+    if (changeGroupDateCols.length >= 1 && result.weeklyCol < 0) {
+      result.weeklyCol = changeGroupDateCols[0].colIdx;
+    }
+    if (changeGroupDateCols.length >= 2 && result.yearlyCol < 0) {
+      result.yearlyCol = changeGroupDateCols[1].colIdx;
+    }
+    
+    // 그래도 못 찾으면 모든 날짜 컬럼에서 첫 번째/두 번째 선택
+    if (result.weeklyCol < 0 && dateCols.length >= 1) {
       result.weeklyCol = dateCols[0].colIdx;
     }
-    if (dateCols.length >= 2 && result.yearlyCol < 0) {
+    if (result.yearlyCol < 0 && dateCols.length >= 2) {
       result.yearlyCol = dateCols[1].colIdx;
     }
   }
@@ -803,6 +852,15 @@ export function getTable1ColumnIndices(
       result.avgCol = colIdx;
       break;
     }
+  }
+
+  // 디버깅: 컬럼 헤더 텍스트 로깅 (실패 시)
+  if (result.valueCol < 0 || result.weeklyCol < 0 || result.yearlyCol < 0) {
+    const headerPreview = colHeaderTexts.slice(0, 6).map((text, idx) => 
+      `Col${idx}: "${text.substring(0, 50)}"`
+    ).join('; ');
+    // warnings가 있으면 로깅 (하지만 여기서는 warnings를 받지 않으므로 주석 처리)
+    // if (warnings) warnings.push(`[getTable1ColumnIndices] Header preview: ${headerPreview}`);
   }
 
   return result;
