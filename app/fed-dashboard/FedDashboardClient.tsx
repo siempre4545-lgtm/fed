@@ -82,13 +82,31 @@ export default function FedDashboardClient() {
       .then(res => res.json())
       .then((result: H41ParsedData) => {
         setData(result);
+        
+        // 에러 코드 추출 및 메시지 생성
+        let errorMessage: string | undefined;
+        if (!result.ok && result.warnings.length > 0) {
+          const firstWarning = result.warnings[0];
+          if (firstWarning.startsWith('NO_RELEASE_FOR_DATE:')) {
+            errorMessage = '해당 날짜 릴리즈가 없습니다';
+          } else if (firstWarning.startsWith('FETCH_BLOCKED_OR_UNEXPECTED_HTML:')) {
+            errorMessage = '원문 페이지 수집에 실패했습니다(차단/예상치 못한 HTML)';
+          } else if (firstWarning.startsWith('HTTP_ERROR_')) {
+            const statusMatch = firstWarning.match(/HTTP_ERROR_(\d+):/);
+            const status = statusMatch ? statusMatch[1] : 'unknown';
+            errorMessage = `HTTP ${status} 오류: 서버에서 데이터를 가져올 수 없습니다`;
+          } else {
+            errorMessage = firstWarning;
+          }
+        }
+        
         setApiResponse({
           ok: result.ok,
           warnings: result.warnings,
-          error: result.ok ? undefined : result.warnings.join(', ') || 'Failed to parse data',
+          error: errorMessage,
         });
         if (!result.ok) {
-          setError(result.warnings.join(', ') || 'Failed to parse data');
+          setError(errorMessage || 'Failed to parse data');
         }
       })
       .catch(err => {

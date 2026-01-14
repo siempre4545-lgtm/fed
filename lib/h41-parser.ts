@@ -17,6 +17,7 @@ import {
   pickH41Table,
   getTable1ColumnIndices,
 } from './h41-parser-core';
+import { fetchH41HtmlStrict, FetchH41Error } from './h41-fetch';
 
 export interface H41ParsedData {
   ok: boolean;
@@ -163,17 +164,19 @@ export interface StatementSection {
  * H.4.1 HTML 파싱 코어 함수 (HTML 문자열 직접 파싱)
  * 테스트에서 사용하기 위해 분리
  */
-function parseH41HTMLFromHTML(html: string, date: string, warnings: string[]): H41ParsedData {
+function parseH41HTMLFromHTML(html: string, date: string, warnings: string[], fetchedUrl?: string): H41ParsedData {
   const $ = cheerio.load(html);
   
   // Release Date와 Week Ended 파싱
   const releaseDate = parseReleaseDate($);
   const weekEnded = date; // 선택한 날짜를 기준일로 사용
   
-  // 로깅: HTML 기본 정보
+  // 로깅: HTML 기본 정보 (간소화)
   const tableCount = $('table').length;
-  const bodyTextPreview = $('body').text().substring(0, 200).replace(/\s+/g, ' ');
-  warnings.push(`[parseH41HTML] HTML loaded - ${tableCount} tables found, body preview: ${bodyTextPreview}`);
+  if (fetchedUrl) {
+    warnings.push(`[parseH41HTML] fetchedUrl: ${fetchedUrl}`);
+  }
+  warnings.push(`[parseH41HTML] htmlValidationResult: OK, tables: ${tableCount}`);
   
   // 각 섹션 파싱
   const overview = parseOverviewSection($, warnings);
@@ -204,75 +207,53 @@ function parseH41HTMLFromHTML(html: string, date: string, warnings: string[]): H
  * H.4.1 HTML 파싱 메인 함수
  */
 export async function parseH41HTML(date: string, html?: string): Promise<H41ParsedData> {
-  const dateStr = formatDateForURL(date);
   const warnings: string[] = [];
   
   try {
     let htmlContent: string;
+    let fetchedUrl: string | undefined;
     
     // HTML이 직접 제공된 경우 (테스트용)
     if (html) {
       htmlContent = html;
     } else {
-      // 1차 URL 시도 (디렉토리)
-      let url = `https://www.federalreserve.gov/releases/h41/${dateStr}/`;
-      let response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
-        cache: 'no-store',
-        redirect: 'follow',
-      });
-      
-      // 404면 fallback URL 시도
-      if (response.status === 404) {
-        url = `https://www.federalreserve.gov/releases/h41/${dateStr}/default.htm`;
-        response = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-          },
-          cache: 'no-store',
-          redirect: 'follow',
-        });
-      }
-      
-      // 로깅: 요청 정보
-      const contentType = response.headers.get('content-type') || 'unknown';
-      htmlContent = await response.text();
-      const htmlPreview = htmlContent.replace(/\s+/g, ' ').substring(0, 500);
-      
-      // 차단 키워드 확인
-      const blockedKeywords = ['Access Denied', 'robot', 'captcha', 'Request Rejected', 'Forbidden'];
-      const flagged = blockedKeywords.some(kw => htmlContent.toLowerCase().includes(kw.toLowerCase()));
-      
-      console.warn(`[parseH41HTML] Fetch result for ${dateStr}:`, {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        contentType,
-        htmlLength: htmlContent.length,
-        htmlPreview,
-        flagged,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch H.4.1 HTML: ${response.status} ${response.statusText}`);
-      }
-      
-      if (flagged) {
-        console.warn(`[parseH41HTML] WARNING: Blocked keywords detected in HTML for ${dateStr}`);
+      // fetchH41HtmlStrict 사용
+      try {
+        const fetchResult = await fetchH41HtmlStrict(date);
+        htmlContent = fetchResult.html;
+        fetchedUrl = fetchResult.url;
+        warnings.push(`[parseH41HTML] fetchedUrl: ${fetchedUrl}`);
+        warnings.push(`[parseH41HTML] htmlValidationResult: OK`);
+      } catch (error) {
+        // FetchH41Error 처리
+        if (error instanceof FetchH41Error) {
+          warnings.push(`[parseH41HTML] fetchedUrl: ${error.url || 'unknown'}`);
+          warnings.push(`[parseH41HTML] htmlValidationResult: FAIL`);
+          warnings.push(`[parseH41HTML] failCode: ${error.code}`);
+          
+          return {
+            ok: false,
+            date,
+            releaseDate: '',
+            weekEnded: '',
+            sections: {
+              overview: createEmptyOverview(),
+              factors: createEmptyFactors(),
+              summary: createEmptySummary(),
+              maturity: createEmptyMaturity(),
+              lending: createEmptyLending(),
+              statement: createEmptyStatement(),
+            },
+            warnings: [`${error.code}: ${error.message}`],
+          };
+        }
+        
+        // 기타 에러
+        throw error;
       }
     }
     
-    const result = parseH41HTMLFromHTML(htmlContent, date, warnings);
+    const result = parseH41HTMLFromHTML(htmlContent, date, warnings, fetchedUrl);
     
     // warnings 길이 제한 (800자)
     const maxWarningLength = 800;
@@ -336,15 +317,16 @@ function parseWeekEnded($: cheerio.CheerioAPI): string {
  */
 function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): OverviewSection {
   // "1. Factors Affecting Reserve Balances" 섹션 찾기
-  const factorsSection = findSection($, [
+  let factorsSection = findSection($, [
     'Factors Affecting Reserve Balances',
     'Table 1',
     'Factors affecting reserve balances',
   ]);
   
+  // findSection이 실패하면 body 전체로 scope 확장
   if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('[Overview] Section not found');
-    return createEmptyOverview();
+    warnings.push('[Overview] Section not found, using body as scope');
+    factorsSection = $('body');
   }
   
   // Table 1을 정확히 선택 (pickH41Table 사용)
@@ -600,15 +582,17 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
  * Factors 섹션 파싱
  */
 function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): FactorsSection {
-  const factorsSection = findSection($, [
+  // "1. Factors Affecting Reserve Balances" 섹션 찾기
+  let factorsSection = findSection($, [
     'Factors Affecting Reserve Balances',
     'Table 1',
     'Factors affecting reserve balances',
   ]);
   
+  // findSection이 실패하면 body 전체로 scope 확장
   if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('[Factors] Section not found');
-    return createEmptyFactors();
+    warnings.push('[Factors] Section not found, using body as scope');
+    factorsSection = $('body');
   }
   
   // Table 1을 정확히 선택 (pickH41Table 사용, overview와 동일한 테이블)
