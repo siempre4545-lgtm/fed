@@ -747,6 +747,9 @@ export function getTable1ColumnIndices(
       if (result.valueCol >= 0) break;
     }
   }
+  
+  // valueCol이 설정되었으면, weeklyCol/yearlyCol은 valueCol과 달라야 함
+  const excludeCols = result.valueCol >= 0 ? [result.valueCol] : [];
 
   // B) weeklyCol/yearlyCol 찾기
   // 주의: 'Change from week ended'는 헤더 텍스트일 뿐, 실제 데이터는 그 다음 컬럼에 있음
@@ -787,28 +790,25 @@ export function getTable1ColumnIndices(
     // 헤더 행(특히 두 번째 행)과 데이터 행 모두 확인
     const dateCols: Array<{ colIdx: number; dateText: string; source: string }> = [];
     
-    // 1. 헤더 행에서 날짜 찾기 (특히 두 번째 행)
-    for (let rowIdx = 1; rowIdx < Math.min(3, headerRows.length); rowIdx++) {
-      const row = $(headerRows[rowIdx]);
-      const cells = row.find('td, th');
-      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
-        const cellText = $(cells[cellIdx]).text().trim();
-        const dateMatch = cellText.match(datePattern);
-        if (dateMatch) {
-          // 이미 추가되지 않은 컬럼만 추가
-          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
-            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `header-row-${rowIdx}` });
-          }
-        }
-      }
-    }
-    
-    // 2. 데이터 행에서 날짜 찾기 (첫 번째 데이터 행)
+    // 실제 데이터 행에서 날짜 패턴이 있는 컬럼 찾기
+    // valueCol과 "Change from week ended" 컬럼은 제외
     const dataRows = table.find('tr').slice(headerRows.length);
-    for (let rowIdx = 0; rowIdx < Math.min(2, dataRows.length); rowIdx++) {
+    
+    // 데이터 행에서 날짜 찾기 (valueCol 제외)
+    for (let rowIdx = 0; rowIdx < Math.min(3, dataRows.length); rowIdx++) {
       const row = $(dataRows[rowIdx]);
       const cells = row.find('td, th');
       for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        // valueCol은 제외
+        if (excludeCols.includes(cellIdx)) {
+          continue;
+        }
+        
+        // "Change from week ended" 컬럼도 제외
+        if (changeFromWeekEndedCol >= 0 && cellIdx === changeFromWeekEndedCol) {
+          continue;
+        }
+        
         const cellText = $(cells[cellIdx]).text().trim();
         const dateMatch = cellText.match(datePattern);
         if (dateMatch) {
@@ -819,14 +819,46 @@ export function getTable1ColumnIndices(
         }
       }
     }
+    
+    // 헤더 행에서도 날짜 찾기 (valueCol 제외, "Change from week ended" 이후만)
+    for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+      const row = $(headerRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        // valueCol은 제외
+        if (excludeCols.includes(cellIdx)) {
+          continue;
+        }
+        
+        // "Change from week ended" 컬럼도 제외
+        if (changeFromWeekEndedCol >= 0 && cellIdx === changeFromWeekEndedCol) {
+          continue;
+        }
+        
+        // "Change from week ended" 이후만
+        if (changeFromWeekEndedCol >= 0 && cellIdx <= changeFromWeekEndedCol) {
+          continue;
+        }
+        
+        const cellText = $(cells[cellIdx]).text().trim();
+        const dateMatch = cellText.match(datePattern);
+        if (dateMatch) {
+          // 이미 추가되지 않은 컬럼만 추가
+          if (!dateCols.some(dc => dc.colIdx === cellIdx)) {
+            dateCols.push({ colIdx: cellIdx, dateText: dateMatch[0], source: `header-row-${rowIdx}` });
+          }
+        }
+      }
+    }
 
     // 날짜 컬럼들을 컬럼 인덱스 순으로 정렬
     dateCols.sort((a, b) => a.colIdx - b.colIdx);
 
     // 'Change from week ended' 컬럼 이후의 날짜 컬럼들을 찾기
+    // valueCol과 다른 컬럼만 선택
     const changeGroupDateCols = changeFromWeekEndedCol >= 0
-      ? dateCols.filter(dc => dc.colIdx > changeFromWeekEndedCol)
-      : dateCols;
+      ? dateCols.filter(dc => dc.colIdx > changeFromWeekEndedCol && !excludeCols.includes(dc.colIdx))
+      : dateCols.filter(dc => !excludeCols.includes(dc.colIdx));
 
     // 첫 번째 날짜 컬럼 → weeklyCol, 두 번째 날짜 컬럼 → yearlyCol
     if (changeGroupDateCols.length >= 1 && result.weeklyCol < 0) {
@@ -836,12 +868,13 @@ export function getTable1ColumnIndices(
       result.yearlyCol = changeGroupDateCols[1].colIdx;
     }
     
-    // 그래도 못 찾으면 모든 날짜 컬럼에서 첫 번째/두 번째 선택
-    if (result.weeklyCol < 0 && dateCols.length >= 1) {
-      result.weeklyCol = dateCols[0].colIdx;
+    // 그래도 못 찾으면 모든 날짜 컬럼에서 첫 번째/두 번째 선택 (valueCol 제외)
+    const availableDateCols = dateCols.filter(dc => !excludeCols.includes(dc.colIdx));
+    if (result.weeklyCol < 0 && availableDateCols.length >= 1) {
+      result.weeklyCol = availableDateCols[0].colIdx;
     }
-    if (result.yearlyCol < 0 && dateCols.length >= 2) {
-      result.yearlyCol = dateCols[1].colIdx;
+    if (result.yearlyCol < 0 && availableDateCols.length >= 2) {
+      result.yearlyCol = availableDateCols[1].colIdx;
     }
   }
 
