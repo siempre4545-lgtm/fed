@@ -178,9 +178,51 @@ function parseH41HTMLFromHTML(html: string, date: string, warnings: string[], fe
   }
   warnings.push(`[parseH41HTML] htmlValidationResult: OK, tables: ${tableCount}`);
   
-  // 각 섹션 파싱
-  const overview = parseOverviewSection($, warnings);
-  const factors = parseFactorsSection($, warnings);
+  // Overview와 Factors가 사용하는 Table 1을 먼저 찾기
+  let sharedTable1: cheerio.Cheerio<any> | null = null;
+  
+  // "1. Factors Affecting Reserve Balances" 섹션 찾기
+  let factorsSection = findSection($, [
+    'Factors Affecting Reserve Balances',
+    'Table 1',
+    'Factors affecting reserve balances',
+  ]);
+  
+  if (!factorsSection || factorsSection.length === 0) {
+    factorsSection = $('body');
+  }
+  
+  // Table 1 찾기
+  sharedTable1 = pickH41Table($, factorsSection, [
+    'Reserve Bank credit',
+    'Total factors supplying reserve funds',
+    'Currency in circulation',
+    'U.S. Treasury, General Account',
+  ], warnings);
+  
+  if (!sharedTable1 || sharedTable1.length === 0) {
+    warnings.push('[parseH41HTML] Table 1 not found in section, trying body-wide search');
+    sharedTable1 = pickH41Table($, $('body'), [
+      'Reserve Bank credit',
+      'Total factors supplying reserve funds',
+      'Currency in circulation',
+      'U.S. Treasury, General Account',
+    ], warnings);
+  }
+  
+  if (sharedTable1 && sharedTable1.length > 0) {
+    const tableRowCount = sharedTable1.find('tr').length;
+    if (tableRowCount < 5) {
+      warnings.push(`[parseH41HTML] Found table has only ${tableRowCount} rows, too few`);
+      sharedTable1 = null;
+    } else {
+      warnings.push(`[parseH41HTML] Found shared Table 1 with ${tableRowCount} rows`);
+    }
+  }
+  
+  // 각 섹션 파싱 (Table 1을 전달)
+  const overview = parseOverviewSection($, warnings, sharedTable1);
+  const factors = parseFactorsSection($, warnings, sharedTable1);
   const summary = parseSummarySection(factors, warnings);
   const maturity = parseMaturitySection($, warnings);
   const lending = parseLendingSection($, warnings);
@@ -315,54 +357,62 @@ function parseWeekEnded($: cheerio.CheerioAPI): string {
 /**
  * Overview 섹션 파싱
  */
-function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): OverviewSection {
-  // "1. Factors Affecting Reserve Balances" 섹션 찾기
-  let factorsSection = findSection($, [
-    'Factors Affecting Reserve Balances',
-    'Table 1',
-    'Factors affecting reserve balances',
-  ]);
+function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null): OverviewSection {
+  let table: cheerio.Cheerio<any> | null = null;
   
-  // findSection이 실패하면 body 전체로 scope 확장
-  if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('[Overview] Section not found, using body as scope');
-    factorsSection = $('body');
-  }
-  
-  // Table 1을 정확히 선택 (pickH41Table 사용)
-  let table = pickH41Table($, factorsSection, [
-    'Reserve Bank credit',
-    'Total factors supplying reserve funds',
-    'Currency in circulation',
-    'U.S. Treasury, General Account',
-  ], warnings);
-  
-  // pickH41Table이 실패하면 body 전체에서 직접 찾기
-  if (!table || table.length === 0) {
-    warnings.push('[Overview] Table 1 not found in section, trying body-wide search');
-    table = pickH41Table($, $('body'), [
+  // 공유된 Table 1이 있으면 사용
+  if (sharedTable1 && sharedTable1.length > 0) {
+    table = sharedTable1;
+    warnings.push('[Overview] Using shared Table 1');
+  } else {
+    // "1. Factors Affecting Reserve Balances" 섹션 찾기
+    let factorsSection = findSection($, [
+      'Factors Affecting Reserve Balances',
+      'Table 1',
+      'Factors affecting reserve balances',
+    ]);
+    
+    // findSection이 실패하면 body 전체로 scope 확장
+    if (!factorsSection || factorsSection.length === 0) {
+      warnings.push('[Overview] Section not found, using body as scope');
+      factorsSection = $('body');
+    }
+    
+    // Table 1을 정확히 선택 (pickH41Table 사용)
+    table = pickH41Table($, factorsSection, [
       'Reserve Bank credit',
       'Total factors supplying reserve funds',
       'Currency in circulation',
       'U.S. Treasury, General Account',
     ], warnings);
-  }
-  
-  // 그래도 실패하면 findFirstTableNearSection으로 폴백
-  if (!table || table.length === 0) {
-    warnings.push('[Overview] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
-    table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+    
+    // pickH41Table이 실패하면 body 전체에서 직접 찾기
     if (!table || table.length === 0) {
-      warnings.push('[Overview] Table 1 not found using fallback method');
+      warnings.push('[Overview] Table 1 not found in section, trying body-wide search');
+      table = pickH41Table($, $('body'), [
+        'Reserve Bank credit',
+        'Total factors supplying reserve funds',
+        'Currency in circulation',
+        'U.S. Treasury, General Account',
+      ], warnings);
+    }
+    
+    // 그래도 실패하면 findFirstTableNearSection으로 폴백
+    if (!table || table.length === 0) {
+      warnings.push('[Overview] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
+      table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+      if (!table || table.length === 0) {
+        warnings.push('[Overview] Table 1 not found using fallback method');
+        return createEmptyOverview();
+      }
+    }
+    
+    // 선택된 테이블이 최소 행 수를 만족하는지 확인
+    const tableRowCount = table.find('tr').length;
+    if (tableRowCount < 5) {
+      warnings.push(`[Overview] Selected table has only ${tableRowCount} rows, too few for data table`);
       return createEmptyOverview();
     }
-  }
-  
-  // 선택된 테이블이 최소 행 수를 만족하는지 확인
-  const tableRowCount = table.find('tr').length;
-  if (tableRowCount < 5) {
-    warnings.push(`[Overview] Selected table has only ${tableRowCount} rows, too few for data table`);
-    return createEmptyOverview();
   }
   
   // 로깅: 선택된 테이블 정보
@@ -599,54 +649,62 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
 /**
  * Factors 섹션 파싱
  */
-function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): FactorsSection {
-  // "1. Factors Affecting Reserve Balances" 섹션 찾기
-  let factorsSection = findSection($, [
-    'Factors Affecting Reserve Balances',
-    'Table 1',
-    'Factors affecting reserve balances',
-  ]);
+function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null): FactorsSection {
+  let table: cheerio.Cheerio<any> | null = null;
   
-  // findSection이 실패하면 body 전체로 scope 확장
-  if (!factorsSection || factorsSection.length === 0) {
-    warnings.push('[Factors] Section not found, using body as scope');
-    factorsSection = $('body');
-  }
-  
-  // Table 1을 정확히 선택 (pickH41Table 사용, overview와 동일한 테이블)
-  let table = pickH41Table($, factorsSection, [
-    'Reserve Bank credit',
-    'Total factors supplying reserve funds',
-    'Currency in circulation',
-    'U.S. Treasury, General Account',
-  ], warnings);
-  
-  // pickH41Table이 실패하면 body 전체에서 직접 찾기
-  if (!table || table.length === 0) {
-    warnings.push('[Factors] Table 1 not found in section, trying body-wide search');
-    table = pickH41Table($, $('body'), [
+  // 공유된 Table 1이 있으면 사용
+  if (sharedTable1 && sharedTable1.length > 0) {
+    table = sharedTable1;
+    warnings.push('[Factors] Using shared Table 1');
+  } else {
+    // "1. Factors Affecting Reserve Balances" 섹션 찾기
+    let factorsSection = findSection($, [
+      'Factors Affecting Reserve Balances',
+      'Table 1',
+      'Factors affecting reserve balances',
+    ]);
+    
+    // findSection이 실패하면 body 전체로 scope 확장
+    if (!factorsSection || factorsSection.length === 0) {
+      warnings.push('[Factors] Section not found, using body as scope');
+      factorsSection = $('body');
+    }
+    
+    // Table 1을 정확히 선택 (pickH41Table 사용, overview와 동일한 테이블)
+    table = pickH41Table($, factorsSection, [
       'Reserve Bank credit',
       'Total factors supplying reserve funds',
       'Currency in circulation',
       'U.S. Treasury, General Account',
     ], warnings);
-  }
-  
-  // 그래도 실패하면 findFirstTableNearSection으로 폴백
-  if (!table || table.length === 0) {
-    warnings.push('[Factors] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
-    table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+    
+    // pickH41Table이 실패하면 body 전체에서 직접 찾기
     if (!table || table.length === 0) {
-      warnings.push('[Factors] Table 1 not found using fallback method');
+      warnings.push('[Factors] Table 1 not found in section, trying body-wide search');
+      table = pickH41Table($, $('body'), [
+        'Reserve Bank credit',
+        'Total factors supplying reserve funds',
+        'Currency in circulation',
+        'U.S. Treasury, General Account',
+      ], warnings);
+    }
+    
+    // 그래도 실패하면 findFirstTableNearSection으로 폴백
+    if (!table || table.length === 0) {
+      warnings.push('[Factors] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
+      table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
+      if (!table || table.length === 0) {
+        warnings.push('[Factors] Table 1 not found using fallback method');
+        return createEmptyFactors();
+      }
+    }
+    
+    // 선택된 테이블이 최소 행 수를 만족하는지 확인
+    const tableRowCount = table.find('tr').length;
+    if (tableRowCount < 5) {
+      warnings.push(`[Factors] Selected table has only ${tableRowCount} rows, too few for data table`);
       return createEmptyFactors();
     }
-  }
-  
-  // 선택된 테이블이 최소 행 수를 만족하는지 확인
-  const tableRowCount = table.find('tr').length;
-  if (tableRowCount < 5) {
-    warnings.push(`[Factors] Selected table has only ${tableRowCount} rows, too few for data table`);
-    return createEmptyFactors();
   }
   
   // 로깅: 선택된 테이블 정보
