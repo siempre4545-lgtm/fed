@@ -337,10 +337,13 @@ export function findRowByLabel(
 }
 
 /**
- * 테이블 헤더에서 컬럼 인덱스 찾기
+ * 테이블 헤더에서 컬럼 인덱스 찾기 (개선된 버전)
+ * - 여러 행에 걸친 헤더 처리
+ * - 날짜 패턴 인식 개선
+ * - 컬럼 병합(colspan) 처리
  * @param $ cheerio 인스턴스
  * @param table 테이블 요소
- * @param headerKeywords 헤더 키워드 배열
+ * @param headerKeywords 헤더 키워드 배열 (우선순위 순)
  * @returns 컬럼 인덱스 또는 -1
  */
 export function findColumnIndex(
@@ -348,25 +351,132 @@ export function findColumnIndex(
   table: cheerio.Cheerio<any>,
   headerKeywords: string[]
 ): number {
-  const headerRows = table.find('tr').slice(0, 3); // 처음 3개 행을 헤더 후보로 검색
-  
+  // 헤더 후보 행 검색 (최대 5개 행)
+  const headerRows = table.find('tr').slice(0, 5);
+  if (headerRows.length === 0) {
+    return -1;
+  }
+
+  // 날짜 패턴 정규식 (예: "Jan 7, 2026", "Wednesday Jan 7, 2026" 등)
+  const datePattern = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\b/i;
+  const weekdayPattern = /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)day\b/i;
+
+  // 각 컬럼의 헤더 텍스트를 수집 (여러 행에 걸친 헤더 처리)
+  const maxCols = Math.max(...Array.from(headerRows).map((row, idx) => {
+    const cells = $(row).find('td, th');
+    let colCount = 0;
+    cells.each((_, cell) => {
+      const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+      colCount += colspan;
+    });
+    return colCount;
+  }));
+
+  // 각 컬럼별로 헤더 텍스트 수집
+  const columnHeaders: string[][] = [];
+  for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+    columnHeaders[colIdx] = [];
+  }
+
+  // 각 헤더 행을 순회하며 컬럼별 텍스트 수집
   for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
     const row = headerRows[rowIdx];
     const cells = $(row).find('td, th');
-    
-    for (let colIdx = 0; colIdx < cells.length; colIdx++) {
-      const cellText = $(cells[colIdx]).text().trim();
-      const normalized = normalizeLabel(cellText);
-      
-      for (const keyword of headerKeywords) {
-        const normalizedKeyword = normalizeLabel(keyword);
-        if (normalized.includes(normalizedKeyword)) {
+    let currentCol = 0;
+
+    cells.each((_, cell) => {
+      const cellText = $(cell).text().trim();
+      const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+
+      // colspan만큼 컬럼에 텍스트 추가
+      for (let i = 0; i < colspan && currentCol + i < maxCols; i++) {
+        if (cellText) {
+          columnHeaders[currentCol + i].push(cellText);
+        }
+      }
+      currentCol += colspan;
+    });
+  }
+
+  // 각 키워드에 대해 우선순위대로 매칭 시도
+  for (const keyword of headerKeywords) {
+    const normalizedKeyword = normalizeLabel(keyword);
+    const keywordLower = keyword.toLowerCase();
+
+    // 1. 단일 행에서 직접 매칭 (기존 로직)
+    for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+      const row = headerRows[rowIdx];
+      const cells = $(row).find('td, th');
+      let currentCol = 0;
+
+      cells.each((_, cell) => {
+        const cellText = $(cell).text().trim();
+        const normalized = normalizeLabel(cellText);
+        const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+
+        // 완전 일치 또는 부분 일치 확인
+        if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
+          return currentCol;
+        }
+
+        // 날짜 패턴이 포함된 경우 (예: "Wednesday Jan 7, 2026")
+        if (datePattern.test(cellText) || weekdayPattern.test(cellText)) {
+          // 키워드에 날짜 관련 단어가 있으면 매칭
+          if (keywordLower.includes('wednesday') || keywordLower.includes('week ended') || 
+              keywordLower.includes('level') || keywordLower.includes('averages')) {
+            return currentCol;
+          }
+        }
+
+        currentCol += colspan;
+      });
+    }
+
+    // 2. 여러 행에 걸친 헤더 매칭 (컬럼별로 수집한 텍스트 조합)
+    for (let colIdx = 0; colIdx < columnHeaders.length; colIdx++) {
+      const combinedText = columnHeaders[colIdx].join(' ').trim();
+      if (!combinedText) continue;
+
+      const normalized = normalizeLabel(combinedText);
+
+      // 완전 일치 또는 부분 일치 확인
+      if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
+        return colIdx;
+      }
+
+      // 여러 행 조합에서 날짜 패턴 확인
+      if (datePattern.test(combinedText) || weekdayPattern.test(combinedText)) {
+        if (keywordLower.includes('wednesday') || keywordLower.includes('week ended') || 
+            keywordLower.includes('level') || keywordLower.includes('averages')) {
           return colIdx;
         }
       }
+
+      // 키워드의 주요 단어들이 모두 포함되는지 확인 (더 정확한 매칭)
+      const keywordWords = normalizedKeyword.split(/\s+/).filter(w => w.length > 2);
+      if (keywordWords.length > 0 && keywordWords.every(word => normalized.includes(word))) {
+        return colIdx;
+      }
     }
   }
-  
+
+  // 디버깅을 위한 로깅 (개발 모드에서만)
+  if (process.env.NODE_ENV === 'development') {
+    const allHeaders = Array.from(headerRows).map((row, idx) => {
+      const cells = $(row).find('td, th');
+      return Array.from(cells).map((cell, cellIdx) => ({
+        row: idx,
+        col: cellIdx,
+        text: $(cell).text().trim(),
+        colspan: $(cell).attr('colspan') || '1',
+      }));
+    });
+    console.warn('[findColumnIndex] Column not found:', {
+      keywords: headerKeywords,
+      headers: allHeaders,
+    });
+  }
+
   return -1;
 }
 

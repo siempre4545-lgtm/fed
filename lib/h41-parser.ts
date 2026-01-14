@@ -225,7 +225,8 @@ export async function parseH41HTML(date: string): Promise<H41ParsedData> {
     
     // Release Date와 Week Ended 파싱
     const releaseDate = parseReleaseDate($);
-    const weekEnded = parseWeekEnded($);
+    // 사용자 요구사항: 선택한 날짜를 기준일로 표시
+    const weekEnded = date; // 선택한 날짜를 기준일로 사용
     
     const warnings: string[] = [];
     
@@ -240,8 +241,8 @@ export async function parseH41HTML(date: string): Promise<H41ParsedData> {
     return {
       ok: true,
       date,
-      releaseDate,
-      weekEnded,
+      releaseDate: releaseDate || date, // Release Date가 없으면 선택한 날짜 사용
+      weekEnded, // 선택한 날짜를 기준일로 사용
       sections: {
         overview,
         factors,
@@ -323,10 +324,11 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
     return createEmptyOverview();
   }
   
-  // 컬럼 인덱스 찾기
-  const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
-  const weeklyCol = findColumnIndex($, table, ['Change from previous week', 'Change from week ended']);
-  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:']);
+  // 컬럼 인덱스 찾기 (실제 HTML 구조에 맞게)
+  // 실제 HTML: "Week ended Jan 7, 2026" | "Change from week ended Dec 31, 2025" | "Change from year ago Jan 8, 2025"
+  const valueCol = findColumnIndex($, table, ['Week ended', 'Wednesday', 'Level', 'Averages of daily figures']);
+  const weeklyCol = findColumnIndex($, table, ['Change from week ended', 'Change from previous week', 'Change since']);
+  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:', 'Jan 8, 2025']);
   
   // 각 항목 파싱
   const totalAssets = extractValue(table, $, ['Total factors supplying reserve funds'], valueCol, warnings);
@@ -422,9 +424,10 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     return createEmptyFactors();
   }
   
-  const valueCol = findColumnIndex($, table, ['Week ended', 'Level']);
-  const weeklyCol = findColumnIndex($, table, ['Change from previous week', 'Change from week ended']);
-  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:']);
+  // 컬럼 인덱스 찾기 (실제 HTML 구조에 맞게)
+  const valueCol = findColumnIndex($, table, ['Week ended', 'Wednesday', 'Level', 'Averages of daily figures']);
+  const weeklyCol = findColumnIndex($, table, ['Change from week ended', 'Change from previous week', 'Change since']);
+  const yearlyCol = findColumnIndex($, table, ['Change from year ago', 'Change from:', 'Jan 8, 2025']);
   
   // 공급 요인 13개 (사용자 요구사항에 맞게 정확한 라벨 매핑)
   const supplying: FactorsRow[] = [
@@ -437,11 +440,61 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     { label: 'Mortgage-backed securities', labelKo: '주택저당증권', value: null, weekly: null, yearly: null },
     { label: 'Repurchase agreements', labelKo: '레포', value: null, weekly: null, yearly: null },
     { label: 'Loans', labelKo: '대출', value: null, weekly: null, yearly: null },
-    { label: 'Loans - Bank Term Funding Program', labelKo: '은행기간대출', value: null, weekly: null, yearly: null },
+    { label: 'Bank Term Funding Program', labelKo: '은행기간대출', value: null, weekly: null, yearly: null },
     { label: 'Central bank liquidity swaps', labelKo: '통화스왑', value: null, weekly: null, yearly: null },
     { label: 'Gold stock', labelKo: '금', value: null, weekly: null, yearly: null },
     { label: 'Special drawing rights certificate account', labelKo: 'SDR 증서', value: null, weekly: null, yearly: null },
   ];
+  
+  // 통화스왑은 "6. Statement of Condition of Each Federal Reserve Bank" 섹션에서 찾기 시도
+  const swapsRow = supplying.find(r => r.label === 'Central bank liquidity swaps');
+  if (swapsRow) {
+    // 먼저 Factors 섹션에서 찾기
+    swapsRow.value = extractValue(table, $, ['Central bank liquidity swaps'], valueCol, warnings);
+    swapsRow.weekly = extractValue(table, $, ['Central bank liquidity swaps'], weeklyCol, warnings);
+    swapsRow.yearly = extractValue(table, $, ['Central bank liquidity swaps'], yearlyCol, warnings);
+    
+    // Factors 섹션에서 못 찾으면 Statement 섹션에서 찾기
+    if (swapsRow.value === null) {
+      const statementSection = findSection($, ['Statement of Condition of Each Federal Reserve Bank', 'Table 6']);
+      if (statementSection && statementSection.length > 0) {
+        const statementTable = findFirstTableNearSection($, statementSection, ['Statement of Condition', 'Central bank liquidity swaps']);
+        if (statementTable && statementTable.length > 0) {
+          const stmtValueCol = findColumnIndex($, statementTable, ['Total', 'Wednesday', 'Level']);
+          const stmtWeeklyCol = findColumnIndex($, statementTable, ['Change since', 'Change from']);
+          const stmtYearlyCol = findColumnIndex($, statementTable, ['Change from year ago']);
+          swapsRow.value = extractValue(statementTable, $, ['Central bank liquidity swaps'], stmtValueCol, warnings);
+          swapsRow.weekly = extractValue(statementTable, $, ['Central bank liquidity swaps'], stmtWeeklyCol, warnings);
+          swapsRow.yearly = extractValue(statementTable, $, ['Central bank liquidity swaps'], stmtYearlyCol, warnings);
+        }
+      }
+    }
+  }
+  
+  // SDR 증서는 "5. Consolidated Statement" 섹션에서 찾기
+  const sdrRow = supplying.find(r => r.label === 'Special drawing rights certificate account');
+  if (sdrRow) {
+    // 먼저 Factors 섹션에서 찾기
+    sdrRow.value = extractValue(table, $, ['Special drawing rights certificate account'], valueCol, warnings);
+    sdrRow.weekly = extractValue(table, $, ['Special drawing rights certificate account'], weeklyCol, warnings);
+    sdrRow.yearly = extractValue(table, $, ['Special drawing rights certificate account'], yearlyCol, warnings);
+    
+    // Factors 섹션에서 못 찾으면 Statement 섹션에서 찾기
+    if (sdrRow.value === null) {
+      const statementSection = findSection($, ['Consolidated Statement of Condition', 'Table 5']);
+      if (statementSection && statementSection.length > 0) {
+        const statementTable = findFirstTableNearSection($, statementSection, ['Consolidated Statement', 'Assets']);
+        if (statementTable && statementTable.length > 0) {
+          const stmtValueCol = findColumnIndex($, statementTable, ['Assets', 'Wednesday', 'Level']);
+          const stmtWeeklyCol = findColumnIndex($, statementTable, ['Change since', 'Change from']);
+          const stmtYearlyCol = findColumnIndex($, statementTable, ['Change from year ago']);
+          sdrRow.value = extractValue(statementTable, $, ['Special drawing rights certificate account', 'Coin'], stmtValueCol, warnings);
+          sdrRow.weekly = extractValue(statementTable, $, ['Special drawing rights certificate account', 'Coin'], stmtWeeklyCol, warnings);
+          sdrRow.yearly = extractValue(statementTable, $, ['Special drawing rights certificate account', 'Coin'], stmtYearlyCol, warnings);
+        }
+      }
+    }
+  }
   
   for (const row of supplying) {
     row.value = extractValue(table, $, [row.label], valueCol, warnings);
