@@ -337,7 +337,18 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
     'U.S. Treasury, General Account',
   ], warnings);
   
-  // pickH41Table이 실패하면 findFirstTableNearSection으로 폴백
+  // pickH41Table이 실패하면 body 전체에서 직접 찾기
+  if (!table || table.length === 0) {
+    warnings.push('[Overview] Table 1 not found in section, trying body-wide search');
+    table = pickH41Table($, $('body'), [
+      'Reserve Bank credit',
+      'Total factors supplying reserve funds',
+      'Currency in circulation',
+      'U.S. Treasury, General Account',
+    ], warnings);
+  }
+  
+  // 그래도 실패하면 findFirstTableNearSection으로 폴백
   if (!table || table.length === 0) {
     warnings.push('[Overview] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
     table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
@@ -345,6 +356,13 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[]): Overvi
       warnings.push('[Overview] Table 1 not found using fallback method');
       return createEmptyOverview();
     }
+  }
+  
+  // 선택된 테이블이 최소 행 수를 만족하는지 확인
+  const tableRowCount = table.find('tr').length;
+  if (tableRowCount < 5) {
+    warnings.push(`[Overview] Selected table has only ${tableRowCount} rows, too few for data table`);
+    return createEmptyOverview();
   }
   
   // 로깅: 선택된 테이블 정보
@@ -603,7 +621,18 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
     'U.S. Treasury, General Account',
   ], warnings);
   
-  // pickH41Table이 실패하면 findFirstTableNearSection으로 폴백
+  // pickH41Table이 실패하면 body 전체에서 직접 찾기
+  if (!table || table.length === 0) {
+    warnings.push('[Factors] Table 1 not found in section, trying body-wide search');
+    table = pickH41Table($, $('body'), [
+      'Reserve Bank credit',
+      'Total factors supplying reserve funds',
+      'Currency in circulation',
+      'U.S. Treasury, General Account',
+    ], warnings);
+  }
+  
+  // 그래도 실패하면 findFirstTableNearSection으로 폴백
   if (!table || table.length === 0) {
     warnings.push('[Factors] Table 1 not found using pickH41Table, trying findFirstTableNearSection');
     table = findFirstTableNearSection($, factorsSection, ['Factors Affecting Reserve Balances', 'Table 1']);
@@ -611,6 +640,13 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[]): Factors
       warnings.push('[Factors] Table 1 not found using fallback method');
       return createEmptyFactors();
     }
+  }
+  
+  // 선택된 테이블이 최소 행 수를 만족하는지 확인
+  const tableRowCount = table.find('tr').length;
+  if (tableRowCount < 5) {
+    warnings.push(`[Factors] Selected table has only ${tableRowCount} rows, too few for data table`);
+    return createEmptyFactors();
   }
   
   // 로깅: 선택된 테이블 정보

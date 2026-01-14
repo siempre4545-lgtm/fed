@@ -578,7 +578,17 @@ export function pickH41Table(
     return null;
   }
 
-  const allTables = scope.find('table');
+  // scope가 body인 경우 직접 $('table') 사용
+  let allTables: cheerio.Cheerio<any>;
+  const isBody = scope.prop('tagName')?.toLowerCase() === 'body' || 
+                 (scope.length === 1 && scope.is('body'));
+  
+  if (isBody) {
+    allTables = $('table');
+  } else {
+    allTables = scope.find('table');
+  }
+
   if (allTables.length === 0) {
     // scope 자체가 table인 경우
     if (scope.prop('tagName')?.toLowerCase() === 'table') {
@@ -594,11 +604,17 @@ export function pickH41Table(
 
   let bestMatch: cheerio.Cheerio<any> | null = null;
   let bestScore = 0;
-  const matchDetails: Array<{ index: number; score: number; matches: string[] }> = [];
+  const matchDetails: Array<{ index: number; score: number; matches: string[]; rowCount: number }> = [];
 
   for (let i = 0; i < allTables.length; i++) {
     const table = allTables.eq(i);
     const tableText = table.text().toLowerCase();
+    const rowCount = table.find('tr').length;
+    
+    // 최소 행 수 확인 (헤더 + 데이터 행 최소 5행 이상)
+    if (rowCount < 5) {
+      continue; // 제목만 있는 테이블은 스킵
+    }
     
     // mustHaveLabels 중 몇 개가 포함되는지 계산
     let matchCount = 0;
@@ -612,7 +628,7 @@ export function pickH41Table(
       }
     }
 
-    matchDetails.push({ index: i, score: matchCount, matches: matchedLabels });
+    matchDetails.push({ index: i, score: matchCount, matches: matchedLabels, rowCount });
 
     // 2개 이상 매칭되면 후보
     if (matchCount >= 2 && matchCount > bestScore) {
@@ -625,11 +641,12 @@ export function pickH41Table(
     const topMatches = matchDetails
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
-      .map(m => `Table ${m.index}: score=${m.score}, matches=[${m.matches.join(', ')}]`)
+      .map(m => `Table ${m.index}: score=${m.score}, rows=${m.rowCount}, matches=[${m.matches.join(', ')}]`)
       .join('; ');
-    warnings.push(`[pickH41Table] No table found with 2+ matches. Top matches: ${topMatches}`);
+    warnings.push(`[pickH41Table] No table found with 2+ matches and 5+ rows. Top matches: ${topMatches}`);
   } else if (warnings && bestMatch) {
-    warnings.push(`[pickH41Table] Selected table with score ${bestScore}`);
+    const rowCount = bestMatch.find('tr').length;
+    warnings.push(`[pickH41Table] Selected table with score ${bestScore}, rows: ${rowCount}`);
   }
 
   return bestMatch;
