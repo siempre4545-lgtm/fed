@@ -35,6 +35,7 @@ export function parseNumber(text: string | null | undefined): number | null {
 
 /**
  * 라벨 정규화 (매칭을 위한 전처리)
+ * 각주 번호 및 불필요한 문자 제거 강화
  */
 export function normalizeLabel(label: string): string {
   return label
@@ -43,7 +44,9 @@ export function normalizeLabel(label: string): string {
     .replace(/\./g, ' ') // 마침표 제거
     .replace(/&/g, 'and') // &를 and로 변환
     .replace(/,/g, ' ') // 쉼표 제거
+    .replace(/\s+\d+$/g, '') // 끝에 붙은 각주 번호 제거 (예: "Securities held outright 1" -> "Securities held outright")
     .replace(/\d+$/g, '') // 끝에 붙은 각주 번호 제거 (예: "Securities held outright1" -> "Securities held outright")
+    .replace(/\s*\(\d+\)\s*/g, ' ') // 괄호 안의 숫자 제거 (예: "Item (1)" -> "Item")
     .replace(/\s+/g, ' ') // 연속 공백을 하나로
     .toLowerCase()
     .trim();
@@ -419,8 +422,13 @@ export function findColumnIndex(
         // 완전 일치 또는 부분 일치 확인
         // "Week ended"는 정확히 매칭되어야 함 (다른 텍스트와 혼동 방지)
         if (keywordLower.includes('week ended')) {
-          // "Week ended"로 시작하는지 확인
-          if (normalized.startsWith('week ended') || cellText.toLowerCase().startsWith('week ended')) {
+          // "Week ended"로 시작하는지 확인 (대소문자 무시)
+          const cellLower = cellText.toLowerCase();
+          if (cellLower.startsWith('week ended') || normalized.startsWith('week ended')) {
+            return currentCol;
+          }
+          // "Week ended"가 포함되어 있고 날짜 패턴도 있으면 매칭
+          if (cellLower.includes('week ended') && datePattern.test(cellText)) {
             return currentCol;
           }
         } else if (normalized === normalizedKeyword || normalized.includes(normalizedKeyword)) {
@@ -434,6 +442,16 @@ export function findColumnIndex(
               keywordLower.includes('level') || keywordLower.includes('averages')) {
             return currentCol;
           }
+        }
+        
+        // "Change from week ended" 같은 패턴도 확인
+        if (keywordLower.includes('change from week ended') && cellText.toLowerCase().includes('change from week ended')) {
+          return currentCol;
+        }
+        
+        // "Change from year ago" 패턴 확인
+        if (keywordLower.includes('change from year ago') && cellText.toLowerCase().includes('change from year ago')) {
+          return currentCol;
         }
 
         currentCol += colspan;
@@ -543,4 +561,208 @@ export function formatDateFromURL(dateStr: string): string {
     throw new Error(`Invalid date format: ${dateStr}. Expected YYYYMMDD.`);
   }
   return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+}
+
+/**
+ * H.4.1 Table 1을 정확히 선택하는 함수
+ * scope 안의 모든 table을 순회하며 mustHaveLabels 중 2개 이상이 포함되는 table을 선택
+ */
+export function pickH41Table(
+  $: cheerio.CheerioAPI,
+  scope: cheerio.Cheerio<any>,
+  mustHaveLabels: string[]
+): cheerio.Cheerio<any> | null {
+  if (scope.length === 0) {
+    return null;
+  }
+
+  const allTables = scope.find('table');
+  if (allTables.length === 0) {
+    // scope 자체가 table인 경우
+    if (scope.prop('tagName')?.toLowerCase() === 'table') {
+      return scope;
+    }
+    return null;
+  }
+
+  let bestMatch: cheerio.Cheerio<any> | null = null;
+  let bestScore = 0;
+
+  for (let i = 0; i < allTables.length; i++) {
+    const table = allTables.eq(i);
+    const tableText = table.text().toLowerCase();
+    
+    // mustHaveLabels 중 몇 개가 포함되는지 계산
+    let matchCount = 0;
+    for (const label of mustHaveLabels) {
+      const normalizedLabel = normalizeLabel(label);
+      if (tableText.includes(normalizedLabel)) {
+        matchCount++;
+      }
+    }
+
+    // 2개 이상 매칭되면 후보
+    if (matchCount >= 2 && matchCount > bestScore) {
+      bestMatch = table;
+      bestScore = matchCount;
+    }
+  }
+
+  return bestMatch;
+}
+
+/**
+ * Table 1 전용 컬럼 인덱스 계산 함수
+ * 멀티행 헤더/colspan/rowspan을 지원하여 정확한 컬럼 인덱스를 찾음
+ */
+export function getTable1ColumnIndices(
+  $: cheerio.CheerioAPI,
+  table: cheerio.Cheerio<any>
+): { valueCol: number; weeklyCol: number; yearlyCol: number; avgCol?: number } {
+  const result = { valueCol: -1, weeklyCol: -1, yearlyCol: -1, avgCol: -1 };
+  
+  if (table.length === 0) {
+    return result;
+  }
+
+  // 헤더 행 검색 (최대 5개 행)
+  const headerRows = table.find('tr').slice(0, 5);
+  if (headerRows.length === 0) {
+    return result;
+  }
+
+  // 날짜 패턴 정규식
+  const datePattern = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\b/i;
+  const weekdayPattern = /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)day\b/i;
+
+  // 최대 컬럼 수 계산 (colspan 고려)
+  const maxCols = Math.max(...Array.from(headerRows).map((row) => {
+    const cells = $(row).find('td, th');
+    let colCount = 0;
+    cells.each((_, cell) => {
+      const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+      colCount += colspan;
+    });
+    return colCount;
+  }));
+
+  // 각 컬럼별로 헤더 텍스트 수집 (멀티행 헤더 처리)
+  const columnHeaders: string[][] = [];
+  for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+    columnHeaders[colIdx] = [];
+  }
+
+  // 각 헤더 행을 순회하며 컬럼별 텍스트 수집
+  for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+    const row = headerRows[rowIdx];
+    const cells = $(row).find('td, th');
+    let currentCol = 0;
+
+    cells.each((_, cell) => {
+      const cellText = $(cell).text().trim();
+      const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+      const rowspan = parseInt($(cell).attr('rowspan') || '1', 10);
+
+      // colspan만큼 컬럼에 텍스트 추가
+      for (let i = 0; i < colspan && currentCol + i < maxCols; i++) {
+        if (cellText) {
+          columnHeaders[currentCol + i].push(cellText);
+        }
+      }
+      currentCol += colspan;
+    });
+  }
+
+  // 컬럼별로 최종 헤더 텍스트 생성
+  const colHeaderTexts: string[] = [];
+  for (let colIdx = 0; colIdx < columnHeaders.length; colIdx++) {
+    const combined = columnHeaders[colIdx].join(' ').trim();
+    colHeaderTexts[colIdx] = combined;
+  }
+
+  // A) valueCol 찾기: 'Week ended'를 포함하는 컬럼 우선 선택
+  for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+    const text = colHeaderTexts[colIdx].toLowerCase();
+    if (text.includes('week ended')) {
+      result.valueCol = colIdx;
+      break;
+    }
+  }
+
+  // valueCol을 찾지 못한 경우, 'Week ended' 다음에 오는 첫 숫자 컬럼 선택 (최후 폴백)
+  if (result.valueCol < 0) {
+    // 첫 번째 데이터 행에서 숫자가 있는 첫 번째 컬럼 찾기
+    const dataRows = table.find('tr').slice(headerRows.length);
+    for (let rowIdx = 0; rowIdx < Math.min(3, dataRows.length); rowIdx++) {
+      const row = $(dataRows[rowIdx]);
+      const cells = row.find('td, th');
+      for (let cellIdx = 0; cellIdx < cells.length; cellIdx++) {
+        const cellText = $(cells[cellIdx]).text().trim();
+        if (parseNumber(cellText) !== null) {
+          result.valueCol = cellIdx;
+          break;
+        }
+      }
+      if (result.valueCol >= 0) break;
+    }
+  }
+
+  // B) weeklyCol/yearlyCol 찾기
+  // 우선 'Change from previous week' / 'Change from year ago' 문구가 있으면 선택
+  for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+    const text = colHeaderTexts[colIdx].toLowerCase();
+    
+    if (result.weeklyCol < 0 && (
+      text.includes('change from previous week') ||
+      text.includes('change from week ended')
+    )) {
+      result.weeklyCol = colIdx;
+    }
+    
+    if (result.yearlyCol < 0 && text.includes('change from year ago')) {
+      result.yearlyCol = colIdx;
+    }
+  }
+
+  // weeklyCol/yearlyCol을 찾지 못한 경우, 'Change from week ended' 그룹 아래 날짜 2개 컬럼 찾기
+  if (result.weeklyCol < 0 || result.yearlyCol < 0) {
+    const changeFromWeekEndedCols: number[] = [];
+    
+    // 'Change from week ended'가 포함된 컬럼들 찾기
+    for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+      const text = colHeaderTexts[colIdx].toLowerCase();
+      if (text.includes('change from week ended')) {
+        changeFromWeekEndedCols.push(colIdx);
+      }
+    }
+
+    // 날짜 패턴이 있는 컬럼 찾기
+    const dateCols: Array<{ colIdx: number; dateText: string }> = [];
+    for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+      const text = colHeaderTexts[colIdx];
+      const dateMatch = text.match(datePattern);
+      if (dateMatch) {
+        dateCols.push({ colIdx, dateText: dateMatch[0] });
+      }
+    }
+
+    // 첫 번째 날짜 컬럼 → weeklyCol, 두 번째 날짜 컬럼 → yearlyCol
+    if (dateCols.length >= 1 && result.weeklyCol < 0) {
+      result.weeklyCol = dateCols[0].colIdx;
+    }
+    if (dateCols.length >= 2 && result.yearlyCol < 0) {
+      result.yearlyCol = dateCols[1].colIdx;
+    }
+  }
+
+  // C) avgCol 찾기 (선택사항): 'Averages of daily figures' 컬럼
+  for (let colIdx = 0; colIdx < colHeaderTexts.length; colIdx++) {
+    const text = colHeaderTexts[colIdx].toLowerCase();
+    if (text.includes('averages of daily figures')) {
+      result.avgCol = colIdx;
+      break;
+    }
+  }
+
+  return result;
 }
