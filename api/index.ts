@@ -1072,6 +1072,12 @@ app.get("/", async (req, res) => {
           <div class="traffic-light-score">선행지표</div>
         </a>
       </div>
+      <div class="traffic-light-container">
+        <a href="/fed_report_sh" class="traffic-light-link" title="FED H.4.1 상세 대시보드">
+          <div class="traffic-light-circle" style="background:linear-gradient(135deg,#4dabf7 0%,#339af0 100%)"></div>
+          <div class="traffic-light-label">fed_dashboard</div>
+        </a>
+      </div>
     </div>
   </div>
   
