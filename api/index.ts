@@ -10,7 +10,8 @@ import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
 const app = express();
 
 // 정적 파일 서빙 (public 폴더)
-app.use(express.static('public'));
+// Vercel에서는 public 폴더가 자동으로 서빙되므로 필요시에만 사용
+// app.use(express.static('public'));
 
 // API: Summary (숫자만, 경량화)
 app.get("/api/h41/summary", async (req, res) => {
