@@ -186,7 +186,7 @@ function getTableByTitle($: cheerio.CheerioAPI, cache: Map<string, any>, title: 
   return found;
 }
 
-function getTableContextText($: cheerio.CheerioAPI, table: cheerio.Element): string | null {
+function getTableContextText($: cheerio.CheerioAPI, table: any): string | null {
   const parts: string[] = [];
   const caption = normalizeText($(table).find("caption").first().text());
   if (caption) parts.push(caption);
@@ -215,7 +215,7 @@ function getTableContextText($: cheerio.CheerioAPI, table: cheerio.Element): str
   return combined || null;
 }
 
-function getRowValuesForTable($: cheerio.CheerioAPI, table: cheerio.Element, rowLabel: string, selectedDate: string) {
+function getRowValuesForTable($: cheerio.CheerioAPI, table: any, rowLabel: string, selectedDate: string) {
   const { rowText, matchedRow } = findBestRowMatch($, table, rowLabel);
 
   if (!matchedRow) {
@@ -263,8 +263,8 @@ function getRowValuesForTable($: cheerio.CheerioAPI, table: cheerio.Element, row
   };
 }
 
-function buildColumnDefinitions($: cheerio.CheerioAPI, table: cheerio.Element) {
-  const headerRows: cheerio.Element[] = [];
+function buildColumnDefinitions($: cheerio.CheerioAPI, table: any) {
+  const headerRows: any[] = [];
   const theadRows = $(table).find("thead tr");
   if (theadRows.length) {
     theadRows.each((_, row) => headerRows.push(row));
@@ -336,7 +336,7 @@ function buildColumnDefinitions($: cheerio.CheerioAPI, table: cheerio.Element) {
   }));
 }
 
-function extractRowValues($: cheerio.CheerioAPI, row: cheerio.Element, columnCount: number) {
+function extractRowValues($: cheerio.CheerioAPI, row: any, columnCount: number) {
   const values: (string | null)[] = new Array(columnCount).fill(null);
   let colIndex = 0;
 
@@ -521,7 +521,7 @@ function calculateOverview(values: any) {
   };
 }
 
-function calculateAssetRatios($: cheerio.CheerioAPI, table: cheerio.Element | null, selectedDate: string, logs: any[]) {
+function calculateAssetRatios($: cheerio.CheerioAPI, table: any | null, selectedDate: string, logs: any[]) {
   const emptyResult = {
     totals: {
       totalAssets: null,
@@ -615,7 +615,7 @@ function findWednesdayColumn(columns: any[], selectedDateText: string) {
   return buildColumnMeta(match);
 }
 
-function getRowValueForColumn($: cheerio.CheerioAPI, table: cheerio.Element, rowLabel: string, columnCount: number, columnIndex: number | null) {
+function getRowValueForColumn($: cheerio.CheerioAPI, table: any, rowLabel: string, columnCount: number, columnIndex: number | null) {
   if (columnIndex === null || columnIndex === undefined) {
     return { rowText: null, value: null };
   }
@@ -1053,7 +1053,7 @@ function findColumnIndex(columns: any[], keywords: string | string[]) {
   return null;
 }
 
-function getMaturityRow($: cheerio.CheerioAPI, table: cheerio.Element, sectionLabel: string, columnIndexes: any) {
+function getMaturityRow($: cheerio.CheerioAPI, table: any, sectionLabel: string, columnIndexes: any) {
   const { rowText, matchedRow } = findHoldingsRowForSection(
     $,
     table,
@@ -1083,10 +1083,10 @@ function getMaturityRow($: cheerio.CheerioAPI, table: cheerio.Element, sectionLa
   };
 }
 
-function findHoldingsRowForSection($: cheerio.CheerioAPI, table: cheerio.Element, sectionLabel: string) {
+function findHoldingsRowForSection($: cheerio.CheerioAPI, table: any, sectionLabel: string) {
   const targetSection = normalizeForMatch(sectionLabel);
   let currentSection: string | null = null;
-  let matchedRow: cheerio.Element | null = null;
+  let matchedRow: any | null = null;
   let rowText: string | null = null;
 
   $(table)
@@ -1158,7 +1158,7 @@ function buildFactorEntryByTitle(
 
 function buildFactorEntry(
   $: cheerio.CheerioAPI,
-  table: cheerio.Element,
+  table: any,
   label: string,
   selectedDate: string,
   logKey: string,
@@ -1191,7 +1191,7 @@ function getTableByTitleAndRow($: cheerio.CheerioAPI, cache: Map<string, any>, t
   }
 
   const target = normalizeForMatch(title);
-  let found: cheerio.Element | null = null;
+  let found: any | null = null;
   $("table").each((_, table) => {
     const context = getTableContextText($, table);
     if (!context) return;
@@ -1213,12 +1213,12 @@ function getTableByTitleAndRow($: cheerio.CheerioAPI, cache: Map<string, any>, t
   return found;
 }
 
-function tableHasRow($: cheerio.CheerioAPI, table: cheerio.Element, rowLabel: string) {
+function tableHasRow($: cheerio.CheerioAPI, table: any, rowLabel: string) {
   const { matchedRow } = findBestRowMatch($, table, rowLabel);
   return Boolean(matchedRow);
 }
 
-function getRowValuesForStatement($: cheerio.CheerioAPI, table: cheerio.Element, rowLabel: string, selectedDate: string) {
+function getRowValuesForStatement($: cheerio.CheerioAPI, table: any, rowLabel: string, selectedDate: string) {
   const { rowText, matchedRow } = findBestRowMatch($, table, rowLabel);
 
   if (!matchedRow) {
@@ -1273,9 +1273,9 @@ function toLabelList(label: string | string[]) {
   return Array.isArray(label) ? label : [label];
 }
 
-function findBestRowMatch($: cheerio.CheerioAPI, table: cheerio.Element, rowLabel: string | string[]) {
+function findBestRowMatch($: cheerio.CheerioAPI, table: any, rowLabel: string | string[]) {
   const labels = toLabelList(rowLabel).map(normalizeForMatch);
-  let bestRow: cheerio.Element | null = null;
+  let bestRow: any | null = null;
   let bestText: string | null = null;
   let bestScore = 0;
 
@@ -1319,7 +1319,7 @@ function parseFedDateFromText(text: string): Date | null {
   const month = match[1].toLowerCase();
   const day = Number(match[2]);
   const year = Number(match[3]);
-  const monthIndex: { [key: string]: number } = {
+  const monthIndexMap: { [key: string]: number } = {
     jan: 0,
     feb: 1,
     mar: 2,
@@ -1333,7 +1333,8 @@ function parseFedDateFromText(text: string): Date | null {
     oct: 9,
     nov: 10,
     dec: 11,
-  }[month];
+  };
+  const monthIndex = monthIndexMap[month];
 
   if (Number.isNaN(day) || Number.isNaN(year) || monthIndex === undefined) {
     return null;
