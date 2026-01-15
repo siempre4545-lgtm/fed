@@ -1,4 +1,6 @@
 import express from "express";
+import * as cheerio from "cheerio";
+import { parseH41Html } from "../lib/h41-parser-fed-report.js";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
@@ -42,6 +44,48 @@ app.get("/api/h41/summary", async (req, res) => {
     // H.4.1은 주간 업데이트이므로 10분 캐시
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
     res.json(summary);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? String(e) });
+  }
+});
+
+// API: H.4.1 파싱 (fed_report_sh 통합)
+app.get("/api/h41", async (req, res) => {
+  try {
+    const date = String(req.query.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "invalid_date" });
+    }
+
+    const compactDate = date.replace(/-/g, "");
+    const url = `https://www.federalreserve.gov/releases/h41/${compactDate}/`;
+    console.log(`[H41] 선택 날짜=${date}`);
+    console.log(`[H41] 요청 URL=${url}`);
+
+    let html = "";
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "FED Dashboard Parser",
+        },
+      });
+      if (!response.ok) {
+        return res.status(404).json({ error: "not_found", date, url });
+      }
+      html = await response.text();
+    } catch (error) {
+      console.error("[H41] 요청 실패", error);
+      return res.status(502).json({ error: "fetch_failed", date, url });
+    }
+
+    try {
+      const result = parseH41Html(html, date);
+      res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+      return res.json({ date, url, ...result });
+    } catch (error) {
+      console.error("[H41] 파싱 실패", error);
+      return res.status(500).json({ error: "parse_failed", date, url });
+    }
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
   }
@@ -3490,9 +3534,18 @@ async function generateEconomicCoachAnalysis(data: {
   return analysis;
 }
 
-// fed_report_sh 라우트 (메인 페이지로 리다이렉트)
+// fed_report_sh 라우트 (통합된 HTML 서빙)
 app.get("/fed_report_sh", async (req, res) => {
-  res.redirect("/");
+  res.setHeader("content-type", "text/html; charset=utf-8");
+  const fs = await import("fs/promises");
+  const path = await import("path");
+  try {
+    const htmlPath = path.join(process.cwd(), "public", "fed_report_sh", "index.html");
+    const html = await fs.readFile(htmlPath, "utf-8");
+    res.send(html);
+  } catch (error: any) {
+    res.status(500).send(`<html><body><h1>Error loading fed_report_sh</h1><p>${error?.message || String(error)}</p></body></html>`);
+  }
 });
 
 // 경제 지표 세부 페이지

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FED Dashboard</title>
+    <link rel="stylesheet" href="/fed_report_sh/styles.css" />
+  </head>
+  <body data-theme="dark" data-font="medium">
+    <header class="top-bar">
+      <div class="date-picker">
+        <label for="dateInput">날짜 선택</label>
+        <input id="dateInput" type="date" />
+      </div>
+      <div class="settings">
+        <button id="settingsButton" class="icon-button" aria-label="설정">
+          ⚙
+        </button>
+        <div id="settingsPanel" class="settings-panel hidden">
+          <div class="setting-group">
+            <div class="setting-title">테마</div>
+            <div class="setting-options">
+              <button data-theme="light">라이트</button>
+              <button data-theme="dark">다크</button>
+            </div>
+          </div>
+          <div class="setting-group">
+            <div class="setting-title">글자 크기</div>
+            <div class="setting-options">
+              <button data-font="small">작게</button>
+              <button data-font="medium">보통</button>
+              <button data-font="large">크게</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="status">
+        <div id="statusMessage">날짜를 선택하세요.</div>
+      </section>
+
+      <section class="tabs">
+        <button class="tab-button active" data-tab="overview">개요</button>
+        <button class="tab-button" data-tab="factors">공급/흡수 요인</button>
+        <button class="tab-button" data-tab="summary">요인 요약</button>
+        <button class="tab-button" data-tab="maturity">만기 분포</button>
+        <button class="tab-button" data-tab="loans">대출/증권</button>
+        <button class="tab-button" data-tab="financials">재무제표</button>
+      </section>
+
+      <section class="overview tab-panel active" data-panel="overview">
+        <h2>개요 (Overview)</h2>
+        <div id="overviewContainer" class="card-grid"></div>
+        <h2>자산 구성 비율</h2>
+        <div id="assetContainer" class="card-grid"></div>
+      </section>
+
+      <section class="factors tab-panel" data-panel="factors">
+        <div class="factor-tables">
+          <div class="panel-block supplying">
+            <h2>공급 요인 (Supplying)</h2>
+            <div id="supplyingContainer" class="table-card"></div>
+          </div>
+          <div class="panel-block absorbing">
+            <h2>흡수 요인 (Absorbing)</h2>
+            <div id="absorbingContainer" class="table-card"></div>
+          </div>
+        </div>
+        <div class="panel-block totals">
+          <h2>합계</h2>
+          <div id="totalsContainer" class="card-grid totals-grid"></div>
+        </div>
+      </section>
+
+      <section class="summary tab-panel" data-panel="summary">
+        <h2>요인 요약</h2>
+        <div class="summary-grid">
+          <div class="panel-block supplying">
+            <h3>주요 공급 요인</h3>
+            <div id="summarySupplyingContainer" class="card-grid"></div>
+          </div>
+          <div class="panel-block absorbing">
+            <h3>주요 흡수 요인</h3>
+            <div id="summaryAbsorbingContainer" class="card-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="maturity tab-panel" data-panel="maturity">
+        <h2>만기 분포</h2>
+        <div id="maturityTableContainer" class="card"></div>
+        <div id="maturityChartsContainer" class="chart-grid"></div>
+      </section>
+
+      <section class="loans tab-panel" data-panel="loans">
+        <h2>대출 및 증권 대출</h2>
+        <div class="summary-grid">
+          <div class="panel-block supplying">
+            <h3>대출 (Loans)</h3>
+            <div id="loansTableContainer" class="card"></div>
+          </div>
+          <div class="panel-block absorbing">
+            <h3>증권 대출 (Securities Lending)</h3>
+            <div id="securitiesTableContainer" class="card"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="financials tab-panel" data-panel="financials">
+        <h2>재무제표</h2>
+        <div class="summary-grid">
+          <div class="panel-block supplying">
+            <h3>자산 (Assets)</h3>
+            <div id="assetsTableContainer" class="card"></div>
+          </div>
+          <div class="panel-block absorbing">
+            <h3>부채 (Liabilities)</h3>
+            <div id="liabilitiesTableContainer" class="card"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/fed_report_sh/app.js"></script>
+  </body>
+</html>

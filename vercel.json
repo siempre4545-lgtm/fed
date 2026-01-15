@@ -50,6 +50,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/fed_report_sh",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api/index"
     }
