@@ -3490,6 +3490,11 @@ async function generateEconomicCoachAnalysis(data: {
   return analysis;
 }
 
+// fed_report_sh 라우트 (메인 페이지로 리다이렉트)
+app.get("/fed_report_sh", async (req, res) => {
+  res.redirect("/");
+});
+
 // 경제 지표 세부 페이지
 app.get("/economic-indicators/:id", async (req, res) => {
   try {
