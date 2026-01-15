@@ -1,6 +1,4 @@
 {
-  "buildCommand": "npm run build:nextjs",
-  "framework": "nextjs",
   "rewrites": [
     {
       "source": "/api/h41/summary",

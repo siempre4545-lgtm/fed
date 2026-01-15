@@ -653,8 +653,375 @@ export function pickH41Table(
 }
 
 /**
+ * Leaf 컬럼 타입 정의
+ */
+export type LeafCol = {
+  colIndex: number;
+  headerPath: string;
+  headerTokens: string[];
+  isLabelColumn?: boolean; // 첫 번째 라벨 컬럼 여부
+};
+
+/**
+ * 테이블 헤더를 2D 그리드로 펼치고 leaf 컬럼 목록 생성
+ * colspan/rowspan을 반영하여 각 실제 데이터 컬럼의 headerPath를 생성
+ */
+export function getLeafColumns(
+  $: cheerio.CheerioAPI,
+  table: cheerio.Cheerio<any>
+): LeafCol[] {
+  if (table.length === 0) {
+    return [];
+  }
+
+  // 헤더 행 찾기: thead가 있으면 thead의 tr, 없으면 상단 연속 th 행
+  let headerRows: cheerio.Cheerio<any>;
+  const thead = table.find('thead');
+  
+  if (thead.length > 0) {
+    headerRows = thead.find('tr');
+  } else {
+    // 상단 연속 th 행 찾기 (최대 5행, th 비율이 높은 행들)
+    const allRows = table.find('tr');
+    const candidateRows: Array<{ row: cheerio.Cheerio<any>; thRatio: number }> = [];
+    
+    for (let i = 0; i < Math.min(5, allRows.length); i++) {
+      const row = $(allRows[i]);
+      const cells = row.find('td, th');
+      if (cells.length === 0) continue;
+      
+      const thCount = row.find('th').length;
+      const thRatio = thCount / cells.length;
+      
+      if (thRatio >= 0.5 || thCount > 0) {
+        candidateRows.push({ row, thRatio });
+      }
+    }
+    
+    // th 비율이 높은 순으로 정렬
+    candidateRows.sort((a, b) => b.thRatio - a.thRatio);
+    headerRows = $(candidateRows.map(cr => cr.row[0]).filter(Boolean));
+  }
+
+  if (headerRows.length === 0) {
+    return [];
+  }
+
+  // 최대 컬럼 수 계산 (colspan 고려)
+  let maxCols = 0;
+  headerRows.each((_, row) => {
+    const cells = $(row).find('td, th');
+    let colCount = 0;
+    cells.each((_, cell) => {
+      const colspan = parseInt($(cell).attr('colspan') || '1', 10);
+      colCount += colspan;
+    });
+    maxCols = Math.max(maxCols, colCount);
+  });
+
+  if (maxCols === 0) {
+    return [];
+  }
+
+  // 2D 그리드 생성: [row][col] = { text: string, rowspan: number, colspan: number }
+  type GridCell = {
+    text: string;
+    rowspan: number;
+    colspan: number;
+    row: number;
+    col: number;
+  };
+  
+  const grid: (GridCell | null)[][] = [];
+  for (let r = 0; r < headerRows.length; r++) {
+    grid[r] = new Array(maxCols).fill(null);
+  }
+
+  // 헤더 행을 순회하며 그리드 채우기
+  headerRows.each((rowIdx, rowEl) => {
+    const cells = $(rowEl).find('td, th');
+    let currentCol = 0;
+
+    cells.each((_, cellEl) => {
+      const cell = $(cellEl);
+      const cellText = cell.text().trim();
+      const colspan = parseInt(cell.attr('colspan') || '1', 10);
+      const rowspan = parseInt(cell.attr('rowspan') || '1', 10);
+
+      // 현재 위치가 비어있는지 확인 (rowspan으로 인해 이미 채워진 경우 스킵)
+      while (currentCol < maxCols && grid[rowIdx][currentCol] !== null) {
+        currentCol++;
+      }
+
+      if (currentCol >= maxCols) return;
+
+      // colspan/rowspan 범위에 해당하는 모든 셀에 정보 저장
+      for (let r = 0; r < rowspan && rowIdx + r < grid.length; r++) {
+        for (let c = 0; c < colspan && currentCol + c < maxCols; c++) {
+          if (grid[rowIdx + r][currentCol + c] === null) {
+            grid[rowIdx + r][currentCol + c] = {
+              text: cellText,
+              rowspan,
+              colspan,
+              row: rowIdx,
+              col: currentCol,
+            };
+          }
+        }
+      }
+
+      currentCol += colspan;
+    });
+  });
+
+  // 각 컬럼의 headerPath 생성 (위에서 아래로)
+  const leafCols: LeafCol[] = [];
+  
+  for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+    const headerTokens: string[] = [];
+    const seenTexts = new Set<string>();
+    
+    // 위에서 아래로 순회하며 중복되지 않은 텍스트 수집
+    for (let rowIdx = 0; rowIdx < grid.length; rowIdx++) {
+      const cell = grid[rowIdx][colIdx];
+      if (cell && cell.text) {
+        const normalized = cell.text.trim();
+        if (normalized && !seenTexts.has(normalized)) {
+          headerTokens.push(normalized);
+          seenTexts.add(normalized);
+        }
+      }
+    }
+
+    // headerPath 생성: "A > B > C" 형식
+    const headerPath = headerTokens.join(' > ');
+
+    // 첫 번째 컬럼은 라벨 컬럼일 가능성이 높음 (숫자가 아닌 텍스트만 있는 경우)
+    const isLabelColumn = colIdx === 0;
+
+    leafCols.push({
+      colIndex: colIdx,
+      headerPath,
+      headerTokens,
+      isLabelColumn,
+    });
+  }
+
+  return leafCols;
+}
+
+/**
+ * Table 1 전용 컬럼 해석 함수
+ * headerPath 기반으로 value/weekly/yearly 컬럼을 찾고,
+ * change 컬럼이 없으면 level 컬럼으로부터 계산
+ */
+export function resolveTable1Columns(
+  $: cheerio.CheerioAPI,
+  table: cheerio.Cheerio<any>,
+  weekEndedISO: string
+): {
+  labelCol: number;
+  valueCol: number;
+  weeklyCol?: number;
+  yearlyCol?: number;
+  levelPrevWeekCol?: number;
+  levelYearAgoCol?: number;
+  mode: 'directChange' | 'computeFromLevels';
+} {
+  const result = {
+    labelCol: 0,
+    valueCol: -1,
+    weeklyCol: undefined as number | undefined,
+    yearlyCol: undefined as number | undefined,
+    levelPrevWeekCol: undefined as number | undefined,
+    levelYearAgoCol: undefined as number | undefined,
+    mode: 'directChange' as 'directChange' | 'computeFromLevels',
+  };
+
+  // Leaf 컬럼 목록 가져오기
+  const leafCols = getLeafColumns($, table);
+  if (leafCols.length === 0) {
+    return result;
+  }
+
+  // labelCol 찾기: 첫 번째 컬럼이 라벨 컬럼일 가능성이 높음
+  result.labelCol = 0;
+
+  // valueCol 찾기: "Week ended" 포함 AND "Change" 미포함
+  for (const leaf of leafCols) {
+    if (leaf.isLabelColumn) continue;
+    
+    const pathLower = leaf.headerPath.toLowerCase();
+    if (pathLower.includes('week ended') && !pathLower.includes('change')) {
+      // numeric 검증: "Total factors supplying reserve funds" 행의 해당 컬럼 값이 숫자로 파싱 가능해야 함
+      const testRow = findRowByLabel($, table, [
+        'Total factors supplying reserve funds',
+        'Total factors supplying',
+        'Total supplying',
+      ]);
+      
+      if (testRow && testRow.length > 0) {
+        const cells = testRow.find('td, th');
+        if (cells.length > leaf.colIndex) {
+          const valueText = $(cells[leaf.colIndex]).text().trim();
+          const parsed = parseNumber(valueText);
+          if (parsed !== null) {
+            result.valueCol = leaf.colIndex;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // valueCol을 찾지 못한 경우, 첫 번째 숫자 컬럼 사용 (라벨 컬럼 제외)
+  if (result.valueCol < 0) {
+    const testRow = findRowByLabel($, table, [
+      'Total factors supplying reserve funds',
+      'Total factors supplying',
+    ]);
+    
+    if (testRow && testRow.length > 0) {
+      const cells = testRow.find('td, th');
+      for (let i = 1; i < cells.length && i < leafCols.length; i++) {
+        const valueText = $(cells[i]).text().trim();
+        const parsed = parseNumber(valueText);
+        if (parsed !== null) {
+          result.valueCol = i;
+          break;
+        }
+      }
+    }
+  }
+
+  if (result.valueCol < 0) {
+    return result;
+  }
+
+  // weeklyCol 찾기: "Change from week ended" 또는 "Change from previous week" 포함
+  for (const leaf of leafCols) {
+    if (leaf.colIndex === result.valueCol || leaf.isLabelColumn) continue;
+    
+    const pathLower = leaf.headerPath.toLowerCase();
+    if (
+      pathLower.includes('change from week ended') ||
+      pathLower.includes('change from previous week')
+    ) {
+      result.weeklyCol = leaf.colIndex;
+      break;
+    }
+  }
+
+  // yearlyCol 찾기: "Change from year ago" 또는 "Change from year ended" 포함
+  for (const leaf of leafCols) {
+    if (leaf.colIndex === result.valueCol || leaf.isLabelColumn) continue;
+    
+    const pathLower = leaf.headerPath.toLowerCase();
+    if (
+      pathLower.includes('change from year ago') ||
+      pathLower.includes('change from year ended')
+    ) {
+      result.yearlyCol = leaf.colIndex;
+      break;
+    }
+  }
+
+  // change 컬럼을 찾지 못한 경우, computeFromLevels 모드로 전환
+  if (result.weeklyCol === undefined || result.yearlyCol === undefined) {
+    result.mode = 'computeFromLevels';
+
+    // valueCol과 같은 블록("Averages of daily figures")에서 날짜 컬럼 찾기
+    const valueLeaf = leafCols.find(l => l.colIndex === result.valueCol);
+    const valueBlock = valueLeaf?.headerTokens.find(t => 
+      t.toLowerCase().includes('averages of daily figures')
+    );
+
+    // weekEndedISO의 직전 주와 전년 동일 주 계산
+    const weekEndedDate = new Date(weekEndedISO + 'T00:00:00'); // 타임존 문제 방지
+    const prevWeekDate = new Date(weekEndedDate);
+    prevWeekDate.setDate(prevWeekDate.getDate() - 7);
+    const yearAgoDate = new Date(weekEndedDate);
+    yearAgoDate.setFullYear(yearAgoDate.getFullYear() - 1);
+
+    const prevWeekISO = prevWeekDate.toISOString().split('T')[0];
+    const yearAgoISO = yearAgoDate.toISOString().split('T')[0];
+
+    // 날짜 패턴으로 컬럼 찾기 (헤더에서 모든 날짜 추출)
+    const dateCols: Array<{ colIndex: number; dateISO: string; headerPath: string }> = [];
+    
+    for (const leaf of leafCols) {
+      if (leaf.colIndex === result.valueCol || leaf.isLabelColumn) continue;
+      
+      // headerPath에서 모든 날짜 추출 (여러 날짜가 있을 수 있음)
+      const dateMatches = leaf.headerPath.matchAll(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\b/gi);
+      
+      for (const dateMatch of dateMatches) {
+        const parsedDate = parseDateToISO(dateMatch[0]);
+        if (parsedDate) {
+          // 같은 블록인지 확인 (valueBlock이 있으면 같은 블록만)
+          const leafBlock = leaf.headerTokens.find(t => 
+            t.toLowerCase().includes('averages of daily figures')
+          );
+          
+          if (!valueBlock || leafBlock === valueBlock) {
+            dateCols.push({
+              colIndex: leaf.colIndex,
+              dateISO: parsedDate,
+              headerPath: leaf.headerPath,
+            });
+          }
+        }
+      }
+    }
+
+    // 날짜 매칭 (±3일 범위 내에서 가장 가까운 날짜 찾기)
+    const findClosestDate = (targetISO: string, candidates: typeof dateCols): number | undefined => {
+      const targetDate = new Date(targetISO + 'T00:00:00').getTime();
+      let closest: { colIndex: number; diff: number } | null = null;
+      
+      for (const candidate of candidates) {
+        const candidateDate = new Date(candidate.dateISO + 'T00:00:00').getTime();
+        const diff = Math.abs(candidateDate - targetDate);
+        const daysDiff = diff / (1000 * 60 * 60 * 24);
+        
+        // ±7일 범위 내에서 가장 가까운 날짜
+        if (daysDiff <= 7) {
+          if (!closest || diff < closest.diff) {
+            closest = { colIndex: candidate.colIndex, diff };
+          }
+        }
+      }
+      
+      return closest?.colIndex;
+    };
+
+    // 정확한 매칭 먼저 시도
+    const exactPrevWeek = dateCols.find(dc => dc.dateISO === prevWeekISO);
+    const exactYearAgo = dateCols.find(dc => dc.dateISO === yearAgoISO);
+    
+    if (exactPrevWeek && result.levelPrevWeekCol === undefined) {
+      result.levelPrevWeekCol = exactPrevWeek.colIndex;
+    }
+    if (exactYearAgo && result.levelYearAgoCol === undefined) {
+      result.levelYearAgoCol = exactYearAgo.colIndex;
+    }
+    
+    // 정확한 매칭이 없으면 가장 가까운 날짜 찾기
+    if (result.levelPrevWeekCol === undefined) {
+      result.levelPrevWeekCol = findClosestDate(prevWeekISO, dateCols);
+    }
+    if (result.levelYearAgoCol === undefined) {
+      result.levelYearAgoCol = findClosestDate(yearAgoISO, dateCols);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Table 1 전용 컬럼 인덱스 계산 함수
  * 멀티행 헤더/colspan/rowspan을 지원하여 정확한 컬럼 인덱스를 찾음
+ * @deprecated Use resolveTable1Columns instead
  */
 export function getTable1ColumnIndices(
   $: cheerio.CheerioAPI,

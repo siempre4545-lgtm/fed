@@ -16,6 +16,7 @@ import {
   findFirstTableNearSection,
   pickH41Table,
   getTable1ColumnIndices,
+  resolveTable1Columns,
 } from './h41-parser-core';
 import { fetchH41HtmlStrict, FetchH41Error } from './h41-fetch';
 
@@ -169,7 +170,8 @@ function parseH41HTMLFromHTML(html: string, date: string, warnings: string[], fe
   
   // Release Date와 Week Ended 파싱
   const releaseDate = parseReleaseDate($);
-  const weekEnded = date; // 선택한 날짜를 기준일로 사용
+  const weekEndedParsed = parseWeekEnded($);
+  const weekEnded = weekEndedParsed || date; // 파싱된 값이 없으면 선택한 날짜를 기준일로 사용
   
   // 로깅: HTML 기본 정보 (간소화)
   const tableCount = $('table').length;
@@ -220,9 +222,9 @@ function parseH41HTMLFromHTML(html: string, date: string, warnings: string[], fe
     }
   }
   
-  // 각 섹션 파싱 (Table 1을 전달)
-  const overview = parseOverviewSection($, warnings, sharedTable1);
-  const factors = parseFactorsSection($, warnings, sharedTable1);
+  // 각 섹션 파싱 (Table 1과 weekEnded를 전달)
+  const overview = parseOverviewSection($, warnings, sharedTable1, weekEnded);
+  const factors = parseFactorsSection($, warnings, sharedTable1, weekEnded);
   const summary = parseSummarySection(factors, warnings);
   const maturity = parseMaturitySection($, warnings);
   const lending = parseLendingSection($, warnings);
@@ -357,7 +359,7 @@ function parseWeekEnded($: cheerio.CheerioAPI): string {
 /**
  * Overview 섹션 파싱
  */
-function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null): OverviewSection {
+function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null, weekEndedISO?: string): OverviewSection {
   let table: cheerio.Cheerio<any> | null = null;
   
   // 공유된 Table 1이 있으면 사용
@@ -415,51 +417,60 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedT
     }
   }
   
-  // 로깅: 선택된 테이블 정보
-  const rowCount = table.find('tr').length;
-  const first3Rows: string[][] = [];
-  table.find('tr').slice(0, 3).each((_, row) => {
-    const cells = $(row).find('td, th');
-    const rowData: string[] = [];
-    cells.slice(0, 5).each((_, cell) => {
-      rowData.push($(cell).text().trim().substring(0, 50));
-    });
-    first3Rows.push(rowData);
-  });
-  warnings.push(`[Overview] Selected table - ${rowCount} rows, first 3 rows sample: ${JSON.stringify(first3Rows)}`);
+  // resolveTable1Columns 사용
+  const weekEndedForResolve = weekEndedISO || parseWeekEnded($) || '';
+  const colResolve = resolveTable1Columns($, table, weekEndedForResolve);
+  const { valueCol, weeklyCol, yearlyCol, levelPrevWeekCol, levelYearAgoCol, mode } = colResolve;
   
-  // getTable1ColumnIndices 사용
-  const colIndices = getTable1ColumnIndices($, table);
-  const { valueCol, weeklyCol, yearlyCol } = colIndices;
-  
-  // 로깅: 컬럼 인덱스 결정 과정
-  if (valueCol >= 0 && weeklyCol >= 0 && yearlyCol >= 0) {
-    warnings.push(`[Overview] Column indices found - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
+  // 로깅: 컬럼 해석 결과
+  if (valueCol >= 0) {
+    if (mode === 'directChange' && weeklyCol !== undefined && yearlyCol !== undefined) {
+      // 컬럼 탐지 성공 - 경고를 push하지 않음 (디버그 로그만)
+      if (process.env.NODE_ENV === 'development') {
+        warnings.push(`[Overview] Column resolution: mode=${mode}, valueCol=${valueCol}, weeklyCol=${weeklyCol}, yearlyCol=${yearlyCol}`);
+      }
+    } else if (mode === 'computeFromLevels' && levelPrevWeekCol !== undefined && levelYearAgoCol !== undefined) {
+      if (process.env.NODE_ENV === 'development') {
+        warnings.push(`[Overview] Column resolution: mode=${mode}, valueCol=${valueCol}, prevWeekCol=${levelPrevWeekCol}, yearAgoCol=${levelYearAgoCol}`);
+      }
+    } else {
+      warnings.push(`[Overview] Column resolution incomplete: mode=${mode}, valueCol=${valueCol}`);
+    }
   } else {
-    // 실패 시 상세 정보 로깅
-    const headerRows = table.find('tr').slice(0, 3);
-    const headerInfo = Array.from(headerRows).map((row, idx) => {
-      const cells = $(row).find('td, th');
-      return Array.from(cells).slice(0, 6).map((cell, cellIdx) => ({
-        row: idx,
-        col: cellIdx,
-        text: $(cell).text().trim().substring(0, 60),
-        colspan: $(cell).attr('colspan') || '1',
-      }));
-    });
-    warnings.push(`[Overview] Column indices FAILED - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
-    warnings.push(`[Overview] Header structure: ${JSON.stringify(headerInfo).substring(0, 400)}`);
-  }
-  
-  // 컬럼 인덱스가 하나라도 -1이면 실패
-  if (valueCol < 0 || weeklyCol < 0 || yearlyCol < 0) {
-    warnings.push(`[Overview] Cannot proceed - missing column indices`);
+    warnings.push(`[Overview] Cannot find valueCol`);
     return createEmptyOverview();
   }
   
   const actualValueCol = valueCol;
-  const actualWeeklyCol = weeklyCol;
-  const actualYearlyCol = yearlyCol;
+  
+  // weekly/yearly 값을 추출하는 헬퍼 함수
+  const extractWeekly = (labelCandidates: string[]): number | null => {
+    if (mode === 'directChange' && weeklyCol !== undefined) {
+      return extractValue(table, $, labelCandidates, weeklyCol, warnings);
+    } else if (mode === 'computeFromLevels' && levelPrevWeekCol !== undefined) {
+      const value = extractValue(table, $, labelCandidates, actualValueCol, warnings);
+      const prevWeek = extractValue(table, $, labelCandidates, levelPrevWeekCol, warnings);
+      if (value !== null && prevWeek !== null) {
+        return value - prevWeek;
+      }
+      return null;
+    }
+    return null;
+  };
+  
+  const extractYearly = (labelCandidates: string[]): number | null => {
+    if (mode === 'directChange' && yearlyCol !== undefined) {
+      return extractValue(table, $, labelCandidates, yearlyCol, warnings);
+    } else if (mode === 'computeFromLevels' && levelYearAgoCol !== undefined) {
+      const value = extractValue(table, $, labelCandidates, actualValueCol, warnings);
+      const yearAgo = extractValue(table, $, labelCandidates, levelYearAgoCol, warnings);
+      if (value !== null && yearAgo !== null) {
+        return value - yearAgo;
+      }
+      return null;
+    }
+    return null;
+  };
   
   // 각 항목 파싱 (라벨 후보 확장)
   const totalAssets = extractValue(table, $, [
@@ -494,58 +505,58 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedT
     'Federal Reserve notes'
   ], actualValueCol, warnings);
   
-  const totalAssetsWeekly = extractValue(table, $, [
+  const totalAssetsWeekly = extractWeekly([
     'Total factors supplying reserve funds',
     'Total factors supplying'
-  ], actualWeeklyCol, warnings);
-  const totalAssetsYearly = extractValue(table, $, [
+  ]);
+  const totalAssetsYearly = extractYearly([
     'Total factors supplying reserve funds',
     'Total factors supplying'
-  ], actualYearlyCol, warnings);
-  const securitiesWeekly = extractValue(table, $, [
+  ]);
+  const securitiesWeekly = extractWeekly([
     'Securities held outright',
     'Securities held'
-  ], actualWeeklyCol, warnings);
-  const securitiesYearly = extractValue(table, $, [
+  ]);
+  const securitiesYearly = extractYearly([
     'Securities held outright',
     'Securities held'
-  ], actualYearlyCol, warnings);
-  const reserveBalancesWeekly = extractValue(table, $, [
+  ]);
+  const reserveBalancesWeekly = extractWeekly([
     'Reserve balances with Federal Reserve Banks',
     'Reserve balances',
     'Reserves'
-  ], actualWeeklyCol, warnings);
-  const reserveBalancesYearly = extractValue(table, $, [
+  ]);
+  const reserveBalancesYearly = extractYearly([
     'Reserve balances with Federal Reserve Banks',
     'Reserve balances',
     'Reserves'
-  ], actualYearlyCol, warnings);
-  const tgaWeekly = extractValue(table, $, [
+  ]);
+  const tgaWeekly = extractWeekly([
     'U.S. Treasury, General Account',
     'Treasury General Account',
     'TGA'
-  ], actualWeeklyCol, warnings);
-  const tgaYearly = extractValue(table, $, [
+  ]);
+  const tgaYearly = extractYearly([
     'U.S. Treasury, General Account',
     'Treasury General Account',
     'TGA'
-  ], actualYearlyCol, warnings);
-  const reverseReposWeekly = extractValue(table, $, [
+  ]);
+  const reverseReposWeekly = extractWeekly([
     'Reverse repurchase agreements',
     'Reverse repos'
-  ], actualWeeklyCol, warnings);
-  const reverseReposYearly = extractValue(table, $, [
+  ]);
+  const reverseReposYearly = extractYearly([
     'Reverse repurchase agreements',
     'Reverse repos'
-  ], actualYearlyCol, warnings);
-  const currencyWeekly = extractValue(table, $, [
+  ]);
+  const currencyWeekly = extractWeekly([
     'Currency in circulation',
     'Currency'
-  ], actualWeeklyCol, warnings);
-  const currencyYearly = extractValue(table, $, [
+  ]);
+  const currencyYearly = extractYearly([
     'Currency in circulation',
     'Currency'
-  ], actualYearlyCol, warnings);
+  ]);
   
   // "5. Consolidated Statement" 섹션에서 자산 구성 파싱
   const statementSection = findSection($, [
@@ -649,7 +660,7 @@ function parseOverviewSection($: cheerio.CheerioAPI, warnings: string[], sharedT
 /**
  * Factors 섹션 파싱
  */
-function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null): FactorsSection {
+function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTable1?: cheerio.Cheerio<any> | null, weekEndedISO?: string): FactorsSection {
   let table: cheerio.Cheerio<any> | null = null;
   
   // 공유된 Table 1이 있으면 사용
@@ -707,30 +718,60 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
     }
   }
   
-  // 로깅: 선택된 테이블 정보
-  const rowCount = table.find('tr').length;
-  warnings.push(`[Factors] Selected table - ${rowCount} rows`);
+  // resolveTable1Columns 사용
+  const weekEndedForResolve = weekEndedISO || parseWeekEnded($) || '';
+  const colResolve = resolveTable1Columns($, table, weekEndedForResolve);
+  const { valueCol, weeklyCol, yearlyCol, levelPrevWeekCol, levelYearAgoCol, mode } = colResolve;
   
-  // getTable1ColumnIndices 사용
-  const colIndices = getTable1ColumnIndices($, table);
-  const { valueCol, weeklyCol, yearlyCol } = colIndices;
-  
-  // 로깅: 컬럼 인덱스 결정 과정
-  if (valueCol >= 0 && weeklyCol >= 0 && yearlyCol >= 0) {
-    warnings.push(`[Factors] Column indices found - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
+  // 로깅: 컬럼 해석 결과
+  if (valueCol >= 0) {
+    if (mode === 'directChange' && weeklyCol !== undefined && yearlyCol !== undefined) {
+      // 컬럼 탐지 성공 - 경고를 push하지 않음 (디버그 로그만)
+      if (process.env.NODE_ENV === 'development') {
+        warnings.push(`[Factors] Column resolution: mode=${mode}, valueCol=${valueCol}, weeklyCol=${weeklyCol}, yearlyCol=${yearlyCol}`);
+      }
+    } else if (mode === 'computeFromLevels' && levelPrevWeekCol !== undefined && levelYearAgoCol !== undefined) {
+      if (process.env.NODE_ENV === 'development') {
+        warnings.push(`[Factors] Column resolution: mode=${mode}, valueCol=${valueCol}, prevWeekCol=${levelPrevWeekCol}, yearAgoCol=${levelYearAgoCol}`);
+      }
+    } else {
+      warnings.push(`[Factors] Column resolution incomplete: mode=${mode}, valueCol=${valueCol}`);
+    }
   } else {
-    warnings.push(`[Factors] Column indices FAILED - valueCol: ${valueCol}, weeklyCol: ${weeklyCol}, yearlyCol: ${yearlyCol}`);
-  }
-  
-  // 컬럼 인덱스가 하나라도 -1이면 실패
-  if (valueCol < 0 || weeklyCol < 0 || yearlyCol < 0) {
-    warnings.push(`[Factors] Cannot proceed - missing column indices`);
+    warnings.push(`[Factors] Cannot find valueCol`);
     return createEmptyFactors();
   }
   
   const actualValueCol = valueCol;
-  const actualWeeklyCol = weeklyCol;
-  const actualYearlyCol = yearlyCol;
+  
+  // weekly/yearly 값을 추출하는 헬퍼 함수
+  const extractWeekly = (labelCandidates: string[]): number | null => {
+    if (mode === 'directChange' && weeklyCol !== undefined) {
+      return extractValue(table, $, labelCandidates, weeklyCol, warnings);
+    } else if (mode === 'computeFromLevels' && levelPrevWeekCol !== undefined) {
+      const value = extractValue(table, $, labelCandidates, actualValueCol, warnings);
+      const prevWeek = extractValue(table, $, labelCandidates, levelPrevWeekCol, warnings);
+      if (value !== null && prevWeek !== null) {
+        return value - prevWeek;
+      }
+      return null;
+    }
+    return null;
+  };
+  
+  const extractYearly = (labelCandidates: string[]): number | null => {
+    if (mode === 'directChange' && yearlyCol !== undefined) {
+      return extractValue(table, $, labelCandidates, yearlyCol, warnings);
+    } else if (mode === 'computeFromLevels' && levelYearAgoCol !== undefined) {
+      const value = extractValue(table, $, labelCandidates, actualValueCol, warnings);
+      const yearAgo = extractValue(table, $, labelCandidates, levelYearAgoCol, warnings);
+      if (value !== null && yearAgo !== null) {
+        return value - yearAgo;
+      }
+      return null;
+    }
+    return null;
+  };
   
   // 공급 요인 13개 (사용자 요구사항에 맞게 정확한 라벨 매핑)
   const supplying: FactorsRow[] = [
@@ -771,8 +812,8 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
   if (swapsRow) {
     // 먼저 Factors 섹션에서 찾기
     swapsRow.value = extractValue(table, $, ['Central bank liquidity swaps'], actualValueCol, warnings);
-    swapsRow.weekly = extractValue(table, $, ['Central bank liquidity swaps'], actualWeeklyCol, warnings);
-    swapsRow.yearly = extractValue(table, $, ['Central bank liquidity swaps'], actualYearlyCol, warnings);
+    swapsRow.weekly = extractWeekly(['Central bank liquidity swaps']);
+    swapsRow.yearly = extractYearly(['Central bank liquidity swaps']);
     
     // Factors 섹션에서 못 찾으면 Statement 섹션에서 찾기
     if (swapsRow.value === null) {
@@ -796,8 +837,8 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
   if (sdrRow) {
     // 먼저 Factors 섹션에서 찾기
     sdrRow.value = extractValue(table, $, ['Special drawing rights certificate account'], actualValueCol, warnings);
-    sdrRow.weekly = extractValue(table, $, ['Special drawing rights certificate account'], actualWeeklyCol, warnings);
-    sdrRow.yearly = extractValue(table, $, ['Special drawing rights certificate account'], actualYearlyCol, warnings);
+    sdrRow.weekly = extractWeekly(['Special drawing rights certificate account']);
+    sdrRow.yearly = extractYearly(['Special drawing rights certificate account']);
     
     // Factors 섹션에서 못 찾으면 Statement 섹션에서 찾기
     if (sdrRow.value === null) {
@@ -820,8 +861,8 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
   for (const row of supplying) {
     const candidates = labelCandidates[row.label] || [row.label];
     row.value = extractValue(table, $, candidates, actualValueCol, warnings);
-    row.weekly = extractValue(table, $, candidates, actualWeeklyCol, warnings);
-    row.yearly = extractValue(table, $, candidates, actualYearlyCol, warnings);
+    row.weekly = extractWeekly(candidates);
+    row.yearly = extractYearly(candidates);
     
     // 중첩된 항목 (Bills, Notes and bonds)은 Treasury securities 하위에서 찾기
     if (row.label === 'Bills' || row.label === 'Notes and bonds, nominal' || row.label === 'Notes and bonds, inflation-indexed') {
@@ -848,9 +889,9 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
                 const matched = matchLabel(cellText, candidates);
                 if (matched) {
                   const cells = currentRow.find('td, th');
-                  row.value = valueCol >= 0 && cells.length > valueCol ? parseNumber($(cells[valueCol]).text()) : null;
-                  row.weekly = weeklyCol >= 0 && cells.length > weeklyCol ? parseNumber($(cells[weeklyCol]).text()) : null;
-                  row.yearly = yearlyCol >= 0 && cells.length > yearlyCol ? parseNumber($(cells[yearlyCol]).text()) : null;
+                  row.value = actualValueCol >= 0 && cells.length > actualValueCol ? parseNumber($(cells[actualValueCol]).text()) : null;
+                  row.weekly = extractWeekly(candidates);
+                  row.yearly = extractYearly(candidates);
                   break;
                 }
               } else {
@@ -895,67 +936,46 @@ function parseFactorsSection($: cheerio.CheerioAPI, warnings: string[], sharedTa
   for (const row of absorbing) {
     const candidates = absorbingLabelCandidates[row.label] || [row.label];
     row.value = extractValue(table, $, candidates, actualValueCol, warnings);
-    row.weekly = extractValue(table, $, candidates, actualWeeklyCol, warnings);
-    row.yearly = extractValue(table, $, candidates, actualYearlyCol, warnings);
+    row.weekly = extractWeekly(candidates);
+    row.yearly = extractYearly(candidates);
   }
   
   // 하단 합계 (원문에서 직접 파싱) - 라벨 후보 확장
+  const totalSupplyingCandidates = [
+    'Total factors supplying reserve funds',
+    'Total factors supplying',
+    'Total supplying',
+    'Total factors'
+  ];
   const totalSupplying = {
-    value: extractValue(table, $, [
-      'Total factors supplying reserve funds',
-      'Total factors supplying',
-      'Total supplying',
-      'Total factors'
-    ], actualValueCol, warnings),
-    weekly: extractValue(table, $, [
-      'Total factors supplying reserve funds',
-      'Total factors supplying',
-      'Total supplying'
-    ], actualWeeklyCol, warnings),
-    yearly: extractValue(table, $, [
-      'Total factors supplying reserve funds',
-      'Total factors supplying',
-      'Total supplying'
-    ], actualYearlyCol, warnings),
+    value: extractValue(table, $, totalSupplyingCandidates, actualValueCol, warnings),
+    weekly: extractWeekly(totalSupplyingCandidates),
+    yearly: extractYearly(totalSupplyingCandidates),
   };
   
+  const totalAbsorbingCandidates = [
+    'Total factors, other than reserve balances, absorbing reserve funds',
+    'Total factors absorbing reserve funds',
+    'Total factors absorbing',
+    'Total absorbing',
+    'Total factors other than reserve balances'
+  ];
   const totalAbsorbing = {
-    value: extractValue(table, $, [
-      'Total factors, other than reserve balances, absorbing reserve funds',
-      'Total factors absorbing reserve funds',
-      'Total factors absorbing',
-      'Total absorbing',
-      'Total factors other than reserve balances'
-    ], actualValueCol, warnings),
-    weekly: extractValue(table, $, [
-      'Total factors, other than reserve balances, absorbing reserve funds',
-      'Total factors absorbing reserve funds',
-      'Total factors absorbing'
-    ], actualWeeklyCol, warnings),
-    yearly: extractValue(table, $, [
-      'Total factors, other than reserve balances, absorbing reserve funds',
-      'Total factors absorbing reserve funds',
-      'Total factors absorbing'
-    ], actualYearlyCol, warnings),
+    value: extractValue(table, $, totalAbsorbingCandidates, actualValueCol, warnings),
+    weekly: extractWeekly(totalAbsorbingCandidates),
+    yearly: extractYearly(totalAbsorbingCandidates),
   };
   
+  const reserveBalancesCandidates = [
+    'Reserve balances with Federal Reserve Banks',
+    'Reserve balances',
+    'Reserves',
+    'Reserve balances at Federal Reserve Banks'
+  ];
   const reserveBalances = {
-    value: extractValue(table, $, [
-      'Reserve balances with Federal Reserve Banks',
-      'Reserve balances',
-      'Reserves',
-      'Reserve balances at Federal Reserve Banks'
-    ], actualValueCol, warnings),
-    weekly: extractValue(table, $, [
-      'Reserve balances with Federal Reserve Banks',
-      'Reserve balances',
-      'Reserves'
-    ], actualWeeklyCol, warnings),
-    yearly: extractValue(table, $, [
-      'Reserve balances with Federal Reserve Banks',
-      'Reserve balances',
-      'Reserves'
-    ], actualYearlyCol, warnings),
+    value: extractValue(table, $, reserveBalancesCandidates, actualValueCol, warnings),
+    weekly: extractWeekly(reserveBalancesCandidates),
+    yearly: extractYearly(reserveBalancesCandidates),
   };
   
   // 검증
@@ -1429,16 +1449,32 @@ function extractValue(
     }
     return null;
   }
-  
+
+  // Table 1 본문은 colspan이 섞여 있을 수 있어 "논리 컬럼 인덱스" -> 실제 셀 매핑이 필요
   const cells = row.find('td, th');
-  if (cells.length <= columnIndex) {
+  const getCellTextAtLogicalCol = (logicalColIndex: number): string | null => {
+    let currentCol = 0;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells.eq(i);
+      const colspan = parseInt(cell.attr('colspan') || '1', 10);
+      const start = currentCol;
+      const endExclusive = currentCol + (Number.isFinite(colspan) && colspan > 0 ? colspan : 1);
+      if (logicalColIndex >= start && logicalColIndex < endExclusive) {
+        return cell.text().trim();
+      }
+      currentCol = endExclusive;
+    }
+    return null;
+  };
+
+  const valueText = getCellTextAtLogicalCol(columnIndex);
+  if (valueText === null) {
     if (process.env.NODE_ENV === 'development') {
-      warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]} (found ${cells.length} cells)`);
+      warnings.push(`Column index ${columnIndex} out of range for row: ${labelCandidates[0]} (cells=${cells.length})`);
     }
     return null;
   }
-  
-  const valueText = $(cells[columnIndex]).text().trim();
+
   const value = parseNumber(valueText);
   
   if (value === null && valueText && process.env.NODE_ENV === 'development') {
