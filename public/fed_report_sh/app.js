@@ -218,7 +218,7 @@ function renderAssets(assetRatios) {
       ${segments
         .map((segment) => {
           const width = segment.ratio !== null ? segment.ratio : 0;
-          return `<span class="ratio-segment" style="width:${width}%"></span>`;
+          return `<span class="ratio-segment ratio-segment-${segment.key}" style="width:${width}%"></span>`;
         })
         .join("")}
     </div>

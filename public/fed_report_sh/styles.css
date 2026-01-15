@@ -401,16 +401,30 @@ section {
   margin: 12px 0 8px;
 }
 
+/* 자산 구성 비율 색상 구분 (첨부파일 2 참조) */
+.ratio-segment-treasury {
+  background: #6f8690; /* 국채 - muted blue-grey (64.3%) */
+}
+
+.ratio-segment-mbs {
+  background: #8aa595; /* MBS - light green-grey (31.0%) */
+}
+
+.ratio-segment-otherAssets {
+  background: #4a4a4a; /* 기타 - darker grey (4.7%) */
+}
+
+/* 하위 호환성을 위한 nth-child 스타일 */
 .ratio-segment:nth-child(1) {
-  background: #6f8690;
+  background: #6f8690; /* 국채 */
 }
 
 .ratio-segment:nth-child(2) {
-  background: #8aa595;
+  background: #8aa595; /* MBS */
 }
 
 .ratio-segment:nth-child(3) {
-  background: #a8a198;
+  background: #4a4a4a; /* 기타 */
 }
 
 .ratio-legend {
