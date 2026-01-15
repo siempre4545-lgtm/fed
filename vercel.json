@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/api/h41/summary",
@@ -45,7 +50,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/",
+      "source": "/(.*)",
       "destination": "/api/index"
     }
   ],

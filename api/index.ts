@@ -5445,6 +5445,5 @@ app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
 });
 
 // Vercel serverless function export
-// @ts-ignore
 export default app;
 
