@@ -3899,16 +3899,6 @@ app.get("/economic-indicators/:id", async (req, res) => {
       </div>
     </div>
     
-    ${detail.concept ? `
-    <div class="concept-section">
-      <div class="concept-title">
-        <span>📚</span>
-        <span>경제코치의 개념 설명</span>
-      </div>
-      <div class="concept-content">${escapeHtml(detail.concept)}</div>
-    </div>
-    ` : ""}
-    
     <div class="chart-section">
       <div class="chart-header">
         <div class="chart-title">변동 추이</div>
@@ -4148,11 +4138,6 @@ app.get("/economic-indicators/:id", async (req, res) => {
       })();
     </script>
     
-    <div class="analysis-section">
-      <div class="analysis-title">경제코치 분석 💡</div>
-      <div class="analysis-text">${escapeHtml(detail.analysis)}</div>
-    </div>
-    
     ${relatedIndicators.length > 0 ? `
     <div class="related-indicators-section">
       <div class="related-indicators-title">연관 지표 바로가기 🔗</div>
@@ -4164,13 +4149,6 @@ app.get("/economic-indicators/:id", async (req, res) => {
           </a>
         `).join("")}
       </div>
-    </div>
-    ` : ""}
-    
-    ${comprehensiveAnalysis ? `
-    <div class="comprehensive-analysis-section">
-      <div class="comprehensive-analysis-title">종합해석 📊</div>
-      <div class="comprehensive-analysis-text">${escapeHtml(comprehensiveAnalysis)}</div>
     </div>
     ` : ""}
     
