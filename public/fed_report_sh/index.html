@@ -8,28 +8,35 @@
   </head>
   <body data-theme="dark" data-font="medium">
     <header class="top-bar">
-      <div class="date-picker">
-        <label for="dateInput">날짜 선택</label>
-        <input id="dateInput" type="date" />
+      <div class="header-left">
+        <a href="https://fedreportsh.vercel.app/" class="back-button" aria-label="메인 페이지로 돌아가기">
+          ← 뒤로
+        </a>
+        <div class="date-picker">
+          <label for="dateInput">날짜 선택</label>
+          <input id="dateInput" type="date" />
+        </div>
       </div>
-      <div class="settings">
-        <button id="settingsButton" class="icon-button" aria-label="설정">
-          ⚙
-        </button>
-        <div id="settingsPanel" class="settings-panel hidden">
-          <div class="setting-group">
-            <div class="setting-title">테마</div>
-            <div class="setting-options">
-              <button data-theme="light">라이트</button>
-              <button data-theme="dark">다크</button>
+      <div class="header-right">
+        <div class="settings">
+          <button id="settingsButton" class="icon-button" aria-label="설정">
+            ⚙
+          </button>
+          <div id="settingsPanel" class="settings-panel hidden">
+            <div class="setting-group">
+              <div class="setting-title">테마</div>
+              <div class="setting-options">
+                <button data-theme="light">라이트</button>
+                <button data-theme="dark">다크</button>
+              </div>
             </div>
-          </div>
-          <div class="setting-group">
-            <div class="setting-title">글자 크기</div>
-            <div class="setting-options">
-              <button data-font="small">작게</button>
-              <button data-font="medium">보통</button>
-              <button data-font="large">크게</button>
+            <div class="setting-group">
+              <div class="setting-title">글자 크기</div>
+              <div class="setting-options">
+                <button data-font="small">작게</button>
+                <button data-font="medium">보통</button>
+                <button data-font="large">크게</button>
+              </div>
             </div>
           </div>
         </div>
