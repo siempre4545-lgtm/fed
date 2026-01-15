@@ -9,11 +9,8 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:nextjs": "next dev",
-    "start": "node --enable-source-maps dist/index.js",
-    "start:nextjs": "next start",
-    "build": "next build",
-    "build:nextjs": "next build",
+    "start": "tsx api/index.ts",
+    "build": "echo 'No build step required for Express server'",
     "build:tsc": "tsc -p tsconfig.json",
     "report": "tsx src/notify.ts",
     "typecheck": "tsc --noEmit",
