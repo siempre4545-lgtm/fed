@@ -267,7 +267,9 @@ function buildColumnDefinitions($: cheerio.CheerioAPI, table: any) {
   const headerRows: any[] = [];
   const theadRows = $(table).find("thead tr");
   if (theadRows.length) {
-    theadRows.each((_, row) => headerRows.push(row));
+    theadRows.each((_, row) => {
+      headerRows.push(row);
+    });
   } else {
     $(table)
       .find("tr")
