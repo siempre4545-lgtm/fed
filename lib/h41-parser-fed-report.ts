@@ -1024,6 +1024,7 @@ function parseFinancials(
     sdr: factors?.supplying?.sdr || emptyOverviewValue(),
     securitiesHeld: factors?.supplying?.securitiesHeld || emptyOverviewValue(),
     repos: factors?.supplying?.repos || emptyOverviewValue(),
+    loans: factors?.supplying?.loans || emptyOverviewValue(),
     cbSwaps: factors?.supplying?.cbSwaps || emptyOverviewValue(),
     totalAssets,
   };

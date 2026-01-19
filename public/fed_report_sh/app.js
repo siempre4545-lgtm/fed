@@ -514,6 +514,12 @@ function renderFinancials(financials) {
             <td>${renderChangeLabel("", assets.repos?.yearlyChange, assets.repos?.yearlyChangePct)}</td>
           </tr>
           <tr>
+            <th>대출 (Loans)</th>
+            <td>${formatNumber(assets.loans?.current)}</td>
+            <td>${renderChangeLabel("", assets.loans?.weeklyChange, assets.loans?.weeklyChangePct)}</td>
+            <td>${renderChangeLabel("", assets.loans?.yearlyChange, assets.loans?.yearlyChangePct)}</td>
+          </tr>
+          <tr>
             <th>통화스왑 (Swaps)</th>
             <td>${formatNumber(assets.cbSwaps?.current)}</td>
             <td>${renderChangeLabel("", assets.cbSwaps?.weeklyChange, assets.cbSwaps?.weeklyChangePct)}</td>

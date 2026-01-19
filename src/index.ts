@@ -1,11 +1,21 @@
 import express from "express";
+import path from "path";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "./h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "./economic-indicators.js";
 import { fetchEconomicNews } from "./news.js";
 import { fetchAllSecretIndicators } from "./secret-indicators.js";
 
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 8787;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+// 정적 파일: fed_report_sh (로컬 개발용)
+app.use(
+  "/fed_report_sh",
+  express.static(path.join(process.cwd(), "public", "fed_report_sh"))
+);
+app.get("/fed_report_sh", (_req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "fed_report_sh", "index.html"));
+});
 
 // API: JSON
 app.get("/api/h41", async (req, res) => {
