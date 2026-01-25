@@ -166,11 +166,12 @@ const fetchYahooPrevClose = async (symbol: string, date: string): Promise<number
 const fetchYahooQuarterSeries = async (
   symbol: string,
   date: string,
-  prevClose: number | null
+  prevClose: number | null,
+  options: { skipCache?: boolean } = {}
 ): Promise<QuarterSeries | null> => {
   const cacheKey = getQuarterCacheKey(symbol, date);
   const cached = QUARTER_CACHE.get(cacheKey);
-  if (cached && Date.now() - cached.ts < QUARTER_TTL_MS) {
+  if (!options.skipCache && cached && Date.now() - cached.ts < QUARTER_TTL_MS) {
     return cached.data;
   }
 
@@ -395,6 +396,7 @@ export const GET = async (request: Request) => {
     const quarterDate = date || today;
     const apiKey = process.env.TWELVEDATA_API_KEY || process.env.PROVIDERX_API_KEY;
     const quarterMap = new Map<string, QuarterSeries | null>();
+    let yahooFallbackUsed = false;
 
     if (quartersEnabled && !apiKey) {
       warnings.push("TWELVEDATA_API_KEY 미설정: Yahoo fallback을 사용합니다.");
@@ -419,15 +421,32 @@ export const GET = async (request: Request) => {
                 ? "NQ"
                 : "NQ=F"
               : item.key;
-          const quarters = apiKey
-            ? await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey)
-            : await fetchYahooQuarterSeries(symbol, quarterDate, prevClose);
+          if (apiKey) {
+            const quarters = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
+            if (quarters) {
+              quarterMap.set(item.key, quarters);
+              continue;
+            }
+            const fallback = await fetchYahooQuarterSeries(symbol, quarterDate, prevClose, {
+              skipCache: true,
+            });
+            if (fallback) {
+              yahooFallbackUsed = true;
+              quarterMap.set(item.key, fallback);
+            }
+            continue;
+          }
+          const quarters = await fetchYahooQuarterSeries(symbol, quarterDate, prevClose);
           if (quarters) {
             quarterMap.set(item.key, quarters);
           }
         }
       });
       await Promise.all(workers);
+    }
+
+    if (yahooFallbackUsed) {
+      warnings.push("TwelveData 실패로 Yahoo fallback을 사용했습니다.");
     }
 
     return NextResponse.json(
