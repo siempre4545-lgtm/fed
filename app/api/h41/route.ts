@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 import { fetchH41Report } from "@/src/h41";
 import { fetchH41CalendarDates, ymdToIso, yyyymmddFromISO } from "@/src/h41-calendar";
+import { applyRollbackDate } from "@/src/rollback";
 
 export const runtime = "nodejs";
 
 export const GET = async (request: Request) => {
   const { searchParams } = new URL(request.url);
-  const requestedDate = searchParams.get("date")?.trim() || "";
+  const rawRequestedDate = searchParams.get("date")?.trim() || "";
+  const requestedDate = applyRollbackDate(rawRequestedDate) || "";
   let resolvedDate: string | undefined;
 
   if (requestedDate) {

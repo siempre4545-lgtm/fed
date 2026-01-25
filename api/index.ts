@@ -12,8 +12,11 @@ import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
 import { getThursdaySnapshot, getFridaySnapshot } from "../lib/market/getExternalSnapshots.js";
 import { getMarketPrices } from "../lib/market/getPrices.js";
 import type { MacroAssetKey } from "../lib/market/symbols.js";
+import { applyRollbackDate, getRollbackDate } from "../src/rollback.js";
 
 const app = express();
+const resolveRollbackDate = (requested?: string | undefined) =>
+  applyRollbackDate(requested);
 
 // 정적 파일 서빙 (public 폴더)
 // Vercel에서는 public 폴더가 자동으로 서빙되므로 필요시에만 사용
@@ -22,7 +25,7 @@ const app = express();
 // API: Summary (숫자만, 경량화)
 app.get("/api/h41/summary", async (req, res) => {
   try {
-    const targetDate = req.query.date as string | undefined;
+    const targetDate = resolveRollbackDate(req.query.date as string | undefined);
     const report = await fetchH41Report(targetDate);
     
     // 숫자 데이터만 추출 (해석 제외)
@@ -585,7 +588,8 @@ app.get("/api/market/prices", async (req, res) => {
 // API: H.4.1 파싱 (fed_report_sh 통합)
 app.get("/api/h41", async (req, res) => {
   try {
-    const requestedDate = (req.query.date as string | undefined)?.trim();
+    const rawRequestedDate = (req.query.date as string | undefined)?.trim();
+    const requestedDate = resolveRollbackDate(rawRequestedDate);
     let resolvedDate: string | undefined = requestedDate || undefined;
 
     if (requestedDate) {
@@ -664,7 +668,9 @@ function canonicalizeItemKey(label: string): string {
 // API: Interpretation (자산/부채 해석)
 app.get("/api/h41/interpretation", async (req, res) => {
   try {
-    const targetDate = (req.query.date || req.query.release) as string | undefined;
+    const targetDate = resolveRollbackDate(
+      (req.query.date || req.query.release) as string | undefined
+    );
     const key = req.query.key as string;
     
     if (!key) {
@@ -793,7 +799,7 @@ app.get("/api/h41/interpretation", async (req, res) => {
 // API: Detail (해석만)
 app.get("/api/h41/detail", async (req, res) => {
   try {
-    const targetDate = req.query.date as string | undefined;
+    const targetDate = resolveRollbackDate(req.query.date as string | undefined);
     const key = req.query.key as string;
     
     if (!key) {
@@ -820,7 +826,7 @@ app.get("/api/h41/detail", async (req, res) => {
 // API: Weekly Summary (주간 요약 리포트만)
 app.get("/api/h41/weekly-summary", async (req, res) => {
   try {
-    const targetDate = req.query.date as string | undefined;
+    const targetDate = resolveRollbackDate(req.query.date as string | undefined);
     const report = await fetchH41Report(targetDate);
     
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
@@ -835,7 +841,7 @@ app.get("/api/h41/weekly-summary", async (req, res) => {
 // API: JSON (기존 호환성 유지)
 app.get("/api/h41", async (req, res) => {
   try {
-    const targetDate = req.query.date as string | undefined;
+    const targetDate = resolveRollbackDate(req.query.date as string | undefined);
     const report = await fetchH41Report(targetDate);
     
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
@@ -848,10 +854,17 @@ app.get("/api/h41", async (req, res) => {
 // API: 최근 10회분 히스토리 데이터 (디버깅용)
 app.get("/api/h41/history", async (req, res) => {
   try {
+    const rollbackDate = getRollbackDate();
     const releaseDates = await getFedReleaseDates();
+    const filteredDates = rollbackDate
+      ? releaseDates.filter((date) => date <= rollbackDate)
+      : releaseDates;
     const offset = parseInt(req.query.offset as string) || 0;
     const limit = parseInt(req.query.limit as string) || 10;
-    const datesToFetch = releaseDates.slice(offset, Math.min(offset + limit, releaseDates.length));
+    const datesToFetch = filteredDates.slice(
+      offset,
+      Math.min(offset + limit, filteredDates.length)
+    );
     
     const historicalData: Array<{
       date: string;
