@@ -126,6 +126,11 @@ const kstToUtcTimestampSeconds = (ymd: string, time: string) => {
   return Math.floor(utcMs / 1000);
 };
 
+const toKstYmdFromEpochSeconds = (seconds: number) => {
+  const kstMs = seconds * 1000 + 9 * 60 * 60 * 1000;
+  return new Date(kstMs).toISOString().slice(0, 10);
+};
+
 const shiftToPreviousWeekday = (ymd: string) => {
   let current = ymd;
   let guard = 7;
@@ -136,6 +141,53 @@ const shiftToPreviousWeekday = (ymd: string) => {
     guard -= 1;
   }
   return current;
+};
+
+const fetchYahooPrevClose = async (symbol: string, date: string): Promise<number | null> => {
+  const startDate = addDays(date, -7);
+  const endDate = addDays(date, 1);
+  if (!startDate || !endDate) return null;
+  const startUtc = kstToUtcTimestampSeconds(startDate, "00:00:00");
+  const endUtc = kstToUtcTimestampSeconds(endDate, "00:00:00");
+  if (startUtc === null || endUtc === null) return null;
+
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+    symbol
+  )}?interval=1d&period1=${startUtc}&period2=${endUtc}&events=div%2Csplit`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+        Accept: "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch {
+    return null;
+  }
+  if (!response.ok) return null;
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const closes = result?.indicators?.quote?.[0]?.close;
+  if (!Array.isArray(timestamps) || !Array.isArray(closes)) return null;
+  const values = timestamps
+    .map((ts: number, index: number) => {
+      const close = Number(closes[index]);
+      if (!Number.isFinite(close)) return null;
+      return { date: toKstYmdFromEpochSeconds(ts), close };
+    })
+    .filter(Boolean) as Array<{ date: string; close: number }>;
+  const prev = values.filter((item) => item.date < date).pop();
+  return prev?.close ?? null;
 };
 
 const fetchYahooQuarterSeries = async (
@@ -204,21 +256,49 @@ const fetchYahooQuarterSeries = async (
     return { series: null, error: "yahoo values empty" };
   }
 
-  const baseValue =
+  let baseValue =
     prevClose && Number.isFinite(prevClose) ? prevClose : pickFirstClose(values);
-  if (!baseValue || !Number.isFinite(baseValue)) {
+  if (baseValue === null || !Number.isFinite(baseValue) || baseValue === 0) {
     return { series: null, error: "yahoo base missing" };
   }
+  const base = baseValue;
 
-  const resultSeries: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+  const quarterCloses: QuarterSeries = { Q1: null, Q2: null, Q3: null };
   QUARTER_TIMES.forEach(({ key, time }) => {
     const targetMinutes = parseMinutes(time);
     if (targetMinutes === null) return;
     const close = pickClosestByMinutes(values, targetMinutes);
     if (close === null || !Number.isFinite(close)) return;
-    const pct = ((close - baseValue) / baseValue) * 100;
+    quarterCloses[key] = close;
+  });
+
+  const resultSeries: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+  QUARTER_TIMES.forEach(({ key, time }) => {
+    const targetMinutes = parseMinutes(time);
+    if (targetMinutes === null) return;
+    const close = quarterCloses[key];
+    if (close === null || !Number.isFinite(close)) return;
+    const pct = ((close - base) / base) * 100;
     resultSeries[key] = Number(pct.toFixed(2));
   });
+
+  if (
+    (!prevClose || !Number.isFinite(prevClose)) &&
+    resultSeries.Q1 === 0 &&
+    quarterCloses.Q1 !== null &&
+    (resultSeries.Q2 !== null || resultSeries.Q3 !== null)
+  ) {
+    const yahooPrevClose = await fetchYahooPrevClose(symbol, date);
+    if (Number.isFinite(yahooPrevClose) && yahooPrevClose !== 0) {
+      const fallbackBase = Number(yahooPrevClose);
+      QUARTER_TIMES.forEach(({ key }) => {
+        const close = quarterCloses[key];
+        if (close === null || !Number.isFinite(close)) return;
+        const pct = ((close - fallbackBase) / fallbackBase) * 100;
+        resultSeries[key] = Number(pct.toFixed(2));
+      });
+    }
+  }
 
   const hasValue = Object.values(resultSeries).some((value) => value !== null);
   if (!hasValue) {
@@ -289,22 +369,50 @@ const fetchQuarterSeries = async (
         continue;
       }
 
-      const baseValue =
+      let baseValue =
         prevClose && Number.isFinite(prevClose) ? prevClose : pickFallbackBase(payload.values);
-      if (!baseValue || !Number.isFinite(baseValue)) {
+      if (baseValue === null || !Number.isFinite(baseValue) || baseValue === 0) {
         lastError = "quarter base missing";
         continue;
       }
+      const base = baseValue;
 
-      const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+      const quarterCloses: QuarterSeries = { Q1: null, Q2: null, Q3: null };
       QUARTER_TIMES.forEach(({ key, time }) => {
         const targetMinutes = parseMinutes(time);
         if (targetMinutes === null) return;
         const close = pickClosestValue(payload.values, targetMinutes);
         if (close === null || !Number.isFinite(close)) return;
-        const pct = ((close - baseValue) / baseValue) * 100;
+        quarterCloses[key] = close;
+      });
+
+      const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+      QUARTER_TIMES.forEach(({ key, time }) => {
+        const targetMinutes = parseMinutes(time);
+        if (targetMinutes === null) return;
+        const close = quarterCloses[key];
+        if (close === null || !Number.isFinite(close)) return;
+        const pct = ((close - base) / base) * 100;
         result[key] = Number(pct.toFixed(2));
       });
+
+      if (
+        (!prevClose || !Number.isFinite(prevClose)) &&
+        result.Q1 === 0 &&
+        quarterCloses.Q1 !== null &&
+        (result.Q2 !== null || result.Q3 !== null)
+      ) {
+        const yahooPrevClose = await fetchYahooPrevClose(symbol, date);
+        if (Number.isFinite(yahooPrevClose) && yahooPrevClose !== 0) {
+          const fallbackBase = Number(yahooPrevClose);
+          QUARTER_TIMES.forEach(({ key }) => {
+            const close = quarterCloses[key];
+            if (close === null || !Number.isFinite(close)) return;
+            const pct = ((close - fallbackBase) / fallbackBase) * 100;
+            result[key] = Number(pct.toFixed(2));
+          });
+        }
+      }
 
       const hasValue = Object.values(result).some((value) => value !== null);
       if (!hasValue) {
