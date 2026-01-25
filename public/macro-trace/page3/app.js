@@ -98,7 +98,7 @@ const getThursdayFor = (ymd) => {
   return toYmd(date);
 };
 
-const renderTable = (rows, date, day1Date, day4Date, day1Map, day4Map) => {
+const renderTable = (rows, date, day1Date, day4Date, day1Map, day4Map, day4Future) => {
   tableBody.innerHTML = "";
   baseHeader.textContent = date ? `${date} (목)` : "값";
   day1Header.textContent = day1Date ? `${day1Date} (Day+1·금)` : "Day+1(금)";
@@ -115,25 +115,29 @@ const renderTable = (rows, date, day1Date, day4Date, day1Map, day4Map) => {
     }
 
     const day1Row = day1Map.get(row.key);
-    const day4Row = day4Map.get(row.key);
+    const day4Row = day4Future ? null : day4Map.get(row.key);
     const baseValue = row.status === "ok" ? row.value : null;
     const day1Value = day1Row && day1Row.status === "ok" ? day1Row.value : null;
     const day4Value = day4Row && day4Row.status === "ok" ? day4Row.value : null;
     const day1Change = formatChangePct(baseValue, day1Value);
-    const day4Change = formatChangePct(baseValue, day4Value);
+    const day4Change = day4Future ? "" : formatChangePct(baseValue, day4Value);
     const day1Class = getSignClass(
       baseValue !== null && day1Value !== null ? day1Value - baseValue : null
     );
-    const day4Class = getSignClass(
-      baseValue !== null && day4Value !== null ? day4Value - baseValue : null
-    );
+    const day4Class = day4Future
+      ? "value-na"
+      : getSignClass(baseValue !== null && day4Value !== null ? day4Value - baseValue : null);
 
     const tr = document.createElement("tr");
     const valueText = row.status === "ok" ? formatValue(row.value) : "N/A";
     const metaText = row.error ? row.error : row.source ? row.source : "";
     const valueClass = row.status === "ok" ? getSignClass(row.value) : "value-na";
     const day1Meta = day1Row ? (day1Row.error ? day1Row.error : day1Row.source) : "";
-    const day4Meta = day4Row ? (day4Row.error ? day4Row.error : day4Row.source) : "";
+    const day4Meta = day4Future
+      ? "미발표"
+      : day4Row
+        ? (day4Row.error ? day4Row.error : day4Row.source)
+        : "";
 
     tr.innerHTML = `
       <td>${row.group}</td>
@@ -147,7 +151,7 @@ const renderTable = (rows, date, day1Date, day4Date, day1Map, day4Map) => {
         ${day1Meta ? `<span class="value-meta">${day1Meta}</span>` : ""}
       </td>
       <td class="${day4Value === null ? "value-na" : day4Class}">
-        ${day4Value === null ? "N/A" : `${formatValue(day4Value)} ${day4Change}`}
+        ${day4Future ? "미발표" : day4Value === null ? "N/A" : `${formatValue(day4Value)} ${day4Change}`}
         ${day4Meta ? `<span class="value-meta">${day4Meta}</span>` : ""}
       </td>
     `;
@@ -181,11 +185,13 @@ const loadData = async () => {
 
     const day1Date = addDays(thursday, 1);
     const day4Date = addDays(thursday, 4);
+    const todayYmd = toYmd(new Date());
+    const day4Future = day4Date > todayYmd;
 
     const [basePayload, day1Payload, day4Payload] = await Promise.all([
       fetchTable(thursday),
       fetchTable(day1Date).catch(() => null),
-      fetchTable(day4Date).catch(() => null),
+      day4Future ? Promise.resolve(null) : fetchTable(day4Date).catch(() => null),
     ]);
 
     const baseRows = basePayload.rows || [];
@@ -195,13 +201,21 @@ const loadData = async () => {
     const day1Map = new Map(day1Rows.map((row) => [row.key, row]));
     const day4Map = new Map(day4Rows.map((row) => [row.key, row]));
 
-    renderTable(baseRows, basePayload.date || thursday, day1Date, day4Date, day1Map, day4Map);
+    renderTable(
+      baseRows,
+      basePayload.date || thursday,
+      day1Date,
+      day4Date,
+      day1Map,
+      day4Map,
+      day4Future
+    );
     setStatus(basePayload.date ? `업데이트: ${basePayload.date}` : "");
     const warnings = [];
     if (dateAdjusted) warnings.push("목요일만 조회 가능합니다. 가장 최근 목요일로 변경했습니다.");
     if (basePayload.meta?.warnings?.length) warnings.push(...basePayload.meta.warnings);
     if (!day1Payload) warnings.push("Day+1 데이터를 불러오지 못했습니다.");
-    if (!day4Payload) warnings.push("Day+4 데이터를 불러오지 못했습니다.");
+    if (!day4Payload && !day4Future) warnings.push("Day+4 데이터를 불러오지 못했습니다.");
     setWarning(warnings.length ? warnings.join(", ") : "");
   } catch (error) {
     setStatus("데이터 로딩 실패");

@@ -147,6 +147,10 @@ const getLabelForKey = (key) => {
   return labels[key] || key;
 };
 
+const BASE_SECTORS = mergeSectors(RISK_SECTORS, EXTRA_SECTORS);
+const BASE_SECTOR_DEFS = buildSectorDefinitions(BASE_SECTORS, []);
+const BASE_KEYS = getAllKeys(BASE_SECTOR_DEFS);
+
 const updateQuery = (state) => {
   const params = new URLSearchParams(window.location.search);
   if (state.date) {
@@ -349,9 +353,7 @@ const loadData = async () => {
   setError("");
   setWarning("");
   try {
-    const baseSectors = mergeSectors(RISK_SECTORS, EXTRA_SECTORS);
-    const sectorDefs = buildSectorDefinitions(baseSectors, []);
-    const keys = getAllKeys(sectorDefs);
+    const keys = BASE_KEYS;
     const query = new URLSearchParams();
     query.set("symbols", keys.join(","));
     if (state.date) query.set("date", state.date);
@@ -376,7 +378,7 @@ const loadData = async () => {
     const riskCandidates = keys.filter(
       (key) => !safeSet.has(key) && !hedgeSet.has(key) && !indicatorSet.has(key)
     );
-    const sectors = buildSectorDefinitions(baseSectors, riskCandidates);
+    const sectors = buildSectorDefinitions(BASE_SECTORS, riskCandidates);
     const sectorSeries = Object.fromEntries(
       sectors.map((sector) => [sector.name, seriesFromKeys(priceMap, sector.tickers)])
     );
