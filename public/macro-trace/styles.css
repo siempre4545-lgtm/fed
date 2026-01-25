@@ -147,6 +147,8 @@ body {
 
 .chart-area.large {
   height: clamp(320px, 60vh, 520px);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .warning,

@@ -330,14 +330,39 @@ const updateCharts = (bucketSeries, indicatorSeries, sectorSeries, sectors) => {
     barChart.update();
   }
 
+  const sectorCanvas = document.getElementById("sectorChart");
+  const sectorContainer = sectorCanvas?.parentElement;
+  if (sectorCanvas && sectorContainer) {
+    const minWidth = Math.max(sectors.length * 70, sectorContainer.clientWidth || 0);
+    sectorCanvas.style.width = `${minWidth}px`;
+    sectorCanvas.style.minWidth = `${minWidth}px`;
+    sectorCanvas.width = minWidth;
+    sectorCanvas.height = sectorContainer.clientHeight || 420;
+  }
+
+  const sectorChartOptions = {
+    responsive: false,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        ticks: {
+          autoSkip: false,
+          maxRotation: 60,
+          minRotation: 60,
+        },
+      },
+    },
+  };
+
   if (!sectorChart) {
     sectorChart = new Chart(document.getElementById("sectorChart"), {
       type: "bar",
       data: sectorData,
-      options: { responsive: true, maintainAspectRatio: false },
+      options: sectorChartOptions,
     });
   } else {
     sectorChart.data = sectorData;
+    sectorChart.options = sectorChartOptions;
     sectorChart.update();
   }
 };
