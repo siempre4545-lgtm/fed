@@ -494,23 +494,27 @@ export const getMarketPrices = async (
       });
       if (yahooResult.ok) {
         const quote = yahooResult.quote;
-        const change1dPct =
-          quote.prevClose && quote.prevClose !== 0
-            ? Number((((quote.price - quote.prevClose) / quote.prevClose) * 100).toFixed(2))
-            : null;
-        const item: PriceResult = {
-          ok: true,
-          key: asset.key,
-          symbol: yahooSymbol,
-          asOf: quote.asOf,
-          price: quote.price,
-          prevClose: quote.prevClose ?? null,
-          change1dPct,
-          source: "yahoo:otcpk",
-        };
-        items.push(item);
-        LAST_GOOD.set(asset.key, { ts: now, item });
-        continue;
+        const price = quote.price;
+        if (price !== null) {
+          const prevClose = quote.prevClose ?? null;
+          const change1dPct =
+            prevClose !== null && prevClose !== 0
+              ? Number((((price - prevClose) / prevClose) * 100).toFixed(2))
+              : null;
+          const item: PriceResult = {
+            ok: true,
+            key: asset.key,
+            symbol: yahooSymbol,
+            asOf: quote.asOf,
+            price,
+            prevClose,
+            change1dPct,
+            source: "yahoo:otcpk",
+          };
+          items.push(item);
+          LAST_GOOD.set(asset.key, { ts: now, item });
+          continue;
+        }
       }
     }
 
