@@ -70,11 +70,27 @@
       "destination": "/api/index"
     },
     {
+      "source": "/api/h41/releases",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/economic-indicators/:path*",
+      "destination": "/api/index"
+    },
+    {
       "source": "/economic-indicators",
       "destination": "/api/index"
     },
     {
+      "source": "/economic-indicators/:path*",
+      "destination": "/api/index"
+    },
+    {
       "source": "/secret-indicators",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/secret-indicators/:path*",
       "destination": "/api/index"
     },
     {
@@ -86,11 +102,15 @@
       "destination": "/api/index"
     },
     {
+      "source": "/interest-rate-schedule",
+      "destination": "/api/index"
+    },
+    {
       "source": "/fed_report_sh",
       "destination": "/api/index"
     },
     {
-      "source": "/((?!platform-map|api/platform-map).*)",
+      "source": "/",
       "destination": "/api/index"
     }
   ],
