@@ -176,9 +176,12 @@ const renderActions = (state) => {
   } else {
     actionsEl.innerHTML = `
       <button class="button" type="button" id="prevPage">◀ 이전 페이지</button>
-      <a class="button" href="/macro-trace/page3">다음 페이지 ▶</a>
+      <button class="button" type="button" id="nextPage3">다음 페이지 ▶</button>
     `;
     document.getElementById("prevPage").onclick = () => setPage(1);
+    document.getElementById("nextPage3").onclick = () => {
+      window.location.href = "/macro-trace/page3";
+    };
   }
 };
 
