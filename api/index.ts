@@ -8,7 +8,7 @@ import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChart
 import { fetchH41CalendarDates, isoToYmd, ymdToIso, yyyymmddFromISO } from "../src/h41-calendar.js";
 import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
 import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
-import { getMarketPrices } from "../lib/market/getPrices";
+import { getMarketPrices } from "../lib/market/getPrices.js";
 
 const app = express();
 
