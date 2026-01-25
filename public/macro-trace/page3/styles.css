@@ -11,7 +11,7 @@
 
 .data-table {
   width: 100%;
-  min-width: 720px;
+  min-width: 980px;
   border-collapse: collapse;
 }
 
@@ -46,4 +46,16 @@
 
 .value-na {
   color: #9ca3af;
+}
+
+.value-positive {
+  color: #34d399;
+}
+
+.value-negative {
+  color: #f87171;
+}
+
+.value-neutral {
+  color: #e5e7eb;
 }

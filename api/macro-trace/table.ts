@@ -1,4 +1,4 @@
-import { fetchAllEconomicIndicators } from "../../src/economic-indicators.js";
+import { fetchAllEconomicIndicators, getIndicatorDetail } from "../../src/economic-indicators.js";
 import { fetchH41Report } from "../../src/h41.js";
 import { fetchFRED } from "../../src/secret-indicators.js";
 import { getMarketPrices } from "../../lib/market/getPrices.js";
@@ -96,6 +96,13 @@ const fetchFredValue = async (seriesId: string, date: string) => {
   return Number.isFinite(value) ? { value, error: null } : { value: null, error: "invalid" };
 };
 
+const pickHistoryValue = (history: Array<{ date: string; value: number }>, date: string) => {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].date <= date) return history[i].value;
+  }
+  return null;
+};
+
 const resolveRow = (
   group: string,
   label: string,
@@ -117,7 +124,7 @@ export default async function handler(req: any, res: any) {
   const warnings: string[] = [];
   const rows: TableRow[] = [];
 
-  const [economicIndicators, h41Report, marketSnapshot] = await Promise.all([
+  const [economicIndicators, h41Report, marketSnapshot, yieldSpreadDetail] = await Promise.all([
     fetchAllEconomicIndicators().catch(() => {
       warnings.push("경제지표 데이터를 불러오지 못했습니다.");
       return [];
@@ -127,6 +134,10 @@ export default async function handler(req: any, res: any) {
       return null;
     }),
     getMarketPrices(["USDKRW", "MARGIN_DEBT"]).catch(() => null),
+    getIndicatorDetail("yield-spread", "1Y").catch(() => {
+      warnings.push("금리스프레드 데이터를 불러오지 못했습니다.");
+      return null;
+    }),
   ]);
 
   const econByName = (needle: string) =>
@@ -151,8 +162,13 @@ export default async function handler(req: any, res: any) {
   };
 
   // 글로벌
+  const dxyValue = await fetchYahooDailyValue("DX-Y.NYB", date);
   rows.push(
-    resolveRow("글로벌", "(D)DXY 달러지수", "DXY", econValue("달러 인덱스")),
+    resolveRow("글로벌", "(D)DXY 달러지수", "DXY", {
+      value: dxyValue.value,
+      source: "external",
+      error: dxyValue.error || undefined,
+    }),
     resolveRow("글로벌", "(D)DXY 달러환율", "USDKRW", marketValue("USDKRW"))
   );
   if (rows[rows.length - 1].value === null) {
@@ -186,26 +202,42 @@ export default async function handler(req: any, res: any) {
     { value: dgs3.value, source: "external", error: dgs3.error || undefined }
   );
 
-  // 장단기금리차(10Y-20Y) - 내부 값 없으면 N/A
-  const tenYear = econByName("미국 10년물")?.value;
-  const twentyYear = econByName("20년물")?.value ?? null;
-  const spreadValue =
-    typeof tenYear === "number" && typeof twentyYear === "number"
-      ? tenYear - twentyYear
-      : null;
+  // 금리스프레드(10Y-2Y) - 경제지표 상세 데이터 재사용
+  const yieldSpreadValue =
+    yieldSpreadDetail?.history?.length
+      ? pickHistoryValue(yieldSpreadDetail.history, date)
+      : yieldSpreadDetail?.indicator?.value ?? null;
   rows.push(
-    resolveRow("금리", "장단기금리차(10Y-20Y)", "SPREAD_10Y_20Y", {
-      value: spreadValue,
+    resolveRow("금리", "금리스프레드 (10Y-2Y)", "YIELD_SPREAD_10Y_2Y", {
+      value: typeof yieldSpreadValue === "number" ? yieldSpreadValue : null,
       source: "internal",
+      error: yieldSpreadValue === null ? "not available" : undefined,
     })
   );
+  if (yieldSpreadValue === null) {
+    const tenYearValue = await fetchFredValue("DGS10", date);
+    const twoYearValue = await fetchFredValue("DGS2", date);
+    const fallbackValue =
+      typeof tenYearValue.value === "number" && typeof twoYearValue.value === "number"
+        ? tenYearValue.value - twoYearValue.value
+        : null;
+    rows[rows.findIndex((row) => row.key === "YIELD_SPREAD_10Y_2Y")] = resolveRow(
+      "금리",
+      "금리스프레드 (10Y-2Y)",
+      "YIELD_SPREAD_10Y_2Y",
+      {
+        value: fallbackValue,
+        source: "external",
+        error: fallbackValue === null ? "not available" : undefined,
+      }
+    );
+  }
 
   // 시장금리
   rows.push(
     resolveRow("시장금리", "USD SOFR (미국 달러 SOFR 금리)", "SOFR", econValue("USD SOFR")),
     resolveRow("시장금리", "ON RRP", "RRPONTSYD", econValue("ON RRP")),
     resolveRow("시장금리", "EFFR", "EFFR", econValue("기준금리")),
-    resolveRow("시장금리", "SRF", "SRF", null),
     resolveRow("시장금리", "하이일드스프레드", "HIGH_YIELD", econValue("하이일드"))
   );
   if (rows.find((row) => row.key === "EFFR")?.value === null) {
@@ -216,21 +248,8 @@ export default async function handler(req: any, res: any) {
       error: effr.error || undefined,
     });
   }
-  const srf = await fetchFredValue("SRF", date);
-  rows[rows.findIndex((row) => row.key === "SRF")] = resolveRow("시장금리", "SRF", "SRF", {
-    value: srf.value,
-    source: "external",
-    error: srf.error || undefined,
-  });
-
   // 심리
   rows.push(
-    resolveRow(
-      "심리",
-      "은행 CDS 프리미엄과 금융기관 채권 금리 동향여부",
-      "BANK_CDS",
-      econValue("은행 CDS")
-    ),
     resolveRow("심리", "VIX", "VIX", econValue("VIX")),
     resolveRow("심리", "Fear & Greed Index 지수", "FEAR_GREED", econValue("Fear & Greed"))
   );
@@ -252,7 +271,6 @@ export default async function handler(req: any, res: any) {
     resolveRow("시장", "다우존스", "DOW", econValue("다우존스")),
     resolveRow("시장", "나스닥", "NASDAQ", econValue("나스닥")),
     resolveRow("시장", "S&P500", "SP500", econValue("S&P500")),
-    resolveRow("시장", "운송 및 물류 지표 급락 (Baltic Dry Index)", "BDI", econValue("Baltic Dry Index")),
     resolveRow("시장", "실업수당 청구건수 (미국 주요)", "ICSA", econValue("실업수당청구건수"))
   );
 
@@ -261,7 +279,7 @@ export default async function handler(req: any, res: any) {
     resolveRow("연준(자산)", "국채 (U.S. Treasury securities)", "UST", h41Value("U.S. Treasury securities")),
     resolveRow("연준(자산)", "MBS (Mortgage-backed securities)", "MBS", h41Value("Mortgage-backed securities")),
     resolveRow("연준(자산)", "레포 (Repurchase agreements)", "REPO", h41Value("Repurchase agreements")),
-    resolveRow("연준(자산)", "대출 (Loans)", "LOANS", null)
+    resolveRow("연준(자산)", "대출 (Loans)", "LOANS", h41Value("Primary credit"))
   );
 
   // 연준(부채)
@@ -303,14 +321,7 @@ export default async function handler(req: any, res: any) {
   rows.push(
     resolveRow("기타", "미국 실업률 - Unemployment Rate", "UNRATE", econValue("실업률 - Unemployment")),
     resolveRow("기타", "미국 ISM 제조업 지수 - ISM Manufacturing PMI", "ISM", econValue("ISM 제조업")),
-    resolveRow(
-      "기타",
-      "소비자신뢰지수 - Consumer Confidence Index",
-      "CCI",
-      econValue("소비자 신뢰지수")
-    ),
     resolveRow("기타", "소매판매 성장률 - Retail Sales", "RRSFS", econValue("소매판매 성장률")),
-    resolveRow("기타", "기업 재고판매비율 - Inventory to Sales Ratio", "IVSALES", econValue("Inventory to Sales")),
     resolveRow("기타", "운송 및 물류 지표 급락 - Cass Freight Index", "CASS", econValue("Cass Freight Index")),
     resolveRow("기타", "STLFSI4", "STLFSI4", econValue("STLFSI4")),
     resolveRow("기타", "TIPS실질금리_5Y", "DFII5", {
