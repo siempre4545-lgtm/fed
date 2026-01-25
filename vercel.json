@@ -13,115 +13,14 @@
       "use": "@vercel/node"
     }
   ],
-  "rewrites": [
-    {
-      "source": "/macro-trace",
-      "destination": "/macro-trace/index.html"
-    },
-    {
-      "source": "/macro-trace/page3",
-      "destination": "/macro-trace/page3/index.html"
-    },
-    {
-      "source": "/macro-trace/:path*",
-      "destination": "/macro-trace/:path*"
-    },
-    {
-      "source": "/platform-map",
-      "destination": "/platform-map"
-    },
-    {
-      "source": "/platform-map/:path*",
-      "destination": "/platform-map/:path*"
-    },
-    {
-      "source": "/api/platform-map/:path*",
-      "destination": "/api/platform-map/:path*"
-    },
-    {
-      "source": "/api/market/prices",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/macro-trace/table",
-      "destination": "/api/macro-trace/table"
-    },
-    {
-      "source": "/_next/:path*",
-      "destination": "/_next/:path*"
-    },
-    {
-      "source": "/api/h41/summary",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41/interpretation",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41/detail",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41/weekly-summary",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41/history",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41.txt",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/h41/releases",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/economic-indicators/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/economic-indicators",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/economic-indicators/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/secret-indicators",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/secret-indicators/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/concepts",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/levels",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/interest-rate-schedule",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/fed_report_sh",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/",
-      "destination": "/api/index"
-    }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/macro-trace$", "dest": "/macro-trace/index.html" },
+    { "src": "/macro-trace/page3$", "dest": "/macro-trace/page3/index.html" },
+    { "src": "/macro-trace/(.*)", "dest": "/macro-trace/$1" },
+    { "src": "/api/macro-trace/table$", "dest": "/api/macro-trace/table.ts" },
+    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { "src": "/(.*)", "dest": "/api/index.ts" }
   ],
   "headers": [
     {
