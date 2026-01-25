@@ -586,7 +586,7 @@ app.get("/api/market/prices", async (req, res) => {
 app.get("/api/h41", async (req, res) => {
   try {
     const requestedDate = (req.query.date as string | undefined)?.trim();
-    let resolvedDate: string | undefined;
+    let resolvedDate: string | undefined = requestedDate || undefined;
 
     if (requestedDate) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
@@ -598,13 +598,11 @@ app.get("/api/h41", async (req, res) => {
         const targetYmd = yyyymmddFromISO(requestedDate);
         const sorted = [...calendarDates].sort((a, b) => b.localeCompare(a));
         const matched = sorted.find((ymd) => ymd <= targetYmd) || sorted[0];
-        if (!matched) {
-          return res.status(404).json({ error: "not_found" });
+        if (matched) {
+          resolvedDate = ymdToIso(matched);
         }
-        resolvedDate = ymdToIso(matched);
       } catch (calendarError) {
-        console.error("[H41] 캘린더 조회 실패", calendarError);
-        return res.status(502).json({ error: "fetch_failed" });
+        console.error("[H41] 캘린더 조회 실패, 요청 날짜로 시도", calendarError);
       }
     }
 
@@ -617,8 +615,11 @@ app.get("/api/h41", async (req, res) => {
     });
   } catch (e: any) {
     const message = e?.message ?? String(e);
-    const isInvalid = message.includes("Invalid date format");
-    const isNotFound = message.includes("Failed to fetch H.4.1 archive");
+    const isInvalid =
+      message.includes("Invalid date format") || message.includes("Archive H.4.1 page detected");
+    const isNotFound =
+      message.includes("Failed to fetch H.4.1 archive") ||
+      message.includes("Failed to parse H.4.1 archive");
     const error = isInvalid ? "invalid_date" : isNotFound ? "not_found" : "fetch_failed";
     const status = isInvalid ? 400 : isNotFound ? 404 : 500;
     res.status(status).json({ error });

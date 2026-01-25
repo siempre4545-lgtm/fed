@@ -105,7 +105,7 @@ export const MacroTraceDashboard = () => {
   }, [paramDate, date, params, router]);
 
   useEffect(() => {
-    if (view !== "dashboard") return;
+    if (view === "table") return;
     let active = true;
     const load = async () => {
       setStatus("loading");
