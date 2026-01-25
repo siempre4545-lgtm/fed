@@ -19,7 +19,8 @@ const QUARTER_TIMES = [
 ] as const;
 type QuarterKey = (typeof QUARTER_TIMES)[number]["key"];
 type QuarterSeries = Record<QuarterKey, number | null>;
-const QUARTER_CACHE = new Map<string, { ts: number; data: QuarterSeries | null }>();
+type QuarterCacheEntry = { ts: number; data: QuarterSeries | null; interval?: string };
+const QUARTER_CACHE = new Map<string, QuarterCacheEntry>();
 const QUARTER_TTL_MS = 5 * 60 * 1000;
 
 const getQuarterCacheKey = (symbol: string, date: string) => `${symbol}::${date}`;
@@ -60,76 +61,133 @@ const pickFallbackBase = (values: Array<{ datetime: string; close: string }>) =>
   return null;
 };
 
+const parseYmd = (value: string) => {
+  const parts = value.split("-").map((chunk) => Number(chunk));
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts;
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const toYmd = (date: Date) => date.toISOString().slice(0, 10);
+
+const addDays = (ymd: string, offset: number) => {
+  const parsed = parseYmd(ymd);
+  if (!parsed) return null;
+  parsed.setUTCDate(parsed.getUTCDate() + offset);
+  return toYmd(parsed);
+};
+
+const isWeekend = (ymd: string) => {
+  const parsed = parseYmd(ymd);
+  if (!parsed) return false;
+  const day = parsed.getUTCDay();
+  return day === 0 || day === 6;
+};
+
+const shiftToPreviousWeekday = (ymd: string) => {
+  let current = ymd;
+  let guard = 7;
+  while (guard > 0 && isWeekend(current)) {
+    const next = addDays(current, -1);
+    if (!next) break;
+    current = next;
+    guard -= 1;
+  }
+  return current;
+};
+
 const fetchQuarterSeries = async (
   symbol: string,
   date: string,
   prevClose: number | null,
   apiKey: string
-): Promise<QuarterSeries | null> => {
+): Promise<{ series: QuarterSeries | null; interval?: string; error?: string }> => {
   const cacheKey = getQuarterCacheKey(symbol, date);
   const cached = QUARTER_CACHE.get(cacheKey);
   if (cached && Date.now() - cached.ts < QUARTER_TTL_MS) {
-    return cached.data;
+    return { series: cached.data, interval: cached.interval };
   }
 
   const baseUrl = "https://api.twelvedata.com/time_series";
-  const url = `${baseUrl}?symbol=${encodeURIComponent(
-    symbol
-  )}&interval=1min&start_date=${date} 00:00:00&end_date=${date} 06:00:00&timezone=Asia/Seoul&apikey=${apiKey}`;
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
-        Accept: "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-      },
+  const intervals = ["1min", "5min", "15min"];
+  let lastError: string | undefined;
+
+  for (const interval of intervals) {
+    const url = `${baseUrl}?symbol=${encodeURIComponent(
+      symbol
+    )}&interval=${interval}&start_date=${date} 00:00:00&end_date=${date} 06:00:00&timezone=Asia/Seoul&apikey=${apiKey}`;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+          Accept: "application/json",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+        },
+      });
+    } catch (error: any) {
+      lastError = error?.message || "quarter fetch failed";
+      continue;
+    }
+
+    const text = await response.text();
+    if (!response.ok) {
+      lastError = `quarter status ${response.status}`;
+      continue;
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      lastError = "quarter json parse failed";
+      continue;
+    }
+
+    if (payload?.status === "error" || payload?.code) {
+      lastError = payload?.message || "quarter provider error";
+      continue;
+    }
+
+    if (!payload?.values || !Array.isArray(payload.values)) {
+      lastError = "quarter values missing";
+      continue;
+    }
+
+    const baseValue =
+      prevClose && Number.isFinite(prevClose) ? prevClose : pickFallbackBase(payload.values);
+    if (!baseValue || !Number.isFinite(baseValue)) {
+      lastError = "quarter base missing";
+      continue;
+    }
+
+    const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+    QUARTER_TIMES.forEach(({ key, time }) => {
+      const targetMinutes = parseMinutes(time);
+      if (targetMinutes === null) return;
+      const close = pickClosestValue(payload.values, targetMinutes);
+      if (close === null || !Number.isFinite(close)) return;
+      const pct = ((close - baseValue) / baseValue) * 100;
+      result[key] = Number(pct.toFixed(2));
     });
-  } catch {
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-    return null;
+
+    const hasValue = Object.values(result).some((value) => value !== null);
+    if (!hasValue) {
+      lastError = "quarter values empty";
+      continue;
+    }
+
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: result, interval });
+    return { series: result, interval };
   }
 
-  const text = await response.text();
-  if (!response.ok) {
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-    return null;
-  }
-
-  let payload: any;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-    return null;
-  }
-
-  if (!payload?.values || !Array.isArray(payload.values)) {
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-    return null;
-  }
-
-  const baseValue =
-    prevClose && Number.isFinite(prevClose) ? prevClose : pickFallbackBase(payload.values);
-  if (!baseValue || !Number.isFinite(baseValue)) {
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-    return null;
-  }
-
-  const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
-  QUARTER_TIMES.forEach(({ key, time }) => {
-    const targetMinutes = parseMinutes(time);
-    if (targetMinutes === null) return;
-    const close = pickClosestValue(payload.values, targetMinutes);
-    if (close === null || !Number.isFinite(close)) return;
-    const pct = ((close - baseValue) / baseValue) * 100;
-    result[key] = Number(pct.toFixed(2));
-  });
-
-  QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: result });
-  return result;
+  QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+  return { series: null, error: lastError };
 };
 
 // 정적 파일 서빙 (public 폴더)
@@ -170,9 +228,28 @@ app.get("/api/market/prices", async (req, res) => {
       new Set(snapshot.items.map((item: any) => item.source).filter(Boolean))
     );
     const today = new Date().toISOString().slice(0, 10);
-    const quarterDate = date || today;
+    const warnings = [...snapshot.warnings];
+    const requestedQuarterDate = date || today;
+    let quarterDate = requestedQuarterDate;
+    if (quarterDate > today) {
+      warnings.push("요청 날짜가 오늘 이후라서 오늘로 보정되었습니다.");
+      quarterDate = today;
+    }
+    const shiftedDate = shiftToPreviousWeekday(quarterDate);
+    if (shiftedDate !== quarterDate) {
+      warnings.push("주말로 인해 최근 거래일 기준으로 계산됩니다.");
+      quarterDate = shiftedDate;
+    }
     const apiKey = process.env.TWELVEDATA_API_KEY || process.env.PROVIDERX_API_KEY;
     const quarterMap = new Map<string, QuarterSeries | null>();
+    const quarterIntervals = new Set<string>();
+    const quarterErrors: string[] = [];
+    let quarterTotal = 0;
+    let quarterOk = 0;
+
+    if (quartersEnabled && !apiKey) {
+      warnings.push("TWELVEDATA_API_KEY 환경변수가 설정되지 않았습니다.");
+    }
 
     if (quartersEnabled && apiKey) {
       const queue = [...pricesItems];
@@ -181,7 +258,10 @@ app.get("/api/market/prices", async (req, res) => {
         while (queue.length) {
           const item = queue.shift();
           if (!item || !item.ok) continue;
-          const usePrevClose = !date || date === today;
+          if (typeof item.source !== "string") continue;
+          if (!item.source.startsWith("stooq") && item.source !== "twelvedata") continue;
+          quarterTotal += 1;
+          const usePrevClose = !date && quarterDate === today;
           const prevClose = usePrevClose ? item.prevClose ?? null : null;
           const symbol =
             item.key === "DXY"
@@ -191,9 +271,15 @@ app.get("/api/market/prices", async (req, res) => {
               : item.key === "NQ"
               ? "NQ"
               : item.key;
-          const quarters = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
-          if (quarters) {
-            quarterMap.set(item.key, quarters);
+          const result = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
+          if (result.series) {
+            quarterMap.set(item.key, result.series);
+            quarterOk += 1;
+            if (result.interval) {
+              quarterIntervals.add(result.interval);
+            }
+          } else if (result.error && quarterErrors.length < 6) {
+            quarterErrors.push(`${item.key} ${result.error}`);
           }
         }
       });
@@ -235,9 +321,18 @@ app.get("/api/market/prices", async (req, res) => {
           }
         : {},
       meta: {
-        warnings: snapshot.warnings,
+        warnings,
         sourcesUsed,
         cache: snapshot.cache,
+        quarters: {
+          enabled: quartersEnabled,
+          date: quarterDate,
+          requestedDate: date,
+          total: quarterTotal,
+          ok: quarterOk,
+          intervals: Array.from(quarterIntervals.values()),
+          errors: quarterErrors,
+        },
       },
       ...(debugEnabled
         ? {
