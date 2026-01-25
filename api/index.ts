@@ -8,7 +8,7 @@ import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChart
 import { fetchH41CalendarDates, isoToYmd, ymdToIso, yyyymmddFromISO } from "../src/h41-calendar.js";
 import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
 import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
-import { getMarketPrices } from "../lib/market/getPrices.js";
+import { getMarketPrices } from "../lib/market/getPrices";
 
 const app = express();
 
@@ -158,11 +158,16 @@ app.get("/api/market/prices", async (req, res) => {
   }
 
   try {
-    const snapshot = await getMarketPrices(keys, date, { debug: debugEnabled });
-    const fxItem = snapshot.items.find((item) => item.key === "USDKRW");
-    const pricesItems = snapshot.items.filter((item) => item.key !== "USDKRW");
+    const snapshot = (await getMarketPrices(keys, date, { debug: debugEnabled })) as {
+      items: any[];
+      warnings: string[];
+      cache: "HIT" | "MISS";
+      debug?: { fetches: any[] };
+    };
+    const fxItem = snapshot.items.find((item: any) => item.key === "USDKRW");
+    const pricesItems = snapshot.items.filter((item: any) => item.key !== "USDKRW");
     const sourcesUsed = Array.from(
-      new Set(snapshot.items.map((item) => item.source).filter(Boolean))
+      new Set(snapshot.items.map((item: any) => item.source).filter(Boolean))
     );
     const today = new Date().toISOString().slice(0, 10);
     const quarterDate = date || today;
