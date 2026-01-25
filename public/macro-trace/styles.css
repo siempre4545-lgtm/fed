@@ -1,0 +1,189 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  background: #0b0f14;
+  color: #e5e7eb;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button {
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button.primary {
+  border-color: #38bdf8;
+  background: #38bdf8;
+  color: #0b0f14;
+  font-weight: 700;
+}
+
+.controls {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.label input {
+  background: #0b0f14;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: inherit;
+}
+
+.status {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.cards {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.card-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.card-sub {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.charts {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.chart-card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.chart-card.large {
+  margin-top: 16px;
+}
+
+.chart-title {
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.chart-area {
+  height: 260px;
+}
+
+.chart-area.large {
+  height: clamp(320px, 60vh, 520px);
+}
+
+.warning,
+.error {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.warning {
+  color: #fbbf24;
+}
+
+.error {
+  color: #f87171;
+}
+
+.error-list {
+  margin-top: 16px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 12px;
+}
+
+.error-list ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #cbd5f5;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px;
+  }
+}

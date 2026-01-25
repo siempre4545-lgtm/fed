@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>목금월 루틴</title>
+    <link rel="stylesheet" href="/macro-trace/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div>
+          <div class="title">목금월 루틴</div>
+          <div class="subtitle">1Q/2Q/3Q 시간대별 변동률을 기반으로 자산 바스켓을 요약합니다.</div>
+        </div>
+        <div class="actions" id="actions"></div>
+      </header>
+
+      <div class="controls">
+        <label class="label">
+          날짜 선택
+          <input type="date" id="dateInput" />
+        </label>
+        <button class="button primary" id="applyButton" type="button">분석</button>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="warning hidden" id="warning"></div>
+      <div class="error hidden" id="error"></div>
+
+      <section id="page1">
+        <div class="cards">
+          <div class="card">
+            <div class="card-title">안전자산 바스켓</div>
+            <div class="card-value" id="safeValue">—</div>
+            <div class="card-sub">3Q 평균</div>
+          </div>
+          <div class="card">
+            <div class="card-title">위험자산 바스켓</div>
+            <div class="card-value" id="riskValue">—</div>
+            <div class="card-sub">3Q 평균</div>
+          </div>
+          <div class="card">
+            <div class="card-title">헷징자산 바스켓</div>
+            <div class="card-value" id="hedgeValue">—</div>
+            <div class="card-sub">3Q 평균</div>
+          </div>
+        </div>
+
+        <div class="charts">
+          <div class="chart-card">
+            <div class="chart-title">자산군별 3쿼터 변동률 추이</div>
+            <div class="chart-area">
+              <canvas id="lineChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">자산군 + 주요 지표 변동률 비교</div>
+            <div class="chart-area">
+              <canvas id="barChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page2" class="hidden">
+        <div class="chart-card large">
+          <div class="chart-title">섹터별 3쿼터 평균 변동률</div>
+          <div class="chart-area large">
+            <canvas id="sectorChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <div class="error-list hidden" id="errors"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/macro-trace/app.js"></script>
+  </body>
+</html>

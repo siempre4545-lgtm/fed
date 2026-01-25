@@ -7,7 +7,11 @@
   "rewrites": [
     {
       "source": "/macro-trace",
-      "destination": "/macro-trace"
+      "destination": "/macro-trace/index.html"
+    },
+    {
+      "source": "/macro-trace/:path*",
+      "destination": "/macro-trace/:path*"
     },
     {
       "source": "/api/market/prices",
