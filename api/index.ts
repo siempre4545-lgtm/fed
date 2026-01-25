@@ -61,6 +61,30 @@ const pickFallbackBase = (values: Array<{ datetime: string; close: string }>) =>
   return null;
 };
 
+const pickClosestByMinutes = (
+  values: Array<{ minutes: number; close: number }>,
+  targetMinutes: number
+): number | null => {
+  let bestClose: number | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  values.forEach((item) => {
+    const diff = Math.abs(item.minutes - targetMinutes);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestClose = item.close;
+    }
+  });
+  return bestClose;
+};
+
+const pickFirstClose = (values: Array<{ minutes: number; close: number }>) => {
+  for (let i = 0; i < values.length; i += 1) {
+    const close = values[i]?.close;
+    if (Number.isFinite(close)) return close;
+  }
+  return null;
+};
+
 const parseYmd = (value: string) => {
   const parts = value.split("-").map((chunk) => Number(chunk));
   if (parts.length !== 3) return null;
@@ -87,6 +111,21 @@ const isWeekend = (ymd: string) => {
   return day === 0 || day === 6;
 };
 
+const kstToUtcTimestampSeconds = (ymd: string, time: string) => {
+  const parts = ymd.split("-").map((chunk) => Number(chunk));
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts;
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const minutes = parseMinutes(time);
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const utcMs = Date.UTC(year, month - 1, day, hours - 9, mins, 0);
+  return Math.floor(utcMs / 1000);
+};
+
 const shiftToPreviousWeekday = (ymd: string) => {
   let current = ymd;
   let guard = 7;
@@ -99,11 +138,101 @@ const shiftToPreviousWeekday = (ymd: string) => {
   return current;
 };
 
+const fetchYahooQuarterSeries = async (
+  symbol: string,
+  date: string,
+  prevClose: number | null
+): Promise<{ series: QuarterSeries | null; interval?: string; error?: string }> => {
+  const startUtc = kstToUtcTimestampSeconds(date, "00:00:00");
+  const endUtc = kstToUtcTimestampSeconds(date, "06:00:00");
+  if (startUtc === null || endUtc === null) {
+    return { series: null, error: "yahoo time window invalid" };
+  }
+
+  const interval = "2m";
+  const period2 = endUtc + 60;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+    symbol
+  )}?interval=${interval}&period1=${startUtc}&period2=${period2}&includePrePost=true&events=div%2Csplit`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+        Accept: "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (error: any) {
+    return { series: null, error: error?.message || "yahoo fetch failed" };
+  }
+
+  if (!response.ok) {
+    return { series: null, error: `yahoo status ${response.status}` };
+  }
+
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch {
+    return { series: null, error: "yahoo json parse failed" };
+  }
+
+  if (payload?.chart?.error) {
+    return { series: null, error: payload.chart.error?.description || "yahoo error" };
+  }
+
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const closes = result?.indicators?.quote?.[0]?.close;
+  if (!Array.isArray(timestamps) || !Array.isArray(closes)) {
+    return { series: null, error: "yahoo values missing" };
+  }
+
+  const values = timestamps
+    .map((ts: number, index: number) => {
+      const close = Number(closes[index]);
+      if (!Number.isFinite(close)) return null;
+      const minutes = Math.round((ts - startUtc) / 60);
+      return { minutes, close };
+    })
+    .filter(Boolean) as Array<{ minutes: number; close: number }>;
+
+  if (!values.length) {
+    return { series: null, error: "yahoo values empty" };
+  }
+
+  const baseValue =
+    prevClose && Number.isFinite(prevClose) ? prevClose : pickFirstClose(values);
+  if (!baseValue || !Number.isFinite(baseValue)) {
+    return { series: null, error: "yahoo base missing" };
+  }
+
+  const resultSeries: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+  QUARTER_TIMES.forEach(({ key, time }) => {
+    const targetMinutes = parseMinutes(time);
+    if (targetMinutes === null) return;
+    const close = pickClosestByMinutes(values, targetMinutes);
+    if (close === null || !Number.isFinite(close)) return;
+    const pct = ((close - baseValue) / baseValue) * 100;
+    resultSeries[key] = Number(pct.toFixed(2));
+  });
+
+  const hasValue = Object.values(resultSeries).some((value) => value !== null);
+  if (!hasValue) {
+    return { series: null, error: "yahoo values empty" };
+  }
+
+  return { series: resultSeries, interval: `yahoo-${interval}` };
+};
+
 const fetchQuarterSeries = async (
   symbol: string,
   date: string,
   prevClose: number | null,
-  apiKey: string
+  apiKey?: string
 ): Promise<{ series: QuarterSeries | null; interval?: string; error?: string }> => {
   const cacheKey = getQuarterCacheKey(symbol, date);
   const cached = QUARTER_CACHE.get(cacheKey);
@@ -115,79 +244,92 @@ const fetchQuarterSeries = async (
   const intervals = ["5min", "15min", "1min"];
   let lastError: string | undefined;
 
-  for (const interval of intervals) {
-    const url = `${baseUrl}?symbol=${encodeURIComponent(
-      symbol
-    )}&interval=${interval}&start_date=${date} 00:00:00&end_date=${date} 06:00:00&timezone=Asia/Seoul&apikey=${apiKey}`;
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
-          Accept: "application/json",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Cache-Control": "no-cache",
-        },
+  if (apiKey) {
+    for (const interval of intervals) {
+      const url = `${baseUrl}?symbol=${encodeURIComponent(
+        symbol
+      )}&interval=${interval}&start_date=${date} 00:00:00&end_date=${date} 06:00:00&timezone=Asia/Seoul&apikey=${apiKey}`;
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+            Accept: "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+          },
+        });
+      } catch (error: any) {
+        lastError = error?.message || "quarter fetch failed";
+        continue;
+      }
+
+      const text = await response.text();
+      if (!response.ok) {
+        lastError = `quarter status ${response.status}`;
+        continue;
+      }
+
+      let payload: any;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        lastError = "quarter json parse failed";
+        continue;
+      }
+
+      if (payload?.status === "error" || payload?.code) {
+        lastError = payload?.message || "quarter provider error";
+        continue;
+      }
+
+      if (!payload?.values || !Array.isArray(payload.values)) {
+        lastError = "quarter values missing";
+        continue;
+      }
+
+      const baseValue =
+        prevClose && Number.isFinite(prevClose) ? prevClose : pickFallbackBase(payload.values);
+      if (!baseValue || !Number.isFinite(baseValue)) {
+        lastError = "quarter base missing";
+        continue;
+      }
+
+      const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+      QUARTER_TIMES.forEach(({ key, time }) => {
+        const targetMinutes = parseMinutes(time);
+        if (targetMinutes === null) return;
+        const close = pickClosestValue(payload.values, targetMinutes);
+        if (close === null || !Number.isFinite(close)) return;
+        const pct = ((close - baseValue) / baseValue) * 100;
+        result[key] = Number(pct.toFixed(2));
       });
-    } catch (error: any) {
-      lastError = error?.message || "quarter fetch failed";
-      continue;
+
+      const hasValue = Object.values(result).some((value) => value !== null);
+      if (!hasValue) {
+        lastError = "quarter values empty";
+        continue;
+      }
+
+      QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: result, interval });
+      return { series: result, interval };
     }
-
-    const text = await response.text();
-    if (!response.ok) {
-      lastError = `quarter status ${response.status}`;
-      continue;
-    }
-
-    let payload: any;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      lastError = "quarter json parse failed";
-      continue;
-    }
-
-    if (payload?.status === "error" || payload?.code) {
-      lastError = payload?.message || "quarter provider error";
-      continue;
-    }
-
-    if (!payload?.values || !Array.isArray(payload.values)) {
-      lastError = "quarter values missing";
-      continue;
-    }
-
-    const baseValue =
-      prevClose && Number.isFinite(prevClose) ? prevClose : pickFallbackBase(payload.values);
-    if (!baseValue || !Number.isFinite(baseValue)) {
-      lastError = "quarter base missing";
-      continue;
-    }
-
-    const result: QuarterSeries = { Q1: null, Q2: null, Q3: null };
-    QUARTER_TIMES.forEach(({ key, time }) => {
-      const targetMinutes = parseMinutes(time);
-      if (targetMinutes === null) return;
-      const close = pickClosestValue(payload.values, targetMinutes);
-      if (close === null || !Number.isFinite(close)) return;
-      const pct = ((close - baseValue) / baseValue) * 100;
-      result[key] = Number(pct.toFixed(2));
-    });
-
-    const hasValue = Object.values(result).some((value) => value !== null);
-    if (!hasValue) {
-      lastError = "quarter values empty";
-      continue;
-    }
-
-    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: result, interval });
-    return { series: result, interval };
   }
 
+  const yahooFallback = await fetchYahooQuarterSeries(symbol, date, prevClose);
+  if (yahooFallback.series) {
+    QUARTER_CACHE.set(cacheKey, {
+      ts: Date.now(),
+      data: yahooFallback.series,
+      interval: yahooFallback.interval,
+    });
+    return yahooFallback;
+  }
+
+  const error = yahooFallback.error ? `yahoo ${yahooFallback.error}` : lastError;
   QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
-  return { series: null, error: lastError };
+  return { series: null, error };
 };
 
 // 정적 파일 서빙 (public 폴더)
@@ -249,10 +391,10 @@ app.get("/api/market/prices", async (req, res) => {
     let quarterOk = 0;
 
     if (quartersEnabled && !apiKey) {
-      warnings.push("TWELVEDATA_API_KEY 환경변수가 설정되지 않았습니다.");
+      warnings.push("TWELVEDATA_API_KEY 미설정: Yahoo fallback을 사용합니다.");
     }
 
-    if (quartersEnabled && apiKey) {
+    if (quartersEnabled) {
       const queue = [...pricesItems];
       const concurrency = 3;
       const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
@@ -270,7 +412,7 @@ app.get("/api/market/prices", async (req, res) => {
               : item.key === "VIX"
               ? "VIXY"
               : item.key === "NQ"
-              ? "NQ"
+              ? "NQ=F"
               : item.key;
           const result = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
           if (result.series) {
