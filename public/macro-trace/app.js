@@ -43,7 +43,7 @@ const EXTRA_SECTORS = {
   "디지털 트윈/IoT": ["IOT"],
 };
 
-const INDICATORS = ["NQ", "M2", "STLFSI4"];
+const INDICATORS = ["NQ"];
 
 const QUARTERS = ["Q1", "Q2", "Q3"];
 const QUARTER_LABELS = {
@@ -143,8 +143,6 @@ const getAllKeys = (sectors) => {
 const getLabelForKey = (key) => {
   const labels = {
     NQ: "NQ선물",
-    M2: "M2",
-    STLFSI4: "STLFSI4",
   };
   return labels[key] || key;
 };
@@ -285,14 +283,34 @@ const updateCharts = (bucketSeries, indicatorSeries, sectorSeries, sectors) => {
     })),
   };
 
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "nearest", intersect: true },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          title: (items) => (items.length ? items[0].dataset.label : ""),
+          label: (context) => {
+            const data = context.dataset.data || [];
+            return QUARTERS.map(
+              (q, index) => `${QUARTER_LABELS[q]}: ${formatPct(data[index])}`
+            );
+          },
+        },
+      },
+    },
+  };
+
   if (!lineChart) {
     lineChart = new Chart(document.getElementById("lineChart"), {
       type: "line",
       data: lineData,
-      options: { responsive: true, maintainAspectRatio: false },
+      options: lineChartOptions,
     });
   } else {
     lineChart.data = lineData;
+    lineChart.options = lineChartOptions;
     lineChart.update();
   }
 
