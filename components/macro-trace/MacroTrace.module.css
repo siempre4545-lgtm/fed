@@ -1,0 +1,167 @@
+.page {
+  min-height: 100vh;
+  padding: 24px;
+  color: #e6edf3;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button {
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #e6edf3;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.controls {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.label input {
+  background: #0b0f14;
+  color: inherit;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.status {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.cards {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.card,
+.chartCard,
+.errorList {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.cardTitle {
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.cardValue {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.chartGrid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.chartScroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+.chartScrollInner {
+  width: 100%;
+}
+
+.warning,
+.error {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+.error {
+  color: #f87171;
+}
+
+.errorList ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #1f2937;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  z-index: 1;
+}
+
+.na {
+  color: #9ca3af;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px;
+  }
+}

@@ -185,6 +185,8 @@ export const MacroTraceDashboard = () => {
     router.replace(`/macro-trace${qs ? `?${qs}` : ""}`);
   };
 
+  const sectorChartMinWidth = Math.max(720, sectorChartData.length * 90);
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -209,13 +211,18 @@ export const MacroTraceDashboard = () => {
               </a>
             </>
           ) : (
-            <button
-              className={styles.button}
-              type="button"
-              onClick={() => updateQuery({ page: null })}
-            >
-              ◀ 이전 페이지
-            </button>
+            <>
+              <button
+                className={styles.button}
+                type="button"
+                onClick={() => updateQuery({ page: null })}
+              >
+                ◀ 이전 페이지
+              </button>
+              <a className={styles.button} href="/macro-trace/page3">
+                다음 페이지 ▶
+              </a>
+            </>
           )}
         </div>
       </div>
@@ -299,18 +306,27 @@ export const MacroTraceDashboard = () => {
       {view === "sectors" && (
         <div className={styles.chartCard}>
           <div className={styles.cardTitle}>섹터별 3쿼터 평균 변동률</div>
-          <ResponsiveContainer width="100%" height={360}>
-            <BarChart data={sectorChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="sector" tick={{ fill: "#cbd5f5", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#cbd5f5", fontSize: 12 }} />
-              <Tooltip formatter={(value) => formatPct(value as number)} />
-              <Legend />
-              <Bar dataKey="Q1" fill="#60a5fa" />
-              <Bar dataKey="Q2" fill="#a78bfa" />
-              <Bar dataKey="Q3" fill="#f87171" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className={styles.chartScroll}>
+            <div className={styles.chartScrollInner} style={{ minWidth: sectorChartMinWidth }}>
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={sectorChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="sector"
+                    interval={0}
+                    tick={{ fill: "#cbd5f5", fontSize: 11 }}
+                    tickMargin={8}
+                  />
+                  <YAxis tick={{ fill: "#cbd5f5", fontSize: 12 }} />
+                  <Tooltip formatter={(value) => formatPct(value as number)} />
+                  <Legend />
+                  <Bar dataKey="Q1" fill="#60a5fa" />
+                  <Bar dataKey="Q2" fill="#a78bfa" />
+                  <Bar dataKey="Q3" fill="#f87171" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       )}
 
