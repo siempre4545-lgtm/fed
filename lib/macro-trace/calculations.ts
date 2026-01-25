@@ -2,11 +2,17 @@ import type { PriceMap, QuarterKey, QuarterSeries, SectorDefinition } from "./ty
 
 const QUARTERS: QuarterKey[] = ["Q1", "Q2", "Q3"];
 
-export const computeQuarterSeries = (changePct: number | null): QuarterSeries => ({
-  Q1: changePct ?? null,
-  Q2: changePct ?? null,
-  Q3: changePct ?? null,
-});
+export const computeQuarterSeries = (
+  changePct: number | null,
+  quarters?: QuarterSeries | null
+): QuarterSeries => {
+  if (quarters) return quarters;
+  return {
+    Q1: changePct ?? null,
+    Q2: changePct ?? null,
+    Q3: changePct ?? null,
+  };
+};
 
 export const average = (values: Array<number | null | undefined>): number | null => {
   const filtered = values.filter((value): value is number => Number.isFinite(value));
@@ -21,7 +27,8 @@ export const computeTickerSeries = (
   return tickers.reduce<Record<string, QuarterSeries>>((acc, ticker) => {
     const entry = priceMap[ticker];
     const changePct = entry && entry.ok ? entry.changePct : null;
-    acc[ticker] = computeQuarterSeries(changePct ?? null);
+    const quarters = entry && entry.ok ? entry.quarters : undefined;
+    acc[ticker] = computeQuarterSeries(changePct ?? null, quarters ?? null);
     return acc;
   }, {});
 };

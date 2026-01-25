@@ -13,6 +13,7 @@ export type PricesResponse = {
     | {
         ok: true;
         price: number;
+        prevClose?: number | null;
         changePct: number | null;
         quarters?: QuarterSeries;
         source?: string;
@@ -42,10 +43,15 @@ export const toPriceMap = (data: PricesResponse | null): PriceMap => {
   if (!data?.prices) return {};
   return Object.entries(data.prices).reduce<PriceMap>((acc, [key, entry]) => {
     if (entry.ok) {
+      const changePct =
+        entry.changePct ??
+        (entry.prevClose && entry.prevClose !== 0
+          ? Number((((entry.price - entry.prevClose) / entry.prevClose) * 100).toFixed(2))
+          : null);
       acc[key] = {
         ok: true,
         price: entry.price,
-        changePct: entry.changePct ?? null,
+        changePct,
         quarters: entry.quarters,
         source: entry.source,
       };

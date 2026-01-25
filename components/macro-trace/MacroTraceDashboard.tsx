@@ -199,8 +199,14 @@ export const MacroTraceDashboard = () => {
   const comparisonData = useMemo(() => {
     const vixEntry = priceMap.VIX;
     const nqEntry = priceMap.NQ;
-    const vixSeries = computeQuarterSeries(vixEntry && vixEntry.ok ? vixEntry.changePct ?? null : null);
-    const nqSeries = computeQuarterSeries(nqEntry && nqEntry.ok ? nqEntry.changePct ?? null : null);
+    const vixSeries = computeQuarterSeries(
+      vixEntry && vixEntry.ok ? vixEntry.changePct ?? null : null,
+      vixEntry && vixEntry.ok ? vixEntry.quarters ?? null : null
+    );
+    const nqSeries = computeQuarterSeries(
+      nqEntry && nqEntry.ok ? nqEntry.changePct ?? null : null,
+      nqEntry && nqEntry.ok ? nqEntry.quarters ?? null : null
+    );
 
     return [
       {
@@ -271,7 +277,13 @@ export const MacroTraceDashboard = () => {
   const setView = (nextView: string) => {
     const query = new URLSearchParams(params.toString());
     query.set("view", nextView);
-    query.delete("page");
+    if (nextView === "sectors") {
+      query.set("page", "2");
+    } else if (nextView === "table") {
+      query.set("page", "3");
+    } else {
+      query.delete("page");
+    }
     if (date) {
       query.set("date", date);
     }
