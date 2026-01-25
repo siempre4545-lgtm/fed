@@ -112,7 +112,7 @@ const fetchQuarterSeries = async (
   }
 
   const baseUrl = "https://api.twelvedata.com/time_series";
-  const intervals = ["1min", "5min", "15min"];
+  const intervals = ["5min", "15min", "1min"];
   let lastError: string | undefined;
 
   for (const interval of intervals) {
@@ -244,6 +244,7 @@ app.get("/api/market/prices", async (req, res) => {
     const quarterMap = new Map<string, QuarterSeries | null>();
     const quarterIntervals = new Set<string>();
     const quarterErrors: string[] = [];
+    let quarterCreditsExceeded = false;
     let quarterTotal = 0;
     let quarterOk = 0;
 
@@ -278,12 +279,20 @@ app.get("/api/market/prices", async (req, res) => {
             if (result.interval) {
               quarterIntervals.add(result.interval);
             }
-          } else if (result.error && quarterErrors.length < 6) {
-            quarterErrors.push(`${item.key} ${result.error}`);
+          } else if (result.error) {
+            if (result.error.toLowerCase().includes("api credits")) {
+              quarterCreditsExceeded = true;
+            }
+            if (quarterErrors.length < 6) {
+              quarterErrors.push(`${item.key} ${result.error}`);
+            }
           }
         }
       });
       await Promise.all(workers);
+      if (quarterCreditsExceeded) {
+        warnings.push("TwelveData API 크레딧 한도 초과로 쿼터 값이 제한됩니다.");
+      }
     }
 
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
