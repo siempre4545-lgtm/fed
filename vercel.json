@@ -6,6 +6,18 @@
   },
   "rewrites": [
     {
+      "source": "/macro-trace",
+      "destination": "/macro-trace"
+    },
+    {
+      "source": "/api/market/prices",
+      "destination": "/api/market/prices"
+    },
+    {
+      "source": "/_next/:path*",
+      "destination": "/_next/:path*"
+    },
+    {
       "source": "/api/h41/summary",
       "destination": "/api/index"
     },
