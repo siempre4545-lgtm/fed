@@ -29,6 +29,25 @@ import {
 import type { PricesResponse } from "@/lib/macro-trace/data";
 import type { QuarterKey } from "@/lib/macro-trace/types";
 
+type TraceRow = {
+  group: string;
+  label: string;
+  key: string;
+  value: number | null;
+  delta: { type: "wow" | "custom"; value: number; pct: number | null } | null;
+  unit: string | null;
+  source: { kind: "internal" | "external"; name: string; detail?: string };
+  status: "ok" | "na" | "error";
+  error?: string;
+};
+
+type TraceResponse = {
+  ok: boolean;
+  date: string;
+  rows: TraceRow[];
+  meta: { warnings: string[] };
+};
+
 const QUARTERS: QuarterKey[] = ["Q1", "Q2", "Q3"];
 const QUARTER_LABELS: Record<QuarterKey, string> = {
   Q1: "1Q (00:00)",
@@ -47,7 +66,7 @@ export const MacroTraceDashboard = () => {
   const params = useSearchParams();
   const viewParam = params.get("view");
   const legacyPage = params.get("page");
-  const view = viewParam === "sectors" || legacyPage === "2" ? "sectors" : "dashboard";
+  const view = viewParam === "table" || legacyPage === "2" ? "table" : "dashboard";
   const paramDate = params.get("date");
   const [date, setDate] = useState(() =>
     coerceToThursday(
@@ -59,6 +78,11 @@ export const MacroTraceDashboard = () => {
   const [data, setData] = useState<PricesResponse | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [tableData, setTableData] = useState<TraceResponse | null>(null);
+  const [tableStatus, setTableStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [tableError, setTableError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [memo, setMemo] = useState("");
 
   const keys = useMemo(() => getAllKeys(), []);
 
@@ -76,6 +100,7 @@ export const MacroTraceDashboard = () => {
   }, [paramDate, date, params, router]);
 
   useEffect(() => {
+    if (view !== "dashboard") return;
     let active = true;
     const load = async () => {
       setStatus("loading");
@@ -100,7 +125,44 @@ export const MacroTraceDashboard = () => {
     return () => {
       active = false;
     };
-  }, [date, keys]);
+  }, [date, keys, view]);
+
+  useEffect(() => {
+    if (view !== "table") return;
+    let active = true;
+    const load = async () => {
+      setTableStatus("loading");
+      setTableError(null);
+      try {
+        const response = await fetch(`/api/macro/trace-table?date=${encodeURIComponent(date)}`);
+        const bodyText = await response.text();
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok) {
+          throw new Error(`API 오류 (${response.status})`);
+        }
+        if (!contentType.includes("application/json")) {
+          throw new Error("데이터 응답 형식이 올바르지 않습니다.");
+        }
+        const json = JSON.parse(bodyText) as TraceResponse;
+        if (!active) return;
+        if (!json.ok) {
+          setTableStatus("error");
+          setTableError("테이블 데이터를 불러오지 못했습니다.");
+          return;
+        }
+        setTableData(json);
+        setTableStatus("idle");
+      } catch (fetchError: any) {
+        if (!active) return;
+        setTableStatus("error");
+        setTableError(fetchError?.message || "테이블 데이터를 불러오지 못했습니다.");
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [view, date, refreshKey]);
 
   const priceMap = useMemo(() => toPriceMap(data), [data]);
   const sectorSeries = useMemo(() => computeSectorAverages(priceMap, SECTOR_DEFINITIONS), [priceMap]);
@@ -163,14 +225,36 @@ export const MacroTraceDashboard = () => {
     ];
   }, [bucketSeries, priceMap]);
 
-  const sectorBars = useMemo(() => {
-    return SECTOR_DEFINITIONS.map((sector) => ({
-      sector: sector.name,
-      value: sectorSeries[sector.name]?.Q3 ?? null,
-    })).sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-  }, [sectorSeries]);
-
   const errors = useMemo(() => collectPriceErrors(priceMap), [priceMap]);
+
+  const formatNumber = (value: number | null, unit: string | null) => {
+    if (value === null || Number.isNaN(value)) return "N/A";
+    if (unit === "%") return `${value.toFixed(2)}%`;
+    if (unit === "bp") return `${value.toFixed(2)}bp`;
+    if (unit === "b_usd") return `${value.toLocaleString()}B`;
+    if (unit === "m_usd") return `${value.toLocaleString()}M`;
+    if (unit === "fx") return value.toLocaleString();
+    return value.toLocaleString();
+  };
+
+  const formatDelta = (delta: TraceRow["delta"]) => {
+    if (!delta) return "—";
+    const sign = delta.value > 0 ? "+" : "";
+    const pct = delta.pct !== null && delta.pct !== undefined ? ` (${delta.pct.toFixed(2)}%)` : "";
+    return `${sign}${delta.value.toLocaleString()}${pct}`;
+  };
+
+  const groupedRows = useMemo(() => {
+    const rows = tableData?.rows || [];
+    const counts = new Map<string, number>();
+    rows.forEach((row) => counts.set(row.group, (counts.get(row.group) || 0) + 1));
+    const seen = new Map<string, number>();
+    return rows.map((row) => {
+      const index = seen.get(row.group) || 0;
+      seen.set(row.group, index + 1);
+      return { row, rowSpan: index === 0 ? counts.get(row.group) || 1 : 0 };
+    });
+  }, [tableData]);
 
   const setView = (nextView: string) => {
     const query = new URLSearchParams(params.toString());
@@ -202,7 +286,7 @@ export const MacroTraceDashboard = () => {
         <div className={styles.actions}>
           {view === "dashboard" && (
             <>
-              <button className={styles.button} onClick={() => setView("sectors")}>
+              <button className={styles.button} onClick={() => setView("table")}>
                 다음 페이지 ▶
               </button>
               <a className={styles.button} href="/" rel="noreferrer">
@@ -210,10 +294,10 @@ export const MacroTraceDashboard = () => {
               </a>
             </>
           )}
-          {view === "sectors" && (
+          {view === "table" && (
             <>
               <button className={styles.button} onClick={() => setView("dashboard")}>
-                ◀ 이전 페이지
+                대시보드로
               </button>
             </>
           )}
@@ -237,9 +321,38 @@ export const MacroTraceDashboard = () => {
           </span>
         </section>
       )}
+      {view === "table" && (
+        <section className={styles.controls}>
+          <label className={styles.label}>
+            날짜 선택
+            <input
+              type="date"
+              value={date}
+              onChange={(event) => handleDateChange(event.target.value)}
+            />
+          </label>
+          <label className={styles.label}>
+            메모 (선택)
+            <input
+              type="text"
+              placeholder="메모를 입력하세요"
+              value={memo}
+              onChange={(event) => setMemo(event.target.value)}
+            />
+          </label>
+          <span className={styles.status}>
+            {tableStatus === "loading" && "불러오는 중"}
+            {tableStatus === "error" && "오류"}
+            {tableStatus === "idle" && "완료"}
+          </span>
+          <button className={styles.button} onClick={() => setRefreshKey((prev) => prev + 1)}>
+            새로고침
+          </button>
+        </section>
+      )}
 
-      {error && <div className={styles.error}>오류: {error}</div>}
-      {!!data?.meta?.warnings?.length && (
+      {view === "dashboard" && error && <div className={styles.error}>오류: {error}</div>}
+      {view === "dashboard" && !!data?.meta?.warnings?.length && (
         <div className={styles.warning}>경고: {data.meta.warnings.join(" · ")}</div>
       )}
 
@@ -295,20 +408,53 @@ export const MacroTraceDashboard = () => {
         </>
       ) : (
         <section className={styles.chartCard}>
-          <div className={styles.cardTitle}>섹터별 3쿼터 평균 변동률</div>
-          <ResponsiveContainer width="100%" height={360}>
-            <BarChart data={sectorBars}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="sector" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatPct(value as number)} />
-              <Bar dataKey="value" name="3Q 평균" fill="#34d399" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className={styles.cardTitle}>목요일 세부 데이터 테이블</div>
+          {tableError && <div className={styles.error}>오류: {tableError}</div>}
+          {!!tableData?.meta?.warnings?.length && (
+            <div className={styles.warning}>경고: {tableData.meta.warnings.join(" · ")}</div>
+          )}
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>구분</th>
+                  <th>지수</th>
+                  <th>값</th>
+                  <th>변화</th>
+                  <th>소스</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableStatus === "loading" && (
+                  <tr>
+                    <td colSpan={5}>불러오는 중...</td>
+                  </tr>
+                )}
+                {tableStatus !== "loading" &&
+                  groupedRows.map(({ row, rowSpan }) => (
+                    <tr key={`${row.group}-${row.key}`}>
+                      {rowSpan ? <td rowSpan={rowSpan}>{row.group}</td> : null}
+                      <td>{row.label}</td>
+                      <td className={row.status !== "ok" ? styles.na : undefined} title={row.error}>
+                        {formatNumber(row.value, row.unit)}
+                      </td>
+                      <td className={row.status !== "ok" ? styles.na : undefined} title={row.error}>
+                        {formatDelta(row.delta)}
+                      </td>
+                      <td className={row.status !== "ok" ? styles.na : undefined} title={row.error}>
+                        {row.source.name}
+                        {row.source.detail ? ` (${row.source.detail})` : ""}
+                        {row.error ? ` - ${row.error}` : ""}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 
-      {!!errors.length && (
+      {!!errors.length && view === "dashboard" && (
         <section className={styles.errorList}>
           <div className={styles.cardTitle}>개별 실패 항목</div>
           <ul>
