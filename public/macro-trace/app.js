@@ -176,12 +176,9 @@ const renderActions = (state) => {
   } else {
     actionsEl.innerHTML = `
       <button class="button" type="button" id="prevPage">◀ 이전 페이지</button>
-      <button class="button" type="button" id="nextPage3">다음 페이지 ▶</button>
+      <a class="button" href="/macro-trace/page3">다음 페이지 ▶</a>
     `;
     document.getElementById("prevPage").onclick = () => setPage(1);
-    document.getElementById("nextPage3").onclick = () => {
-      window.location.href = "/macro-trace/page3";
-    };
   }
 };
 
@@ -335,28 +332,49 @@ const updateCharts = (bucketSeries, indicatorSeries, sectorSeries, sectors) => {
 
   const sectorCanvas = document.getElementById("sectorChart");
   const sectorContainer = sectorCanvas?.parentElement;
-  if (sectorCanvas && sectorContainer) {
-    const tickWidth = window.innerWidth <= 720 ? 90 : 70;
-    const minWidth = Math.max(sectors.length * tickWidth, sectorContainer.clientWidth || 0);
+  const sectorSize = (() => {
+    if (!sectorCanvas || !sectorContainer) return null;
+    const tickWidth = window.innerWidth <= 720 ? 110 : 70;
+    const minWidth = Math.max(sectors.length * tickWidth + 80, sectorContainer.clientWidth || 0);
+    const height = sectorContainer.clientHeight || 420;
     sectorCanvas.style.width = `${minWidth}px`;
     sectorCanvas.style.minWidth = `${minWidth}px`;
+    sectorCanvas.style.maxWidth = "none";
+    sectorCanvas.style.display = "block";
     sectorCanvas.width = minWidth;
-    sectorCanvas.height = sectorContainer.clientHeight || 420;
-  }
+    sectorCanvas.height = height;
+    return { width: minWidth, height };
+  })();
 
-  const sectorChartOptions = {
-    responsive: false,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        ticks: {
-          autoSkip: false,
-          maxRotation: 60,
-          minRotation: 60,
-        },
-      },
-    },
+  const chartMajor = Number((Chart?.version || "4").split(".")[0]);
+  const sectorTicks = {
+    autoSkip: false,
+    maxRotation: 60,
+    minRotation: 60,
+    maxTicksLimit: sectors.length,
   };
+  const sectorChartOptions =
+    chartMajor === 2
+      ? {
+          responsive: false,
+          maintainAspectRatio: false,
+          scales: {
+            xAxes: [
+              {
+                ticks: sectorTicks,
+              },
+            ],
+          },
+        }
+      : {
+          responsive: false,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: sectorTicks,
+            },
+          },
+        };
 
   if (!sectorChart) {
     sectorChart = new Chart(document.getElementById("sectorChart"), {
@@ -368,6 +386,9 @@ const updateCharts = (bucketSeries, indicatorSeries, sectorSeries, sectors) => {
     sectorChart.data = sectorData;
     sectorChart.options = sectorChartOptions;
     sectorChart.update();
+  }
+  if (sectorChart && sectorSize) {
+    sectorChart.resize(sectorSize.width, sectorSize.height);
   }
 };
 
