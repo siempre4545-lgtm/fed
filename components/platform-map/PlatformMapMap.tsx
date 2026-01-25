@@ -71,6 +71,12 @@ type Props = {
   onSelect: (code: string) => void;
 };
 
+type MapPath = {
+  code: string;
+  name: string;
+  path: string;
+};
+
 export default function PlatformMapMap({
   geojson,
   ratings,
@@ -84,9 +90,9 @@ export default function PlatformMapMap({
   }, [ratings]);
 
   const features = geojson?.features || [];
-  const { width, height, paths } = useMemo(() => {
+  const { width, height, paths } = useMemo<{ width: number; height: number; paths: MapPath[] }>(() => {
     if (!features.length) {
-      return { width: 0, height: 0, paths: [] as Array<{ code: string; name: string; path: string }> };
+      return { width: 0, height: 0, paths: [] };
     }
     const bounds = buildBounds(features);
     const width = 800;
