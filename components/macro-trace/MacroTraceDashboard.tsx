@@ -301,7 +301,7 @@ export const MacroTraceDashboard = () => {
               <button className={styles.button} onClick={() => setView("sectors")}>
                 다음 페이지 ▶
               </button>
-              <a className={styles.button} href="/" rel="noreferrer">
+              <a className={styles.button} href="https://fedreportsh.vercel.app/" rel="noreferrer">
                 대시보드
               </a>
             </>

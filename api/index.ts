@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import * as cheerio from "cheerio";
 import { parseH41Html } from "../lib/h41-parser-fed-report.js";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
@@ -8,6 +9,9 @@ import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChart
 import { fetchH41CalendarDates, isoToYmd, ymdToIso, yyyymmddFromISO } from "../src/h41-calendar.js";
 import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
 import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
+import { getThursdaySnapshot, getFridaySnapshot } from "../lib/market/getExternalSnapshots.js";
+import { getMarketPrices } from "../lib/market/getPrices.js";
+import type { MacroAssetKey } from "../lib/market/symbols.js";
 
 const app = express();
 
@@ -49,45 +53,575 @@ app.get("/api/h41/summary", async (req, res) => {
   }
 });
 
+app.get("/api/market/quote", async (req, res) => {
+  const provider = String(req.query.provider || "").toLowerCase();
+  const ticker = String(req.query.ticker || "").trim();
+  const asOf = new Date().toISOString().slice(0, 10);
+  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+
+  if (provider !== "stooq" || !ticker) {
+    return res.json({ ok: false, ticker, error: "invalid request", asOf });
+  }
+
+  try {
+    const target = encodeURIComponent(ticker.toLowerCase());
+    const url = `https://stooq.com/q/l/?s=${target}&i=d`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.json({ ok: false, ticker, error: "fetch failed", asOf });
+    }
+    const text = await response.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) {
+      return res.json({ ok: false, ticker, error: "no data", asOf });
+    }
+    const data = lines[1].split(",");
+    const date = data[1] || asOf;
+    const open = Number(data[3]);
+    const close = Number(data[6]);
+    const price = Number.isFinite(close) ? close : null;
+    const changePct =
+      Number.isFinite(open) && Number.isFinite(close) && open !== 0
+        ? Number((((close - open) / open) * 100).toFixed(2))
+        : null;
+    return res.json({
+      ok: price !== null,
+      ticker,
+      price,
+      changePct,
+      asOf: date,
+    });
+  } catch (error: any) {
+    return res.json({ ok: false, ticker, error: error?.message || "fetch failed", asOf });
+  }
+});
+
+app.get("/api/macro/thursday", async (req, res) => {
+  const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+
+  const warnings: string[] = [];
+
+  const fetchStooqQuote = async (ticker: string) => {
+    try {
+      const url = `https://stooq.com/q/l/?s=${encodeURIComponent(ticker.toLowerCase())}&i=d`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const text = await response.text();
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) return null;
+      const data = lines[1].split(",");
+      const asOf = data[1] || date;
+      const open = Number(data[3]);
+      const close = Number(data[6]);
+      const price = Number.isFinite(close) ? close : null;
+      const changePct =
+        Number.isFinite(open) && Number.isFinite(close) && open !== 0
+          ? Number((((close - open) / open) * 100).toFixed(2))
+          : null;
+      return { price, changePct, asOf };
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchYahooQuote = async (symbol: string, targetDate: string) => {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+        symbol
+      )}?interval=1d&range=30d`;
+      const response = await fetch(url, { headers: { "User-Agent": "fedreportsh/1.0" } });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const result = data.chart?.result?.[0];
+      const timestamps = result?.timestamp || [];
+      const closes = result?.indicators?.quote?.[0]?.close || [];
+      if (!timestamps.length || !closes.length) return null;
+      const toDate = (ts: number) => new Date(ts * 1000).toISOString().slice(0, 10);
+      let idx = timestamps.findIndex((ts: number) => toDate(ts) === targetDate);
+      if (idx === -1) {
+        idx = timestamps.length - 1;
+        for (let i = timestamps.length - 1; i >= 0; i -= 1) {
+          if (toDate(timestamps[i]) <= targetDate) {
+            idx = i;
+            break;
+          }
+        }
+      }
+      const price = closes[idx];
+      const prevPrice = idx > 0 ? closes[idx - 1] : null;
+      if (price === null || price === undefined) return null;
+      const changePct =
+        prevPrice !== null && prevPrice !== undefined && prevPrice !== 0
+          ? Number((((price - prevPrice) / prevPrice) * 100).toFixed(2))
+          : null;
+      return { price, changePct, asOf: toDate(timestamps[idx]) };
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchUsdKrw = async () => {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=2d`;
+      const response = await fetch(url, { headers: { "User-Agent": "fedreportsh/1.0" } });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const result = data.chart?.result?.[0];
+      const quote = result?.indicators?.quote?.[0];
+      if (!quote) return null;
+      const prices = quote.close?.filter((p: number | null) => p !== null) ?? [];
+      if (prices.length < 2) return null;
+      const current = prices[prices.length - 1];
+      const previous = prices[prices.length - 2];
+      const change = current - previous;
+      const changePct = (change / previous) * 100;
+      return {
+        price: current,
+        changePct: Number.isFinite(changePct) ? Number(changePct.toFixed(2)) : null,
+        asOf: new Date().toISOString().slice(0, 10),
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchFinraMarginDebt = async () => {
+    const sourceUrl =
+      "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics";
+    try {
+      const response = await fetch(sourceUrl, { headers: { "User-Agent": "fedreportsh/1.0" } });
+      if (!response.ok) {
+        return { value: null, asOf: date, sourceUrl, warning: "FINRA 응답 오류" };
+      }
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      let latestValue: number | null = null;
+      let latestDate = "";
+      $("table").each((_idx, table) => {
+        const headers = $(table)
+          .find("thead th")
+          .map((_i, el) => $(el).text().trim())
+          .get()
+          .join(" ");
+        if (!/margin|debit|balances/i.test(headers)) return;
+        $(table)
+          .find("tbody tr")
+          .each((_rowIdx, row) => {
+            const cells = $(row)
+              .find("td")
+              .map((_i, el) => $(el).text().trim())
+              .get();
+            if (cells.length < 2) return;
+            const normalized = cells[cells.length - 1].replace(/[, $]/g, "");
+            const value = Number(normalized);
+            if (!Number.isFinite(value)) return;
+            latestValue = value;
+            latestDate = cells[0];
+          });
+      });
+      if (latestValue === null) {
+        return { value: null, asOf: date, sourceUrl, warning: "FINRA 데이터 파싱 실패" };
+      }
+      return { value: latestValue, asOf: latestDate || date, sourceUrl };
+    } catch {
+      return { value: null, asOf: date, sourceUrl, warning: "FINRA 요청 실패" };
+    }
+  };
+
+  const internalIndicators = await fetchAllEconomicIndicators().catch(() => []);
+  const indicatorMap = new Map(internalIndicators.map((item) => [item.symbol, item]));
+  const dxy = indicatorMap.get("DXY");
+  const dxyFallback = dxy ? null : await fetchYahooQuote("DX-Y.NYB", date);
+  const m2 = indicatorMap.get("M2SL");
+  const stlfsi = indicatorMap.get("STLFSI4");
+
+  const quotes = await Promise.all([
+    fetchStooqQuote("GLD.US"),
+    fetchStooqQuote("AWK.US"),
+    fetchStooqQuote("ECL.US"),
+    fetchStooqQuote("KO.US"),
+    fetchStooqQuote("DG.US"),
+    fetchStooqQuote("RKLB.US"),
+    fetchStooqQuote("RDW.US"),
+    fetchStooqQuote("NTLA.US"),
+    fetchStooqQuote("CRSP.US"),
+    fetchStooqQuote("CLPT.US"),
+    fetchStooqQuote("DNA.US"),
+    fetchStooqQuote("VRT.US"),
+    fetchStooqQuote("GLW.US"),
+    fetchStooqQuote("TEL.US"),
+    fetchStooqQuote("FLNC.US"),
+    fetchStooqQuote("GEV.US"),
+    fetchStooqQuote("SMR.US"),
+    fetchStooqQuote("META.US"),
+    fetchStooqQuote("MSFT.US"),
+    fetchStooqQuote("HOOD.US"),
+    fetchStooqQuote("MA.US"),
+    fetchStooqQuote("V.US"),
+    fetchStooqQuote("IONQ.US"),
+    fetchStooqQuote("NET.US"),
+    fetchStooqQuote("TLT.US"),
+    fetchStooqQuote("IEF.US"),
+    fetchStooqQuote("USO.US"),
+  ]);
+  const quoteMap: Record<string, any> = {
+    GLD: quotes[0],
+    AWK: quotes[1],
+    ECL: quotes[2],
+    KO: quotes[3],
+    DG: quotes[4],
+    RKLB: quotes[5],
+    RDW: quotes[6],
+    NTLA: quotes[7],
+    CRSP: quotes[8],
+    CLPT: quotes[9],
+    DNA: quotes[10],
+    VRT: quotes[11],
+    GLW: quotes[12],
+    TEL: quotes[13],
+    FLNC: quotes[14],
+    GEV: quotes[15],
+    SMR: quotes[16],
+    META: quotes[17],
+    MSFT: quotes[18],
+    HOOD: quotes[19],
+    MA: quotes[20],
+    V: quotes[21],
+    IONQ: quotes[22],
+    NET: quotes[23],
+    TLT: quotes[24],
+    IEF: quotes[25],
+    USO: quotes[26],
+  };
+
+  const usdKrw = await fetchUsdKrw();
+  const marginDebt = await fetchFinraMarginDebt();
+
+  const addQuoteItem = async (
+    id: string,
+    group: string,
+    name: string,
+    ticker: string,
+    sector?: string,
+    yahooSymbol?: string
+  ) => {
+    let quote = quoteMap[ticker] ?? null;
+    if (!quote || quote.price === null) {
+      const yahoo = await fetchYahooQuote(yahooSymbol || ticker, date);
+      if (yahoo && yahoo.price !== null) {
+        quote = yahoo;
+      }
+    }
+    if (!quote || quote.price === null) warnings.push(`${name} 가격을 가져오지 못했습니다.`);
+    return {
+      id,
+      kind: "asset",
+      group,
+      sector,
+      name,
+      ticker,
+      unit: "USD",
+      value: quote?.price ?? null,
+      changePct: quote?.changePct ?? null,
+      changeAbs: null,
+      asOf: quote?.asOf ?? date,
+      source: quote?.price
+        ? {
+            type: "external",
+            origin: "stooq",
+            url: `https://stooq.com/q/l/?s=${ticker.toLowerCase()}&i=d`,
+          }
+        : {
+            type: "external",
+            origin: "other",
+            url: `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+              yahooSymbol || ticker
+            )}`,
+          },
+    };
+  };
+
+  const items = [
+    {
+      id: "asset.DXY",
+      kind: "asset",
+      group: "안전자산",
+      name: "달러인덱스",
+      ticker: "DXY",
+      unit: dxy?.unit || "index",
+      value: dxy?.value ?? dxyFallback?.price ?? null,
+      changePct: dxy?.changePercent ?? dxyFallback?.changePct ?? null,
+      changeAbs: dxy?.change ?? null,
+      asOf: dxy?.lastUpdated ?? dxyFallback?.asOf ?? date,
+      source: dxy
+        ? { type: "internal", origin: "fedreportsh", url: "https://fedreportsh.vercel.app/economic-indicators" }
+        : { type: "external", origin: "other", url: "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB" },
+    },
+    {
+      id: "indicator.M2",
+      kind: "indicator",
+      group: "거시지표",
+      name: "M2",
+      unit: m2?.unit || "USD",
+      value: m2?.value ?? null,
+      changePct: m2?.changePercent ?? null,
+      changeAbs: m2?.change ?? null,
+      asOf: m2?.lastUpdated ?? date,
+      source: { type: "internal", origin: "fedreportsh", url: "https://fedreportsh.vercel.app/economic-indicators" },
+    },
+    {
+      id: "indicator.STLFSI4",
+      kind: "indicator",
+      group: "거시지표",
+      name: "STLFSI4",
+      unit: stlfsi?.unit || "index",
+      value: stlfsi?.value ?? null,
+      changePct: stlfsi?.changePercent ?? null,
+      changeAbs: stlfsi?.change ?? null,
+      asOf: stlfsi?.lastUpdated ?? date,
+      source: { type: "internal", origin: "fedreportsh", url: "https://fedreportsh.vercel.app/economic-indicators" },
+    },
+    await addQuoteItem("asset.GLD", "안전자산", "금", "GLD", undefined, "GLD"),
+    await addQuoteItem("asset.AWK", "안전자산", "물", "AWK", undefined, "AWK"),
+    await addQuoteItem("asset.ECL", "안전자산", "식량", "ECL", undefined, "ECL"),
+    await addQuoteItem("asset.KO", "안전자산", "필수소비재(KO)", "KO", undefined, "KO"),
+    await addQuoteItem("asset.DG", "안전자산", "필수소비재(DG)", "DG", undefined, "DG"),
+    await addQuoteItem("asset.RKLB", "위험자산", "우주: RKLB", "RKLB", "우주", "RKLB"),
+    await addQuoteItem("asset.RDW", "위험자산", "우주: RDW", "RDW", "우주", "RDW"),
+    await addQuoteItem("asset.NTLA", "위험자산", "장수과학: NTLA", "NTLA", "장수과학", "NTLA"),
+    await addQuoteItem("asset.CRSP", "위험자산", "장수과학: CRSP", "CRSP", "장수과학", "CRSP"),
+    await addQuoteItem("asset.CLPT", "위험자산", "BCI: CLPT", "CLPT", "BCI", "CLPT"),
+    await addQuoteItem("asset.DNA", "위험자산", "합성생물학: DNA", "DNA", "합성생물학", "DNA"),
+    await addQuoteItem("asset.VRT", "위험자산", "인프라/전력: VRT", "VRT", "인프라", "VRT"),
+    await addQuoteItem("asset.GLW", "위험자산", "인프라/원자재: GLW", "GLW", "인프라", "GLW"),
+    await addQuoteItem("asset.TEL", "위험자산", "전력/데이터: TEL", "TEL", "전력", "TEL"),
+    await addQuoteItem("asset.FLNC", "위험자산", "전력/데이터: FLNC", "FLNC", "전력", "FLNC"),
+    await addQuoteItem("asset.GEV", "위험자산", "전력/데이터: GEV", "GEV", "전력", "GEV"),
+    await addQuoteItem("asset.SMR", "위험자산", "전력/데이터: SMR", "SMR", "전력", "SMR"),
+    await addQuoteItem("asset.META", "위험자산", "데이터/플랫폼: META", "META", "데이터", "META"),
+    await addQuoteItem("asset.MSFT", "위험자산", "데이터/플랫폼: MSFT", "MSFT", "데이터", "MSFT"),
+    await addQuoteItem("asset.HOOD", "위험자산", "결제시스템: HOOD", "HOOD", "결제", "HOOD"),
+    await addQuoteItem("asset.MA", "위험자산", "결제시스템: MA", "MA", "결제", "MA"),
+    await addQuoteItem("asset.V", "위험자산", "결제시스템: V", "V", "결제", "V"),
+    await addQuoteItem("asset.IONQ", "위험자산", "양자보안: IONQ", "IONQ", "양자", "IONQ"),
+    await addQuoteItem("asset.NET", "위험자산", "양자보안: NET", "NET", "양자", "NET"),
+    await addQuoteItem("asset.TLT", "헤지자산", "미국채 ETF (TLT)", "TLT", undefined, "TLT"),
+    await addQuoteItem("asset.IEF", "헤지자산", "미국채 ETF (IEF)", "IEF", undefined, "IEF"),
+    await addQuoteItem("asset.USO", "헤지자산", "원유 (USO)", "USO", undefined, "USO"),
+    {
+      id: "indicator.MARGIN_DEBT",
+      kind: "indicator",
+      group: "거시지표",
+      name: "마진데트",
+      unit: "USD",
+      value: marginDebt.value,
+      asOf: marginDebt.asOf,
+      source: { type: "external", origin: "finra", url: marginDebt.sourceUrl },
+    },
+  ];
+
+  if (!dxy && !dxyFallback) warnings.push("달러인덱스(DXY) 내부 데이터 없음");
+  if (!m2) warnings.push("M2 내부 데이터 없음");
+  if (!stlfsi) warnings.push("STLFSI4 내부 데이터 없음");
+  if (!usdKrw?.price) warnings.push("USDKRW 환율을 가져오지 못했습니다.");
+  if (!marginDebt.value) warnings.push(marginDebt.warning || "마진데트 데이터 없음");
+
+  if (usdKrw?.price) {
+    items.splice(4, 0, {
+      id: "asset.USDKRW",
+      kind: "asset",
+      group: "안전자산",
+      name: "달러환율",
+      ticker: "USDKRW",
+      unit: "KRW",
+      value: usdKrw.price,
+      changePct: usdKrw.changePct ?? null,
+      changeAbs: null,
+      asOf: usdKrw.asOf,
+      source: { type: "external", origin: "other", url: "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X" },
+    });
+  } else {
+    items.splice(4, 0, {
+      id: "asset.USDKRW",
+      kind: "asset",
+      group: "안전자산",
+      name: "달러환율",
+      ticker: "USDKRW",
+      unit: "KRW",
+      value: null,
+      changePct: null,
+      changeAbs: null,
+      asOf: date,
+      source: { type: "external", origin: "other", url: "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X" },
+    });
+  }
+
+  if (warnings.length && process.env.NODE_ENV !== "production") {
+    console.warn("[macro-thursday warnings]", warnings);
+  }
+
+  res.json({ ok: true, date, items, warnings });
+});
+
+app.get("/api/market/snapshot", async (req, res) => {
+  const keysRaw = String(req.query.keys || "");
+  const mode = String(req.query.mode || "thursday");
+  const keys = keysRaw
+    ? keysRaw
+        .split(",")
+        .map((key) => key.trim())
+        .filter(Boolean)
+    : [];
+
+  try {
+    const snapshot =
+      mode === "friday"
+        ? await getFridaySnapshot()
+        : await getThursdaySnapshot(keys as MacroAssetKey[]);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      ok: true,
+      asOf: new Date().toISOString().slice(0, 10),
+      items: snapshot.items,
+      warnings: snapshot.warnings,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      ok: false,
+      error: error?.message || "snapshot failed",
+      items: [],
+      warnings: [],
+    });
+  }
+});
+
+app.get("/api/market/prices", async (req, res) => {
+  const symbolsRaw = String(req.query.symbols || req.query.keys || "");
+  const date = req.query.date ? String(req.query.date) : undefined;
+  const debugEnabled = String(req.query.debug || "") === "1";
+  const keys = symbolsRaw
+    ? symbolsRaw
+        .split(",")
+        .map((key) => key.trim())
+        .filter(Boolean)
+    : [];
+
+  try {
+    const snapshot = await getMarketPrices(keys, date, { debug: debugEnabled });
+    const fxItem = snapshot.items.find((item) => item.key === "USDKRW");
+    const pricesItems = snapshot.items.filter((item) => item.key !== "USDKRW");
+    const sourcesUsed = Array.from(
+      new Set(snapshot.items.map((item) => item.source).filter(Boolean))
+    );
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+    res.json({
+      ok: true,
+      asOf: new Date().toISOString(),
+      prices: Object.fromEntries(
+        pricesItems.map((item) => [
+          item.key,
+          item.ok
+            ? {
+                ok: true,
+                price: item.price,
+                prevClose: item.prevClose ?? null,
+                changePct: item.change1dPct ?? null,
+                source: item.source,
+                ts: item.asOf,
+                usedLastGood: item.usedLastGood ?? false,
+              }
+            : { ok: false, error: item.error, source: item.source },
+        ])
+      ),
+      fx: fxItem
+        ? {
+            USDKRW: fxItem.ok
+              ? {
+                  ok: true,
+                  rate: fxItem.price,
+                  source: fxItem.source,
+                  ts: fxItem.asOf,
+                  usedLastGood: fxItem.usedLastGood ?? false,
+                }
+              : { ok: false, error: fxItem.error, source: fxItem.source },
+          }
+        : {},
+      meta: {
+        warnings: snapshot.warnings,
+        sourcesUsed,
+        cache: snapshot.cache,
+      },
+      ...(debugEnabled
+        ? {
+            debug: {
+              runtime: "nodejs",
+              region: process.env.VERCEL_REGION || "local",
+              fetches: snapshot.debug?.fetches || [],
+            },
+          }
+        : {}),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      ok: false,
+      error: error?.message || "prices failed",
+      prices: {},
+      fx: {},
+      meta: { warnings: [], sourcesUsed: [], cache: "MISS" },
+      ...(debugEnabled
+        ? {
+            debug: {
+              runtime: "nodejs",
+              region: process.env.VERCEL_REGION || "local",
+              fetches: [],
+            },
+          }
+        : {}),
+    });
+  }
+});
+
 // API: H.4.1 파싱 (fed_report_sh 통합)
 app.get("/api/h41", async (req, res) => {
   try {
-    const date = String(req.query.date || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({ error: "invalid_date" });
-    }
+    const requestedDate = (req.query.date as string | undefined)?.trim();
+    let resolvedDate: string | undefined;
 
-    const compactDate = date.replace(/-/g, "");
-    const url = `https://www.federalreserve.gov/releases/h41/${compactDate}/`;
-    console.log(`[H41] 선택 날짜=${date}`);
-    console.log(`[H41] 요청 URL=${url}`);
-
-    let html = "";
-    try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "FED Dashboard Parser",
-        },
-      });
-      if (!response.ok) {
-        return res.status(404).json({ error: "not_found", date, url });
+    if (requestedDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+        return res.status(400).json({ error: "invalid_date" });
       }
-      html = await response.text();
-    } catch (error) {
-      console.error("[H41] 요청 실패", error);
-      return res.status(502).json({ error: "fetch_failed", date, url });
+
+      try {
+        const calendarDates = await fetchH41CalendarDates();
+        const targetYmd = yyyymmddFromISO(requestedDate);
+        const sorted = [...calendarDates].sort((a, b) => b.localeCompare(a));
+        const matched = sorted.find((ymd) => ymd <= targetYmd) || sorted[0];
+        if (!matched) {
+          return res.status(404).json({ error: "not_found" });
+        }
+        resolvedDate = ymdToIso(matched);
+      } catch (calendarError) {
+        console.error("[H41] 캘린더 조회 실패", calendarError);
+        return res.status(502).json({ error: "fetch_failed" });
+      }
     }
 
-    try {
-      const result = parseH41Html(html, date);
-      res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
-      return res.json({ date, url, ...result });
-    } catch (error) {
-      console.error("[H41] 파싱 실패", error);
-      return res.status(500).json({ error: "parse_failed", date, url });
-    }
+    const report = await fetchH41Report(resolvedDate);
+    res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+    res.json({
+      ...report,
+      requestedDate: requestedDate ?? null,
+      resolvedDate: resolvedDate ?? null,
+    });
   } catch (e: any) {
-    res.status(500).json({ error: e?.message ?? String(e) });
+    const message = e?.message ?? String(e);
+    const isInvalid = message.includes("Invalid date format");
+    const isNotFound = message.includes("Failed to fetch H.4.1 archive");
+    const error = isInvalid ? "invalid_date" : isNotFound ? "not_found" : "fetch_failed";
+    const status = isInvalid ? 400 : isNotFound ? 404 : 500;
+    res.status(status).json({ error });
   }
 });
 
@@ -951,9 +1485,9 @@ app.get("/", async (req, res) => {
     .date-selector .reset-btn:hover{background:#2d2d2d;color:#c0c0c0}
     
     /* 신호등 UI */
-    .header-right-buttons{display:flex;gap:12px;align-items:flex-start;flex-shrink:0}
+    .header-right-buttons{display:flex;gap:10px;align-items:center;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto}
     .traffic-light-container{position:relative}
-    .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px}
+    .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:10px 12px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:72px}
     .traffic-light-link:hover{background:#252525;border-color:#3d3d3d;transform:translateY(-2px)}
     .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1)}
     .traffic-light-label{font-size:12px;font-weight:600;color:#c0c0c0;text-align:center}
@@ -1062,10 +1596,9 @@ app.get("/", async (req, res) => {
       .cards-grid{grid-template-columns:1fr}
       .signal-detail{flex-direction:column;gap:8px}
       .page-header{flex-direction:column;align-items:stretch}
-      .header-right-buttons{margin-top:16px;justify-content:center;gap:8px}
-      .traffic-light-container{flex:1;max-width:calc(50% - 4px)}
-      .traffic-light-link{padding:10px 12px;min-width:auto}
-      .traffic-light-circle{width:28px;height:28px;margin-bottom:6px}
+      .header-right-buttons{margin-top:12px;justify-content:flex-start;gap:6px;flex-wrap:nowrap}
+      .traffic-light-link{padding:8px 10px;min-width:64px}
+      .traffic-light-circle{width:26px;height:26px;margin-bottom:5px}
       .traffic-light-label{font-size:11px}
       .traffic-light-score{font-size:9px}
     }
@@ -1106,6 +1639,14 @@ app.get("/", async (req, res) => {
           <div class="traffic-light-label">경제 진단</div>
           <div class="traffic-light-label" style="color:${trafficLightColor};font-weight:700">${trafficLightText}</div>
           ${economicStatus ? `<div class="traffic-light-score">점수: ${economicStatus.score}/100</div>` : ""}
+        </a>
+      </div>
+      <div class="traffic-light-container">
+        <a href="/macro-trace" class="traffic-light-link" title="주간 목금월 루틴 워크북">
+          <div class="traffic-light-circle" style="background:linear-gradient(135deg,#22d3ee 0%,#38bdf8 100%)"></div>
+          <div class="traffic-light-label">목금월</div>
+          <div class="traffic-light-label" style="color:#38bdf8;font-weight:700">루틴</div>
+          <div class="traffic-light-score">워크북</div>
         </a>
       </div>
       <div class="traffic-light-container">
