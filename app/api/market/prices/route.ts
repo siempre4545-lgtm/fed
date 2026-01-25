@@ -53,6 +53,246 @@ const pickFallbackBase = (values: Array<{ datetime: string; close: string }>) =>
   return null;
 };
 
+const parseYmd = (value: string) => {
+  const parts = value.split("-").map((chunk) => Number(chunk));
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts;
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const toYmd = (date: Date) => date.toISOString().slice(0, 10);
+
+const addDays = (ymd: string, offset: number) => {
+  const parsed = parseYmd(ymd);
+  if (!parsed) return null;
+  parsed.setUTCDate(parsed.getUTCDate() + offset);
+  return toYmd(parsed);
+};
+
+const kstToUtcTimestampSeconds = (ymd: string, time: string) => {
+  const parts = ymd.split("-").map((chunk) => Number(chunk));
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts;
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const minutes = parseMinutes(time);
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const utcMs = Date.UTC(year, month - 1, day, hours - 9, mins, 0);
+  return Math.floor(utcMs / 1000);
+};
+
+const toKstYmdFromEpochSeconds = (seconds: number) => {
+  const kstMs = seconds * 1000 + 9 * 60 * 60 * 1000;
+  return new Date(kstMs).toISOString().slice(0, 10);
+};
+
+const pickClosestByMinutes = (
+  values: Array<{ minutes: number; close: number }>,
+  targetMinutes: number
+): number | null => {
+  let bestClose: number | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  values.forEach((item) => {
+    const diff = Math.abs(item.minutes - targetMinutes);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestClose = item.close;
+    }
+  });
+  return bestClose;
+};
+
+const pickFirstClose = (values: Array<{ minutes: number; close: number }>) => {
+  for (let i = 0; i < values.length; i += 1) {
+    const close = values[i]?.close;
+    if (Number.isFinite(close)) return close;
+  }
+  return null;
+};
+
+const fetchYahooPrevClose = async (symbol: string, date: string): Promise<number | null> => {
+  const startDate = addDays(date, -7);
+  const endDate = addDays(date, 1);
+  if (!startDate || !endDate) return null;
+  const startUtc = kstToUtcTimestampSeconds(startDate, "00:00:00");
+  const endUtc = kstToUtcTimestampSeconds(endDate, "00:00:00");
+  if (startUtc === null || endUtc === null) return null;
+
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+    symbol
+  )}?interval=1d&period1=${startUtc}&period2=${endUtc}&events=div%2Csplit`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+        Accept: "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch {
+    return null;
+  }
+  if (!response.ok) return null;
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const closes = result?.indicators?.quote?.[0]?.close;
+  if (!Array.isArray(timestamps) || !Array.isArray(closes)) return null;
+  const values = timestamps
+    .map((ts: number, index: number) => {
+      const close = Number(closes[index]);
+      if (!Number.isFinite(close)) return null;
+      return { date: toKstYmdFromEpochSeconds(ts), close };
+    })
+    .filter(Boolean) as Array<{ date: string; close: number }>;
+  const prev = values.filter((item) => item.date < date).pop();
+  return prev?.close ?? null;
+};
+
+const fetchYahooQuarterSeries = async (
+  symbol: string,
+  date: string,
+  prevClose: number | null
+): Promise<QuarterSeries | null> => {
+  const cacheKey = getQuarterCacheKey(symbol, date);
+  const cached = QUARTER_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.ts < QUARTER_TTL_MS) {
+    return cached.data;
+  }
+
+  const startUtc = kstToUtcTimestampSeconds(date, "00:00:00");
+  const endUtc = kstToUtcTimestampSeconds(date, "06:00:00");
+  if (startUtc === null || endUtc === null) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+
+  const interval = "2m";
+  const period2 = endUtc + 60;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+    symbol
+  )}?interval=${interval}&period1=${startUtc}&period2=${period2}&includePrePost=true&events=div%2Csplit`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+        Accept: "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+  if (!response.ok) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+  if (payload?.chart?.error) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const closes = result?.indicators?.quote?.[0]?.close;
+  if (!Array.isArray(timestamps) || !Array.isArray(closes)) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+
+  const values = timestamps
+    .map((ts: number, index: number) => {
+      const close = Number(closes[index]);
+      if (!Number.isFinite(close)) return null;
+      const minutes = Math.round((ts - startUtc) / 60);
+      return { minutes, close };
+    })
+    .filter(Boolean) as Array<{ minutes: number; close: number }>;
+  if (!values.length) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+
+  let baseValue =
+    prevClose && Number.isFinite(prevClose) ? prevClose : pickFirstClose(values);
+  if (baseValue === null || !Number.isFinite(baseValue) || baseValue === 0) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+  const base = baseValue;
+
+  const quarterCloses: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+  QUARTER_TIMES.forEach(({ key, time }) => {
+    const targetMinutes = parseMinutes(time);
+    if (targetMinutes === null) return;
+    const close = pickClosestByMinutes(values, targetMinutes);
+    if (close === null || !Number.isFinite(close)) return;
+    quarterCloses[key] = close;
+  });
+
+  const resultSeries: QuarterSeries = { Q1: null, Q2: null, Q3: null };
+  QUARTER_TIMES.forEach(({ key, time }) => {
+    const targetMinutes = parseMinutes(time);
+    if (targetMinutes === null) return;
+    const close = quarterCloses[key];
+    if (close === null || !Number.isFinite(close)) return;
+    const pct = ((close - base) / base) * 100;
+    resultSeries[key] = Number(pct.toFixed(2));
+  });
+
+  if (
+    (!prevClose || !Number.isFinite(prevClose)) &&
+    resultSeries.Q1 === 0 &&
+    quarterCloses.Q1 !== null &&
+    (resultSeries.Q2 !== null || resultSeries.Q3 !== null)
+  ) {
+    const yahooPrevClose = await fetchYahooPrevClose(symbol, date);
+    if (Number.isFinite(yahooPrevClose) && yahooPrevClose !== 0) {
+      const fallbackBase = Number(yahooPrevClose);
+      QUARTER_TIMES.forEach(({ key }) => {
+        const close = quarterCloses[key];
+        if (close === null || !Number.isFinite(close)) return;
+        const pct = ((close - fallbackBase) / fallbackBase) * 100;
+        resultSeries[key] = Number(pct.toFixed(2));
+      });
+    }
+  }
+
+  const hasValue = Object.values(resultSeries).some((value) => value !== null);
+  if (!hasValue) {
+    QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
+    return null;
+  }
+
+  QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: resultSeries });
+  return resultSeries;
+};
+
 const fetchQuarterSeries = async (
   symbol: string,
   date: string,
@@ -145,6 +385,7 @@ export const GET = async (request: Request) => {
 
   try {
     const snapshot = await getMarketPrices(keys, date, { debug: debugEnabled });
+    const warnings = [...snapshot.warnings];
     const fxItem = snapshot.items.find((item) => item.key === "USDKRW");
     const pricesItems = snapshot.items.filter((item) => item.key !== "USDKRW");
     const sourcesUsed = Array.from(
@@ -155,7 +396,11 @@ export const GET = async (request: Request) => {
     const apiKey = process.env.TWELVEDATA_API_KEY || process.env.PROVIDERX_API_KEY;
     const quarterMap = new Map<string, QuarterSeries | null>();
 
-    if (quartersEnabled && apiKey) {
+    if (quartersEnabled && !apiKey) {
+      warnings.push("TWELVEDATA_API_KEY 미설정: Yahoo fallback을 사용합니다.");
+    }
+
+    if (quartersEnabled) {
       const queue = [...pricesItems];
       const concurrency = 3;
       const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
@@ -170,9 +415,13 @@ export const GET = async (request: Request) => {
               : item.key === "VIX"
               ? "VIXY"
               : item.key === "NQ"
-              ? "NQ"
+              ? apiKey
+                ? "NQ"
+                : "NQ=F"
               : item.key;
-          const quarters = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
+          const quarters = apiKey
+            ? await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey)
+            : await fetchYahooQuarterSeries(symbol, quarterDate, prevClose);
           if (quarters) {
             quarterMap.set(item.key, quarters);
           }
@@ -216,7 +465,7 @@ export const GET = async (request: Request) => {
             }
           : {},
         meta: {
-          warnings: snapshot.warnings,
+          warnings,
           sourcesUsed,
           cache: snapshot.cache,
         },
