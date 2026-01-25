@@ -94,6 +94,7 @@ const fetchStooqWithRetry = async (
 const YAHOO_OTC_SYMBOLS: Record<string, string> = {
   HESAY: "HESAY",
   PPRUY: "PPRUY",
+  LVMH: "LVMUY",
 };
 
 const parseYahooChart = (payload: any) => {

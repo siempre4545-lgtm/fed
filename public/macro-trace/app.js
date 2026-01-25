@@ -333,7 +333,8 @@ const updateCharts = (bucketSeries, indicatorSeries, sectorSeries, sectors) => {
   const sectorCanvas = document.getElementById("sectorChart");
   const sectorContainer = sectorCanvas?.parentElement;
   if (sectorCanvas && sectorContainer) {
-    const minWidth = Math.max(sectors.length * 70, sectorContainer.clientWidth || 0);
+    const tickWidth = window.innerWidth <= 720 ? 90 : 70;
+    const minWidth = Math.max(sectors.length * tickWidth, sectorContainer.clientWidth || 0);
     sectorCanvas.style.width = `${minWidth}px`;
     sectorCanvas.style.minWidth = `${minWidth}px`;
     sectorCanvas.width = minWidth;

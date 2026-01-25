@@ -17,6 +17,8 @@ const QUARTER_TTL_MS = 5 * 60 * 1000;
 
 const getQuarterCacheKey = (symbol: string, date: string) => `${symbol}::${date}`;
 
+const isValidClose = (value: number) => Number.isFinite(value) && value > 0;
+
 const parseMinutes = (time: string) => {
   const [h, m] = time.split(":").map((value) => Number(value));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -35,7 +37,7 @@ const pickClosestValue = (
     const minutes = parseMinutes(time);
     if (minutes === null) return;
     const close = Number(item.close);
-    if (!Number.isFinite(close)) return;
+    if (!isValidClose(close)) return;
     const diff = Math.abs(minutes - targetMinutes);
     if (diff < bestDiff) {
       bestDiff = diff;
@@ -48,7 +50,7 @@ const pickClosestValue = (
 const pickFallbackBase = (values: Array<{ datetime: string; close: string }>) => {
   for (let i = values.length - 1; i >= 0; i -= 1) {
     const close = Number(values[i]?.close);
-    if (Number.isFinite(close)) return close;
+    if (isValidClose(close)) return close;
   }
   return null;
 };
@@ -111,7 +113,7 @@ const pickClosestByMinutes = (
 const pickFirstClose = (values: Array<{ minutes: number; close: number }>) => {
   for (let i = 0; i < values.length; i += 1) {
     const close = values[i]?.close;
-    if (Number.isFinite(close)) return close;
+    if (isValidClose(close)) return close;
   }
   return null;
 };
@@ -155,7 +157,7 @@ const fetchYahooPrevClose = async (symbol: string, date: string): Promise<number
   const values = timestamps
     .map((ts: number, index: number) => {
       const close = Number(closes[index]);
-      if (!Number.isFinite(close)) return null;
+      if (!isValidClose(close)) return null;
       return { date: toKstYmdFromEpochSeconds(ts), close };
     })
     .filter(Boolean) as Array<{ date: string; close: number }>;
@@ -229,7 +231,7 @@ const fetchYahooQuarterSeries = async (
   const values = timestamps
     .map((ts: number, index: number) => {
       const close = Number(closes[index]);
-      if (!Number.isFinite(close)) return null;
+      if (!isValidClose(close)) return null;
       const minutes = Math.round((ts - startUtc) / 60);
       return { minutes, close };
     })
@@ -241,7 +243,7 @@ const fetchYahooQuarterSeries = async (
 
   let baseValue =
     prevClose && Number.isFinite(prevClose) ? prevClose : pickFirstClose(values);
-  if (baseValue === null || !Number.isFinite(baseValue) || baseValue === 0) {
+  if (baseValue === null || !isValidClose(baseValue)) {
     QUARTER_CACHE.set(cacheKey, { ts: Date.now(), data: null });
     return null;
   }
@@ -411,23 +413,31 @@ export const GET = async (request: Request) => {
           if (!item || !item.ok) continue;
           const usePrevClose = !date || date === today;
           const prevClose = usePrevClose ? item.prevClose ?? null : null;
-          const symbol =
+          const providerSymbol =
             item.key === "DXY"
               ? "UUP"
               : item.key === "VIX"
               ? "VIXY"
               : item.key === "NQ"
-              ? apiKey
-                ? "NQ"
-                : "NQ=F"
+              ? "NQ"
+              : item.key;
+          const yahooSymbol =
+            item.key === "DXY"
+              ? "UUP"
+              : item.key === "VIX"
+              ? "VIXY"
+              : item.key === "NQ"
+              ? "NQ=F"
+              : item.key === "LVMH"
+              ? "LVMUY"
               : item.key;
           if (apiKey) {
-            const quarters = await fetchQuarterSeries(symbol, quarterDate, prevClose, apiKey);
+            const quarters = await fetchQuarterSeries(providerSymbol, quarterDate, prevClose, apiKey);
             if (quarters) {
               quarterMap.set(item.key, quarters);
               continue;
             }
-            const fallback = await fetchYahooQuarterSeries(symbol, quarterDate, prevClose, {
+            const fallback = await fetchYahooQuarterSeries(yahooSymbol, quarterDate, prevClose, {
               skipCache: true,
             });
             if (fallback) {
@@ -436,7 +446,7 @@ export const GET = async (request: Request) => {
             }
             continue;
           }
-          const quarters = await fetchYahooQuarterSeries(symbol, quarterDate, prevClose);
+          const quarters = await fetchYahooQuarterSeries(yahooSymbol, quarterDate, prevClose);
           if (quarters) {
             quarterMap.set(item.key, quarters);
           }
