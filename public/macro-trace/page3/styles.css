@@ -59,3 +59,37 @@
 .value-neutral {
   color: #e5e7eb;
 }
+
+@media (max-width: 720px) {
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .data-table td:nth-child(1),
+  .data-table th:nth-child(1) {
+    width: 56px;
+    white-space: nowrap;
+  }
+
+  .data-table td:nth-child(2),
+  .data-table th:nth-child(2) {
+    max-width: 140px;
+    white-space: normal;
+  }
+
+  .data-table td:nth-child(3),
+  .data-table td:nth-child(4),
+  .data-table td:nth-child(5),
+  .data-table th:nth-child(3),
+  .data-table th:nth-child(4),
+  .data-table th:nth-child(5) {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .value-meta {
+    font-size: 10px;
+  }
+}
