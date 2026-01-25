@@ -1109,6 +1109,14 @@ app.get("/", async (req, res) => {
         </a>
       </div>
       <div class="traffic-light-container">
+        <a href="/macro-trace" class="traffic-light-link" title="목금월 루틴 워크북">
+          <div class="traffic-light-circle" style="background:linear-gradient(135deg,#22d3ee 0%,#38bdf8 100%)"></div>
+          <div class="traffic-light-label">목금월</div>
+          <div class="traffic-light-label" style="color:#38bdf8;font-weight:700">루틴</div>
+          <div class="traffic-light-score">워크북</div>
+        </a>
+      </div>
+      <div class="traffic-light-container">
         <a href="/secret-indicators" class="traffic-light-link" title="자본주의 내부 신경계를 해부하는 12개 선행 지표">
           <div class="traffic-light-circle" style="background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%)"></div>
           <div class="traffic-light-label">비밀지표</div>
