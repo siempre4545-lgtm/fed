@@ -91,6 +91,113 @@ const fetchStooqWithRetry = async (
   return { ok: false as const, error: lastError || "stooq failed" };
 };
 
+const YAHOO_OTC_SYMBOLS: Record<string, string> = {
+  HESAY: "HESAY",
+  PPRUY: "PPRUY",
+};
+
+const parseYahooChart = (payload: any) => {
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const quote = result?.indicators?.quote?.[0];
+  const meta = result?.meta;
+  const closes = Array.isArray(quote?.close) ? quote.close.filter((v: any) => v !== null) : [];
+  if (closes.length >= 2) {
+    return {
+      price: Number(closes[closes.length - 1]),
+      prevClose: Number(closes[closes.length - 2]),
+      asOf: meta?.regularMarketTime
+        ? new Date(meta.regularMarketTime * 1000).toISOString()
+        : new Date().toISOString(),
+    };
+  }
+  if (meta?.regularMarketPrice !== null && meta?.regularMarketPrice !== undefined) {
+    const price = Number(meta.regularMarketPrice);
+    const prevClose = Number(meta.previousClose);
+    return {
+      price: Number.isFinite(price) ? price : null,
+      prevClose: Number.isFinite(prevClose) ? prevClose : null,
+      asOf: meta?.regularMarketTime
+        ? new Date(meta.regularMarketTime * 1000).toISOString()
+        : new Date().toISOString(),
+    };
+  }
+  return null;
+};
+
+const fetchYahooQuoteWithRetry = async (
+  symbol: string,
+  options: { key?: string; onFetch?: (entry: FetchDebugEntry) => void } = {}
+) => {
+  const attempts = [0, 400];
+  let lastError: string | null = null;
+  for (let index = 0; index < attempts.length; index += 1) {
+    const delay = attempts[index];
+    if (delay) await sleep(delay);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+      symbol
+    )}?interval=1d&range=5d`;
+    const started = Date.now();
+    try {
+      const response = await withTimeout(
+        (signal) =>
+          fetch(url, {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (compatible; fedreportsh/1.0; +https://fedreportsh.vercel.app)",
+              Accept: "application/json",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Cache-Control": "no-cache",
+            },
+            signal,
+          }),
+        6000
+      );
+      const elapsedMs = Date.now() - started;
+      if (!response.ok) {
+        lastError = `yahoo status ${response.status}`;
+        options.onFetch?.({
+          source: "yahoo",
+          key: options.key,
+          url,
+          status: response.status,
+          elapsedMs,
+          ok: false,
+          error: lastError,
+        });
+        continue;
+      }
+      const payload = await response.json();
+      const parsed = parseYahooChart(payload);
+      if (!parsed || !Number.isFinite(parsed.price)) {
+        lastError = "yahoo price missing";
+        options.onFetch?.({
+          source: "yahoo",
+          key: options.key,
+          url,
+          status: response.status,
+          elapsedMs,
+          ok: false,
+          error: lastError,
+        });
+        continue;
+      }
+      options.onFetch?.({
+        source: "yahoo",
+        key: options.key,
+        url,
+        status: response.status,
+        elapsedMs,
+        ok: true,
+      });
+      return { ok: true as const, quote: parsed };
+    } catch (error: any) {
+      lastError = error?.message || "yahoo fetch failed";
+    }
+  }
+  return { ok: false as const, error: lastError || "yahoo failed" };
+};
+
 const fetchFxWithRetry = async (options: { onFetch?: (entry: FetchDebugEntry) => void } = {}) => {
   const attempts = [0, 300, 900];
   let lastError: string | null = null;
@@ -377,6 +484,34 @@ export const getMarketPrices = async (
         items.push(item);
       }
       continue;
+    }
+
+    if (YAHOO_OTC_SYMBOLS[asset.key]) {
+      const yahooSymbol = YAHOO_OTC_SYMBOLS[asset.key];
+      const yahooResult = await fetchYahooQuoteWithRetry(yahooSymbol, {
+        key: asset.key,
+        onFetch: recordFetch,
+      });
+      if (yahooResult.ok) {
+        const quote = yahooResult.quote;
+        const change1dPct =
+          quote.prevClose && quote.prevClose !== 0
+            ? Number((((quote.price - quote.prevClose) / quote.prevClose) * 100).toFixed(2))
+            : null;
+        const item: PriceResult = {
+          ok: true,
+          key: asset.key,
+          symbol: yahooSymbol,
+          asOf: quote.asOf,
+          price: quote.price,
+          prevClose: quote.prevClose ?? null,
+          change1dPct,
+          source: "yahoo:otcpk",
+        };
+        items.push(item);
+        LAST_GOOD.set(asset.key, { ts: now, item });
+        continue;
+      }
     }
 
     const normalized = normalizeStooqSymbol(asset.ticker || asset.key);

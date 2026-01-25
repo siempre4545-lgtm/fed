@@ -33,7 +33,7 @@ export const RISK_SECTORS: Record<string, string[]> = {
   미래에너지: ["FLNC", "GEV", "NEE", "OKLO", "PWR", "SMR", "APD", "ETN"],
   결제시스템: ["HOOD", "V", "PYPL", "AXP"],
   "금융/자산운용": ["BLK", "GS", "JPM", "MS"],
-  "명품/사치재": ["LVMUY", "HESAY", "PPRUY"],
+  "명품/사치재": ["LVMH", "HESAY", "PPRUY"],
   저작권: ["ADBE"],
 };
 

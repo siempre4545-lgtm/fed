@@ -10,12 +10,20 @@
       "destination": "/macro-trace/index.html"
     },
     {
+      "source": "/macro-trace/page3",
+      "destination": "/macro-trace/page3/index.html"
+    },
+    {
       "source": "/macro-trace/:path*",
       "destination": "/macro-trace/:path*"
     },
     {
       "source": "/api/market/prices",
       "destination": "/api/index"
+    },
+    {
+      "source": "/api/macro-trace/table",
+      "destination": "/api/macro-trace/table"
     },
     {
       "source": "/_next/:path*",

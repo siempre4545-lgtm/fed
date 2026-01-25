@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>목금월 루틴 - 목요일 테이블</title>
+    <link rel="stylesheet" href="/macro-trace/styles.css" />
+    <link rel="stylesheet" href="/macro-trace/page3/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div>
+          <div class="title">목금월 루틴</div>
+          <div class="subtitle">목요일별 데이터 테이블</div>
+        </div>
+        <div class="actions">
+          <a class="button" href="/macro-trace">◀ /macro-trace로 돌아가기</a>
+        </div>
+      </header>
+
+      <div class="controls">
+        <label class="label">
+          날짜 선택
+          <input type="date" id="dateInput" />
+        </label>
+        <button class="button primary" id="applyButton" type="button">조회/새로고침</button>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="warning hidden" id="warning"></div>
+      <div class="error hidden" id="error"></div>
+
+      <section class="table-section">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th>지수</th>
+                <th id="valueHeader">값</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script src="/macro-trace/page3/app.js"></script>
+  </body>
+</html>

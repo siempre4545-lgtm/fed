@@ -1,0 +1,49 @@
+.table-section {
+  margin-top: 16px;
+}
+
+.table-container {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #1f2937;
+  font-size: 12px;
+  text-align: left;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  z-index: 1;
+  color: #cbd5f5;
+}
+
+.group-row td {
+  background: #0f172a;
+  color: #cbd5f5;
+  font-weight: 700;
+}
+
+.value-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.value-na {
+  color: #9ca3af;
+}
