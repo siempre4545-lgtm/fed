@@ -10,6 +10,10 @@ import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-ar
 import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
 import { getMarketPrices } from "../lib/market/getPrices.js";
 
+export const config = {
+  maxDuration: 30,
+};
+
 const app = express();
 
 const QUARTER_TIMES = [
