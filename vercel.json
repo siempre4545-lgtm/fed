@@ -15,7 +15,7 @@
     },
     {
       "source": "/api/market/prices",
-      "destination": "/api/market/prices"
+      "destination": "/api/index"
     },
     {
       "source": "/_next/:path*",
