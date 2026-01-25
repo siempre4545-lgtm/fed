@@ -15,6 +15,11 @@ const app = express();
 // Vercel에서는 public 폴더가 자동으로 서빙되므로 필요시에만 사용
 // app.use(express.static('public'));
 
+// macro-trace 진입 경로: 정적 페이지로 이동
+app.get(["/macro-trace", "/macro-trace/"], (_req, res) => {
+  res.redirect("/macro-trace/index.html");
+});
+
 // API: Summary (숫자만, 경량화)
 app.get("/api/h41/summary", async (req, res) => {
   try {
