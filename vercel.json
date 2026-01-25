@@ -12,7 +12,7 @@
   "routes": [
     {
       "src": "/$",
-      "dest": "/api/index"
+      "dest": "/fed_report_sh/index.html"
     },
     {
       "handle": "filesystem"

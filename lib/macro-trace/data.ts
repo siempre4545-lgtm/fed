@@ -27,6 +27,7 @@ export const fetchPrices = async (keys: string[], date: string): Promise<PricesR
   const query = new URLSearchParams();
   if (keys.length) query.set("keys", keys.join(","));
   if (date) query.set("date", date);
+  query.set("quarters", "1");
   const response = await fetch(`/api/market/prices?${query.toString()}`);
   const bodyText = await response.text();
   const contentType = response.headers.get("content-type") || "";

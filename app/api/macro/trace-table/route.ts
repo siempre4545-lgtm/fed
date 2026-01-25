@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { getMarketPrices } from "@/lib/market/getPrices";
-import { createTwelveDataProvider } from "@/lib/market/providers/twelvedata";
 import { coerceToThursday } from "@/lib/macro-trace/date";
 import { fetchAllEconomicIndicators } from "@/src/economic-indicators";
 import { fetchAllSecretIndicators } from "@/src/secret-indicators";
@@ -63,6 +62,38 @@ const withRetry = async <T>(
     }
   }
   throw lastError;
+};
+
+const fetchYahooQuotes = async (symbols: string[]) => {
+  if (!symbols.length) return {};
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(
+    symbols.join(",")
+  )}`;
+  const response = await withRetry(
+    () =>
+      withTimeout(
+        () =>
+          fetch(url, {
+            headers: { "User-Agent": "fedreportsh/1.0" },
+            cache: "no-store",
+          }),
+        6000
+      ),
+    2,
+    300
+  );
+  if (!response.ok) {
+    throw new Error(`yahoo ${response.status}`);
+  }
+  const json = await response.json();
+  const results = Array.isArray(json?.quoteResponse?.result) ? json.quoteResponse.result : [];
+  const map: Record<string, number | null> = {};
+  results.forEach((item: any) => {
+    const symbol = String(item?.symbol || "");
+    const value = Number(item?.regularMarketPrice);
+    map[symbol] = Number.isFinite(value) ? value : null;
+  });
+  return map;
 };
 
 const fetchFredHistory = async (seriesId: string, targetDate: string) => {
@@ -145,12 +176,15 @@ export const GET = async (request: Request) => {
   }
 
   const warnings: string[] = [];
-  const provider = createTwelveDataProvider();
 
   const [economicIndicators, secretIndicators, marketSnapshot] = await Promise.all([
     fetchAllEconomicIndicators().catch(() => []),
     fetchAllSecretIndicators().catch(() => []),
-    getMarketPrices(["USDKRW", "MARGIN_DEBT"]).catch(() => ({ items: [], warnings: [], cache: "MISS" })),
+    getMarketPrices(["USDKRW", "MARGIN_DEBT", "DXY"]).catch(() => ({
+      items: [],
+      warnings: [],
+      cache: "MISS",
+    })),
   ]);
 
   const econMap = new Map(economicIndicators.map((item) => [item.id, item]));
@@ -185,31 +219,14 @@ export const GET = async (request: Request) => {
     }
   };
 
-  const twelveQuote = async (symbol: string) => {
-    if (!provider) return null;
-    try {
-      const quote = await withRetry(
-        () =>
-          withTimeout(() => provider.getQuote(symbol, { key: symbol }), 6000),
-        2,
-        300
-      );
-      if (!quote.ok) return null;
-      return quote.price;
-    } catch {
-      return null;
-    }
-  };
-
   const fredSeries = ["DGS3", "DGS2", "DGS10", "SOFR", "RRPONTSYD", "DFF", "DFII5", "DFII10"];
   const fredValues = await Promise.all(fredSeries.map((seriesId) => fredValue(seriesId)));
   const fredMap = new Map(fredSeries.map((seriesId, index) => [seriesId, fredValues[index]]));
 
-  const [kospiValue, nikkeiValue, usdJpyValue] = await Promise.all([
-    twelveQuote("KOSPI"),
-    twelveQuote("N225"),
-    twelveQuote("USD/JPY"),
-  ]);
+  const yahooQuotes = await fetchYahooQuotes(["^KS11", "^N225", "JPY=X"]);
+  const kospiValue = yahooQuotes["^KS11"] ?? null;
+  const nikkeiValue = yahooQuotes["^N225"] ?? null;
+  const usdJpyValue = yahooQuotes["JPY=X"] ?? null;
 
   const usdkrw = marketMap.get("USDKRW");
   const usdkrwValue = usdkrw && usdkrw.ok ? usdkrw.price : null;
@@ -310,17 +327,27 @@ export const GET = async (request: Request) => {
     });
   };
 
+  const econDxy = econ("dxy");
+  const marketDxy = marketMap.get("DXY");
+  const marketDxyChange =
+    marketDxy && marketDxy.ok && typeof marketDxy.change1dPct === "number"
+      ? marketDxy.change1dPct
+      : null;
   pushRow(
     toRow({
       group: "글로벌",
       label: "(D)DXY 달러지수",
       key: "DXY",
-      value: econ("dxy")?.value ?? null,
-      delta: econ("dxy")?.change
-        ? { type: "wow", value: econ("dxy")!.change!, pct: econ("dxy")!.changePercent ?? null }
+      value: econDxy?.value ?? (marketDxy && marketDxy.ok ? marketDxy.price : null),
+      delta: econDxy?.change
+        ? { type: "wow", value: econDxy.change, pct: econDxy.changePercent ?? null }
+        : marketDxyChange !== null
+        ? { type: "wow", value: marketDxyChange, pct: null }
         : null,
-      unit: econ("dxy")?.unit ?? "index",
-      source: { kind: "internal", name: "economic-indicators", detail: econ("dxy")?.source },
+      unit: econDxy?.unit ?? "index",
+      source: econDxy
+        ? { kind: "internal", name: "economic-indicators", detail: econDxy.source }
+        : { kind: "internal", name: "market-prices", detail: marketDxy?.source },
     })
   );
 
@@ -332,7 +359,7 @@ export const GET = async (request: Request) => {
       value: krwJpyValue,
       delta: null,
       unit: "fx",
-      source: { kind: "external", name: "fx", detail: usdkrwValue ? "USDKRW/JPY" : "USDJPY" },
+      source: { kind: "external", name: "yahoo", detail: "JPY=X" },
     })
   );
 
@@ -379,12 +406,6 @@ export const GET = async (request: Request) => {
   pushRow(fredRow("시장금리", "USD SOFR", "SOFR", "SOFR", "%"));
   pushRow(fredRow("시장금리", "ON RRP", "RRPONTSYD", "RRPONTSYD", "b_usd"));
   pushRow(fredRow("시장금리", "EFFR", "DFF", "DFF", "%"));
-  pushRow(
-    toErrorRow(
-      { group: "시장금리", label: "SRF", key: "SRF", unit: null, source: { kind: "internal", name: "economic-indicators" } },
-      "no data"
-    )
-  );
 
   const bankCds = econ("korea-bank-cds") ?? econ("high-yield-spread");
   pushRow(
@@ -424,7 +445,7 @@ export const GET = async (request: Request) => {
       value: kospiValue ?? null,
       delta: null,
       unit: "index",
-      source: { kind: "external", name: "twelvedata", detail: "KOSPI" },
+      source: { kind: "external", name: "yahoo", detail: "^KS11" },
     })
   );
   pushRow(
@@ -435,14 +456,13 @@ export const GET = async (request: Request) => {
       value: nikkeiValue ?? null,
       delta: null,
       unit: "index",
-      source: { kind: "external", name: "twelvedata", detail: "N225" },
+      source: { kind: "external", name: "yahoo", detail: "^N225" },
     })
   );
 
   pushRow(econRow("시장", "다우", "dow"));
   pushRow(econRow("시장", "나스닥", "nasdaq"));
   pushRow(econRow("시장", "S&P500", "sp500"));
-  pushRow(econRow("시장", "Baltic Dry Index", "baltic-dry-index"));
   pushRow(econRow("시장", "실업수당 청구건수(미국 주요)", "initial-jobless-claims"));
 
   pushRow(h41RowValue("연준(자산)", "국채(U.S. Treasury securities)", "H41_TREASURY", "treasury"));
@@ -471,9 +491,7 @@ export const GET = async (request: Request) => {
 
   pushRow(econRow("기타", "미국 실업률", "unemployment-rate"));
   pushRow(econRow("기타", "ISM 제조업", "ism-manufacturing"));
-  pushRow(econRow("기타", "소비자신뢰지수", "consumer-confidence"));
   pushRow(econRow("기타", "리테일세일", "retail-sales"));
-  pushRow(econRow("기타", "재고판매비율", "inventory-sales-ratio"));
   pushRow(econRow("기타", "Cass Freight Index", "cass-freight-index"));
   pushRow(econRow("기타", "STLFSI4", "stlfsi4"));
   pushRow(fredRow("기타", "TIPS 실질금리 5Y", "DFII5", "DFII5", "%"));
