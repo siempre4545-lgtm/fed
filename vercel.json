@@ -18,6 +18,18 @@
       "destination": "/macro-trace/:path*"
     },
     {
+      "source": "/platform-map",
+      "destination": "/platform-map"
+    },
+    {
+      "source": "/platform-map/:path*",
+      "destination": "/platform-map/:path*"
+    },
+    {
+      "source": "/api/platform-map/:path*",
+      "destination": "/api/platform-map/:path*"
+    },
+    {
       "source": "/api/market/prices",
       "destination": "/api/index"
     },

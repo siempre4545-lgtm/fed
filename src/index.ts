@@ -540,6 +540,9 @@ app.get("/", async (req, res) => {
     .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1)}
     .traffic-light-label{font-size:12px;font-weight:600;color:#c0c0c0;text-align:center}
     .traffic-light-score{font-size:10px;color:#808080;margin-top:4px}
+
+    .macro-trace-link{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:999px;background:#1f1f1f;border:1px solid #2d2d2d;color:#ffffff;text-decoration:none;font-weight:700;font-size:13px;white-space:nowrap;transition:all 0.2s}
+    .macro-trace-link:hover{background:#252525;border-color:#3d3d3d;transform:translateY(-1px)}
     
     /* 경고 헤더 - 다크 모드 (밝게 조정) */
     .warning-header{padding:24px;border-bottom:1px solid #2d2d2d;margin:0;background:#1a1a1a;margin-bottom:24px}
@@ -677,7 +680,13 @@ app.get("/", async (req, res) => {
         ${targetDate ? `<button class="reset-btn" onclick="resetDate()">초기화</button>` : ''}
       </div>
     </div>
-    <div style="display:flex;gap:12px;align-items:flex-start">
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+      <a href="/macro-trace" class="macro-trace-link" title="주간 목금월 루틴 워크북">
+        주간 목금월 루틴
+      </a>
+      <a href="/platform-map" class="macro-trace-link" title="보물지도: 한국 시군구 플랫폼 편입 등급 지도">
+        보물지도
+      </a>
       <div class="traffic-light-container">
         <a href="/economic-indicators" class="traffic-light-link" title="${economicStatus ? escapeHtml(economicStatus.summary) : "경제 지표 데이터를 불러오는 중..."}">
           <div class="traffic-light-circle" style="background:${trafficLightColor}"></div>

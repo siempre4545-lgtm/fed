@@ -1,0 +1,6502 @@
+[
+  {
+    "sigunguCode": "11010",
+    "sigunguName": "서울특별시 종로구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11020",
+    "sigunguName": "서울특별시 중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11030",
+    "sigunguName": "서울특별시 용산구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11040",
+    "sigunguName": "서울특별시 성동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11050",
+    "sigunguName": "서울특별시 광진구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11060",
+    "sigunguName": "서울특별시 동대문구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11070",
+    "sigunguName": "서울특별시 중랑구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11080",
+    "sigunguName": "서울특별시 성북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11090",
+    "sigunguName": "서울특별시 강북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11100",
+    "sigunguName": "도봉구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11110",
+    "sigunguName": "서울특별시 노원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11120",
+    "sigunguName": "서울특별시 은평구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11130",
+    "sigunguName": "서울특별시 서대문구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11140",
+    "sigunguName": "서울특별시 마포구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11150",
+    "sigunguName": "서울특별시 양천구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11160",
+    "sigunguName": "서울특별시 강서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11170",
+    "sigunguName": "서울특별시 구로구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11180",
+    "sigunguName": "서울특별시 금천구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11190",
+    "sigunguName": "서울특별시 영등포구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11200",
+    "sigunguName": "서울특별시 동작구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11210",
+    "sigunguName": "서울특별시 관악구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11220",
+    "sigunguName": "서울특별시 서초구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11230",
+    "sigunguName": "서울특별시 강남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11240",
+    "sigunguName": "서울특별시 송파구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "11250",
+    "sigunguName": "서울특별시 강동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21010",
+    "sigunguName": "중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21020",
+    "sigunguName": "서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21030",
+    "sigunguName": "동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21040",
+    "sigunguName": "영도구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21050",
+    "sigunguName": "부산진구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21060",
+    "sigunguName": "동래구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21070",
+    "sigunguName": "남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21080",
+    "sigunguName": "북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21090",
+    "sigunguName": "해운대구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21100",
+    "sigunguName": "사하구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21110",
+    "sigunguName": "금정구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21120",
+    "sigunguName": "강서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21130",
+    "sigunguName": "연제구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21140",
+    "sigunguName": "수영구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21150",
+    "sigunguName": "사상구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "21310",
+    "sigunguName": "기장군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22010",
+    "sigunguName": "중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22020",
+    "sigunguName": "동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22030",
+    "sigunguName": "서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22040",
+    "sigunguName": "남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22050",
+    "sigunguName": "북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22060",
+    "sigunguName": "수성구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22070",
+    "sigunguName": "달서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "22310",
+    "sigunguName": "달성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23010",
+    "sigunguName": "중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23020",
+    "sigunguName": "동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23030",
+    "sigunguName": "남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23040",
+    "sigunguName": "연수구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23050",
+    "sigunguName": "남동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23060",
+    "sigunguName": "부평구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23070",
+    "sigunguName": "계양구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23080",
+    "sigunguName": "서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23310",
+    "sigunguName": "강화군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "23320",
+    "sigunguName": "옹진군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "24010",
+    "sigunguName": "동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "24020",
+    "sigunguName": "서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "24030",
+    "sigunguName": "남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "24040",
+    "sigunguName": "북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "24050",
+    "sigunguName": "광산구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "25010",
+    "sigunguName": "동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "25020",
+    "sigunguName": "중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "25030",
+    "sigunguName": "서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "25040",
+    "sigunguName": "유성구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "25050",
+    "sigunguName": "대덕구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "26010",
+    "sigunguName": "부산광역시 중구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "26020",
+    "sigunguName": "부산광역시 남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "26030",
+    "sigunguName": "부산광역시 동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "26040",
+    "sigunguName": "부산광역시 북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "26310",
+    "sigunguName": "부산광역시 울주군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "29010",
+    "sigunguName": "광주광역시 세종시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31011",
+    "sigunguName": "울산광역시 수원시장안구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31012",
+    "sigunguName": "울산광역시 수원시권선구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31013",
+    "sigunguName": "울산광역시 수원시팔달구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31014",
+    "sigunguName": "울산광역시 수원시영통구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31021",
+    "sigunguName": "울산광역시 성남시수정구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31022",
+    "sigunguName": "울산광역시 성남시중원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31023",
+    "sigunguName": "울산광역시 성남시분당구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31030",
+    "sigunguName": "울산광역시 의정부시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31041",
+    "sigunguName": "울산광역시 안양시만안구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31042",
+    "sigunguName": "울산광역시 안양시동안구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31050",
+    "sigunguName": "울산광역시 부천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31060",
+    "sigunguName": "울산광역시 광명시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31070",
+    "sigunguName": "울산광역시 평택시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31080",
+    "sigunguName": "울산광역시 동두천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31091",
+    "sigunguName": "울산광역시 안산시상록구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31092",
+    "sigunguName": "울산광역시 안산시단원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31101",
+    "sigunguName": "울산광역시 고양시덕양구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31103",
+    "sigunguName": "울산광역시 고양시일산동구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31104",
+    "sigunguName": "울산광역시 고양시일산서구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31110",
+    "sigunguName": "울산광역시 과천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31120",
+    "sigunguName": "울산광역시 구리시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31130",
+    "sigunguName": "울산광역시 남양주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31140",
+    "sigunguName": "울산광역시 오산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31150",
+    "sigunguName": "울산광역시 시흥시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31160",
+    "sigunguName": "울산광역시 군포시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31170",
+    "sigunguName": "울산광역시 의왕시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31180",
+    "sigunguName": "울산광역시 하남시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31191",
+    "sigunguName": "울산광역시 용인시처인구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31192",
+    "sigunguName": "울산광역시 용인시기흥구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31193",
+    "sigunguName": "울산광역시 용인시수지구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31200",
+    "sigunguName": "울산광역시 파주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31210",
+    "sigunguName": "울산광역시 이천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31220",
+    "sigunguName": "울산광역시 안성시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31230",
+    "sigunguName": "울산광역시 김포시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31240",
+    "sigunguName": "울산광역시 화성시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31250",
+    "sigunguName": "울산광역시 광주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31260",
+    "sigunguName": "울산광역시 양주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31270",
+    "sigunguName": "울산광역시 포천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31280",
+    "sigunguName": "울산광역시 여주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31350",
+    "sigunguName": "울산광역시 연천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31370",
+    "sigunguName": "울산광역시 가평군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "31380",
+    "sigunguName": "울산광역시 양평군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32010",
+    "sigunguName": "춘천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32020",
+    "sigunguName": "원주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32030",
+    "sigunguName": "강릉시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32040",
+    "sigunguName": "동해시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32050",
+    "sigunguName": "태백시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32060",
+    "sigunguName": "속초시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32070",
+    "sigunguName": "삼척시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32310",
+    "sigunguName": "홍천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32320",
+    "sigunguName": "횡성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32330",
+    "sigunguName": "영월군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32340",
+    "sigunguName": "평창군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32350",
+    "sigunguName": "정선군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32360",
+    "sigunguName": "철원군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32370",
+    "sigunguName": "화천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32380",
+    "sigunguName": "양구군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32390",
+    "sigunguName": "인제군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32400",
+    "sigunguName": "고성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "32410",
+    "sigunguName": "양양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33020",
+    "sigunguName": "충주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33030",
+    "sigunguName": "제천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33041",
+    "sigunguName": "청주시상당구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33042",
+    "sigunguName": "청주시서원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33043",
+    "sigunguName": "청주시흥덕구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33044",
+    "sigunguName": "청주시청원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33320",
+    "sigunguName": "보은군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33330",
+    "sigunguName": "옥천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33340",
+    "sigunguName": "영동군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33350",
+    "sigunguName": "진천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33360",
+    "sigunguName": "괴산군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33370",
+    "sigunguName": "음성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33380",
+    "sigunguName": "단양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "33390",
+    "sigunguName": "증평군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34011",
+    "sigunguName": "천안시동남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34012",
+    "sigunguName": "천안시서북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34020",
+    "sigunguName": "공주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34030",
+    "sigunguName": "보령시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34040",
+    "sigunguName": "아산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34050",
+    "sigunguName": "서산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34060",
+    "sigunguName": "논산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34070",
+    "sigunguName": "계룡시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34080",
+    "sigunguName": "당진시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34310",
+    "sigunguName": "금산군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34330",
+    "sigunguName": "부여군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34340",
+    "sigunguName": "서천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34350",
+    "sigunguName": "청양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34360",
+    "sigunguName": "홍성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34370",
+    "sigunguName": "예산군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "34380",
+    "sigunguName": "태안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35011",
+    "sigunguName": "전주시완산구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35012",
+    "sigunguName": "전주시덕진구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35020",
+    "sigunguName": "군산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35030",
+    "sigunguName": "익산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35040",
+    "sigunguName": "정읍시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35050",
+    "sigunguName": "남원시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35060",
+    "sigunguName": "김제시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35310",
+    "sigunguName": "완주군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35320",
+    "sigunguName": "진안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35330",
+    "sigunguName": "무주군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35340",
+    "sigunguName": "장수군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35350",
+    "sigunguName": "임실군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35360",
+    "sigunguName": "순창군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35370",
+    "sigunguName": "고창군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "35380",
+    "sigunguName": "부안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36010",
+    "sigunguName": "세종특별자치시 목포시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36020",
+    "sigunguName": "세종특별자치시 여수시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36030",
+    "sigunguName": "세종특별자치시 순천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36040",
+    "sigunguName": "세종특별자치시 나주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36060",
+    "sigunguName": "세종특별자치시 광양시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36310",
+    "sigunguName": "세종특별자치시 담양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36320",
+    "sigunguName": "세종특별자치시 곡성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36330",
+    "sigunguName": "세종특별자치시 구례군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36350",
+    "sigunguName": "세종특별자치시 고흥군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36360",
+    "sigunguName": "세종특별자치시 보성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36370",
+    "sigunguName": "세종특별자치시 화순군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36380",
+    "sigunguName": "세종특별자치시 장흥군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36390",
+    "sigunguName": "세종특별자치시 강진군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36400",
+    "sigunguName": "세종특별자치시 해남군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36410",
+    "sigunguName": "세종특별자치시 영암군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36420",
+    "sigunguName": "세종특별자치시 무안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36430",
+    "sigunguName": "세종특별자치시 함평군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36440",
+    "sigunguName": "세종특별자치시 영광군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36450",
+    "sigunguName": "세종특별자치시 장성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36460",
+    "sigunguName": "완도군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36470",
+    "sigunguName": "진도군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "36480",
+    "sigunguName": "세종특별자치시 신안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37011",
+    "sigunguName": "포항시남구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37012",
+    "sigunguName": "포항시북구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37020",
+    "sigunguName": "경주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37030",
+    "sigunguName": "김천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37040",
+    "sigunguName": "안동시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37050",
+    "sigunguName": "구미시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37060",
+    "sigunguName": "영주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37070",
+    "sigunguName": "영천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37080",
+    "sigunguName": "상주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37090",
+    "sigunguName": "문경시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37100",
+    "sigunguName": "경산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37310",
+    "sigunguName": "군위군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37320",
+    "sigunguName": "의성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37330",
+    "sigunguName": "청송군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37340",
+    "sigunguName": "영양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37350",
+    "sigunguName": "영덕군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37360",
+    "sigunguName": "청도군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37370",
+    "sigunguName": "고령군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37380",
+    "sigunguName": "성주군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37390",
+    "sigunguName": "칠곡군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37400",
+    "sigunguName": "예천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37410",
+    "sigunguName": "봉화군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37420",
+    "sigunguName": "울진군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "37430",
+    "sigunguName": "울릉군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38030",
+    "sigunguName": "진주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38050",
+    "sigunguName": "통영시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38060",
+    "sigunguName": "사천시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38070",
+    "sigunguName": "김해시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38080",
+    "sigunguName": "밀양시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38090",
+    "sigunguName": "거제시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38100",
+    "sigunguName": "양산시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38111",
+    "sigunguName": "창원시의창구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38112",
+    "sigunguName": "창원시성산구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38113",
+    "sigunguName": "창원시마산합포구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38114",
+    "sigunguName": "창원시마산회원구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38115",
+    "sigunguName": "창원시진해구",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38310",
+    "sigunguName": "의령군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38320",
+    "sigunguName": "함안군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38330",
+    "sigunguName": "창녕군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38340",
+    "sigunguName": "고성군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38350",
+    "sigunguName": "남해군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38360",
+    "sigunguName": "하동군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38370",
+    "sigunguName": "산청군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38380",
+    "sigunguName": "함양군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38390",
+    "sigunguName": "거창군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "38400",
+    "sigunguName": "합천군",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "39010",
+    "sigunguName": "제주시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  },
+  {
+    "sigunguCode": "39020",
+    "sigunguName": "서귀포시",
+    "grade": "C",
+    "score": 50,
+    "axes": {
+      "data_infra": 50,
+      "residency_mobility": 50,
+      "institutional_demand": 50,
+      "financialization": 50,
+      "city_services": 50,
+      "subscription_housing": 50,
+      "jobs_future": 50,
+      "cbdc_payments": 50,
+      "network_infra": 50,
+      "governance": 50,
+      "talent_inflow": 50,
+      "future_blueprint": 50
+    },
+    "evidence": {
+      "notes": "초기 기본값",
+      "links": [],
+      "signals": []
+    },
+    "updatedAt": "2026-01-25T12:04:33+00:00"
+  }
+]

@@ -1,0 +1,184 @@
+ .page {
+  min-height: 100vh;
+  background: #0b0f14;
+  color: #e5e7eb;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.backButton {
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.filters {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.filterLabel {
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.filterInput {
+  background: #0b0f14;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: inherit;
+  font-size: 12px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+}
+
+.panel {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.mapContainer {
+  height: 560px;
+  background: #0f172a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.mapSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0b1220;
+  cursor: pointer;
+}
+
+.listItemActive {
+  border: 1px solid #38bdf8;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.axisBars {
+  display: grid;
+  gap: 8px;
+}
+
+.axisBarRow {
+  display: grid;
+  grid-template-columns: 1fr 3fr 50px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.axisTrack {
+  height: 8px;
+  background: #1f2937;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.axisFill {
+  height: 100%;
+  background: linear-gradient(90deg, #22d3ee, #38bdf8);
+}
+
+.newsList {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.newsItem {
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.newsMeta {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.emptyState {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .mapContainer {
+    height: 420px;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px;
+  }
+  .filters {
+    gap: 8px;
+  }
+  .mapContainer {
+    height: 360px;
+  }
+}
