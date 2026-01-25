@@ -90,7 +90,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!platform-map|api/platform-map).*)",
       "destination": "/api/index"
     }
   ],
