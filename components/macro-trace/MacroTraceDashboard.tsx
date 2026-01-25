@@ -66,7 +66,12 @@ export const MacroTraceDashboard = () => {
   const params = useSearchParams();
   const viewParam = params.get("view");
   const legacyPage = params.get("page");
-  const view = viewParam === "table" || legacyPage === "2" ? "table" : "dashboard";
+  const view =
+    viewParam === "sectors" || legacyPage === "2"
+      ? "sectors"
+      : viewParam === "table" || legacyPage === "3"
+      ? "table"
+      : "dashboard";
   const paramDate = params.get("date");
   const [date, setDate] = useState(() =>
     coerceToThursday(
@@ -225,6 +230,13 @@ export const MacroTraceDashboard = () => {
     ];
   }, [bucketSeries, priceMap]);
 
+  const sectorBars = useMemo(() => {
+    return SECTOR_DEFINITIONS.map((sector) => ({
+      sector: sector.name,
+      value: sectorSeries[sector.name]?.Q3 ?? null,
+    })).sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+  }, [sectorSeries]);
+
   const errors = useMemo(() => collectPriceErrors(priceMap), [priceMap]);
 
   const formatNumber = (value: number | null, unit: string | null) => {
@@ -286,7 +298,7 @@ export const MacroTraceDashboard = () => {
         <div className={styles.actions}>
           {view === "dashboard" && (
             <>
-              <button className={styles.button} onClick={() => setView("table")}>
+              <button className={styles.button} onClick={() => setView("sectors")}>
                 다음 페이지 ▶
               </button>
               <a className={styles.button} href="/" rel="noreferrer">
@@ -294,8 +306,21 @@ export const MacroTraceDashboard = () => {
               </a>
             </>
           )}
+          {view === "sectors" && (
+            <>
+              <button className={styles.button} onClick={() => setView("dashboard")}>
+                ◀ 이전 페이지
+              </button>
+              <button className={styles.button} onClick={() => setView("table")}>
+                다음 페이지 ▶
+              </button>
+            </>
+          )}
           {view === "table" && (
             <>
+              <button className={styles.button} onClick={() => setView("sectors")}>
+                ◀ 이전 페이지
+              </button>
               <button className={styles.button} onClick={() => setView("dashboard")}>
                 대시보드로
               </button>
@@ -345,6 +370,9 @@ export const MacroTraceDashboard = () => {
             {tableStatus === "error" && "오류"}
             {tableStatus === "idle" && "완료"}
           </span>
+          <button className={styles.button} onClick={() => setView("dashboard")}>
+            대시보드로
+          </button>
           <button className={styles.button} onClick={() => setRefreshKey((prev) => prev + 1)}>
             새로고침
           </button>
@@ -406,6 +434,19 @@ export const MacroTraceDashboard = () => {
             </div>
           </section>
         </>
+      ) : view === "sectors" ? (
+        <section className={styles.chartCard}>
+          <div className={styles.cardTitle}>섹터별 3쿼터 평균 변동률</div>
+          <ResponsiveContainer width="100%" height={360}>
+            <BarChart data={sectorBars}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="sector" />
+              <YAxis />
+              <Tooltip formatter={(value) => formatPct(value as number)} />
+              <Bar dataKey="value" name="3Q 평균" fill="#34d399" />
+            </BarChart>
+          </ResponsiveContainer>
+        </section>
       ) : (
         <section className={styles.chartCard}>
           <div className={styles.cardTitle}>목요일 세부 데이터 테이블</div>
