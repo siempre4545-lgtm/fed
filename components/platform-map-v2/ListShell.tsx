@@ -1,10 +1,12 @@
+import type { PlatformMapSample } from "../../lib/platform-map-v2/types";
+
 type Props = {
-  items: string[];
-  selectedName: string;
-  onSelect: (name: string) => void;
+  items: PlatformMapSample[];
+  selectedId: string;
+  onSelect: (id: string) => void;
 };
 
-export default function ListShell({ items, selectedName, onSelect }: Props) {
+export default function ListShell({ items, selectedId, onSelect }: Props) {
   return (
     <div
       style={{
@@ -17,13 +19,13 @@ export default function ListShell({ items, selectedName, onSelect }: Props) {
     >
       <div style={{ fontSize: 13, marginBottom: 8 }}>리스트 (placeholder)</div>
       <div style={{ display: "grid", gap: 8 }}>
-        {items.map((name) => {
-          const active = name === selectedName;
+        {items.map((item) => {
+          const active = item.id === selectedId;
           return (
             <button
-              key={name}
+              key={item.id}
               type="button"
-              onClick={() => onSelect(name)}
+              onClick={() => onSelect(item.id)}
               style={{
                 textAlign: "left",
                 padding: "8px 10px",
@@ -34,7 +36,7 @@ export default function ListShell({ items, selectedName, onSelect }: Props) {
                 cursor: "pointer",
               }}
             >
-              {name}
+              {item.name}
             </button>
           );
         })}

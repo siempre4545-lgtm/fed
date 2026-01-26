@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import MapShell from "../../components/platform-map-v2/MapShell";
-import ListShell from "../../components/platform-map-v2/ListShell";
+import { useMemo, useState } from "react";
 import DetailShell from "../../components/platform-map-v2/DetailShell";
-
-const MOCK_AREAS = ["서울특별시 종로구", "부산광역시 해운대구"];
+import ListShell from "../../components/platform-map-v2/ListShell";
+import MapShell from "../../components/platform-map-v2/MapShell";
+import { SAMPLE_REGIONS } from "../../data/platform-map-v2/sample";
+import { getScoreSummary } from "../../lib/platform-map-v2/scoring";
 
 export default function Page() {
-  const [selectedName, setSelectedName] = useState(MOCK_AREAS[0]);
+  const [selectedId, setSelectedId] = useState(SAMPLE_REGIONS[0]?.id ?? "");
+
+  const selectedRegion = useMemo(
+    () => SAMPLE_REGIONS.find((region) => region.id === selectedId) ?? SAMPLE_REGIONS[0],
+    [selectedId],
+  );
+  const summary = selectedRegion ? getScoreSummary(selectedRegion.axes) : null;
 
   return (
     <div style={{ minHeight: "100vh", padding: 24, background: "#0b0f14", color: "#e5e7eb" }}>
@@ -20,17 +26,21 @@ export default function Page() {
           데이터·네트워크·금융화 관점의 미래 도시 편입 가능성 트래킹
         </div>
         <div style={{ fontSize: 12, color: "#9ca3af" }}>
-          지도/리스트/상세는 초기 골격 상태이며, 데이터 연결 전 단계입니다.
+          샘플 3개 지역만 하드코딩되어 있으며 외부 연동은 없습니다.
         </div>
       </header>
 
       <section className="layout" style={{ marginTop: 16, display: "grid", gap: 16 }}>
         <div className="layoutMain" style={{ display: "grid", gap: 16 }}>
-          <MapShell selectedName={selectedName} />
+          <MapShell
+            selectedName={selectedRegion?.name ?? "선택된 지역 없음"}
+            totalScore={summary?.total ?? 0}
+            grade={summary?.grade ?? "D"}
+          />
         </div>
         <div className="layoutSide" style={{ display: "grid", gap: 16 }}>
-          <ListShell items={MOCK_AREAS} selectedName={selectedName} onSelect={setSelectedName} />
-          <DetailShell selectedName={selectedName} />
+          <ListShell items={SAMPLE_REGIONS} selectedId={selectedId} onSelect={setSelectedId} />
+          <DetailShell region={selectedRegion} />
         </div>
       </section>
 
