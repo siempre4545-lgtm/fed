@@ -45,9 +45,22 @@ export default function Page() {
       </section>
 
       <style jsx>{`
+        .layoutSide {
+          order: 0;
+        }
+
+        .layoutMain {
+          order: 1;
+        }
+
         @media (min-width: 960px) {
           .layout {
             grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+          }
+
+          .layoutSide,
+          .layoutMain {
+            order: 0;
           }
         }
       `}</style>
