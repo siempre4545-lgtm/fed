@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SAMPLE_REGIONS } from "../../../data/platform-map-v2/sample";
 import { AXIS_DEFINITIONS, type AxisEvidencePack, type AxisKey } from "../../../lib/platform-map-v2/types";
+import { canonicalKey } from "../../../lib/platform-map-v2/rss/dedupe";
 import {
   createDefaultScoreState,
   loadScoreState,
@@ -24,6 +25,7 @@ type EvidenceStorage = {
 };
 
 const STORAGE_VERSION = 1;
+const POLL_INTERVAL_MS = 12 * 60 * 1000;
 
 const SCORE_MIN = 0;
 const SCORE_MAX = 10;
@@ -47,6 +49,13 @@ const formatDate = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toISOString().slice(0, 10);
+};
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("ko-KR", { hour12: false });
 };
 
 const scoreHintLabel = (value: number) => {
@@ -102,6 +111,7 @@ const cloneAxisScores = (axes: Record<AxisKey, AxisScoreState>) =>
 export default function Page({ params }: { params: { sigungu: string } }) {
   const sigungu = decodeURIComponent(params.sigungu ?? "").trim() || "선택 지역";
   const storageKey = useMemo(() => `platform-map-v2:evidence:${sigungu}`, [sigungu]);
+  const previousKeysRef = useRef<Set<string> | null>(null);
   const [packs, setPacks] = useState<AxisEvidencePack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +122,9 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const [userState, setUserState] = useState<Record<AxisKey, AxisUserState>>(buildDefaultState);
   const [scoreState, setScoreState] = useState<ScoreState | null>(null);
   const [scoreReady, setScoreReady] = useState(false);
+  const [newKeys, setNewKeys] = useState<string[]>([]);
+  const [showNewOnly, setShowNewOnly] = useState(false);
+  const [highlightNew, setHighlightNew] = useState(false);
 
   const baseScores = useMemo(() => {
     const sample = SAMPLE_REGIONS.find((region) => region.name === sigungu);
@@ -161,6 +174,13 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   }, [storageKey, userState]);
 
   useEffect(() => {
+    previousKeysRef.current = null;
+    setNewKeys([]);
+    setShowNewOnly(false);
+    setHighlightNew(false);
+  }, [sigungu]);
+
+  useEffect(() => {
     let active = true;
     const load = async () => {
       const loaded = await loadScoreState(sigungu);
@@ -200,10 +220,23 @@ export default function Page({ params }: { params: { sigungu: string } }) {
         warnings?: string[];
         fetches?: Array<Record<string, unknown>>;
       };
-      setPacks(data.packs ?? []);
+      const nextPacks = data.packs ?? [];
+      const nextKeys = new Set(
+        nextPacks
+          .flatMap((pack) => pack.items ?? [])
+          .map((item) =>
+            canonicalKey({ title: item.title, url: item.url, publishedAt: item.publishedAt }),
+          ),
+      );
+      const prevKeys = previousKeysRef.current;
+      const diffKeys = prevKeys ? [...nextKeys].filter((key) => !prevKeys.has(key)) : [];
+      previousKeysRef.current = nextKeys;
+
+      setPacks(nextPacks);
       setWarnings(data.warnings ?? []);
       setFetches(data.fetches ?? []);
       setUpdatedAt(new Date().toISOString());
+      setNewKeys(diffKeys);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
     } finally {
@@ -217,6 +250,40 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     }
   }, [sigungu]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let intervalId: number | null = null;
+
+    const startPolling = () => {
+      if (intervalId) window.clearInterval(intervalId);
+      intervalId = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          void loadEvidence();
+        }
+      }, POLL_INTERVAL_MS);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadEvidence();
+        startPolling();
+      } else if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    if (document.visibilityState === "visible") {
+      startPolling();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [sigungu]);
+
   const packMap = useMemo(() => {
     const map = new Map<AxisKey, AxisEvidencePack>();
     packs.forEach((pack) => map.set(pack.axis, pack));
@@ -227,6 +294,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     () => packs.reduce((sum, pack) => sum + (pack.items?.length ?? 0), 0),
     [packs],
   );
+  const newItemCount = newKeys.length;
+  const newKeySet = useMemo(() => new Set(newKeys), [newKeys]);
 
   const updateAxisState = (axis: AxisKey, updater: (prev: AxisUserState) => AxisUserState) => {
     setUserState((prev) => ({ ...prev, [axis]: updater(prev[axis] ?? buildDefaultState()[axis]) }));
@@ -329,6 +398,36 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           </span>
           {error && <span style={{ fontSize: 11, color: "#fca5a5" }}>오류: {error}</span>}
         </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            마지막 갱신: {formatDateTime(updatedAt)}
+          </span>
+          {newItemCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setHighlightNew((prev) => !prev)}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #fbbf24",
+                background: highlightNew ? "#3f2f06" : "#1f2937",
+                color: "#fcd34d",
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              새 기사 {newItemCount}건 발견
+            </button>
+          )}
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+            <input
+              type="checkbox"
+              checked={showNewOnly}
+              onChange={(event) => setShowNewOnly(event.target.checked)}
+            />
+            새 기사만 보기
+          </label>
+        </div>
         {scoreState?.lastSnapshot && (
           <button
             type="button"
@@ -398,6 +497,13 @@ export default function Page({ params }: { params: { sigungu: string } }) {
         {AXIS_DEFINITIONS.map((axis) => {
           const pack = packMap.get(axis.key);
           const items = pack?.items ?? [];
+          const visibleItems = showNewOnly
+            ? items.filter((item) =>
+                newKeySet.has(
+                  canonicalKey({ title: item.title, url: item.url, publishedAt: item.publishedAt }),
+                ),
+              )
+            : items;
           const axisState = userState[axis.key] ?? buildDefaultState()[axis.key];
           const axisScore = scoreState?.axes[axis.key] ?? { appliedDelta: 0, weight: 1 };
           const approvedCount = axisState.approvedEvidenceIds.length;
@@ -484,11 +590,16 @@ export default function Page({ params }: { params: { sigungu: string } }) {
               </div>
 
               <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                {items.length === 0 && (
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>해당 축 근거 없음</div>
+                {visibleItems.length === 0 && (
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                    {showNewOnly ? "새 기사 없음" : "해당 축 근거 없음"}
+                  </div>
                 )}
-                {items.map((item) => {
+                {visibleItems.map((item) => {
                   const approved = axisState.approvedEvidenceIds.includes(item.id);
+                  const isNew = newKeySet.has(
+                    canonicalKey({ title: item.title, url: item.url, publishedAt: item.publishedAt }),
+                  );
                   return (
                     <label
                       key={item.id}
@@ -496,8 +607,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
                         display: "grid",
                         gap: 6,
                         borderRadius: 10,
-                        border: approved ? "1px solid #38bdf8" : "1px solid #1f2937",
-                        background: approved ? "#0b1f3a" : "#111827",
+                        border: highlightNew && isNew ? "1px solid #fbbf24" : approved ? "1px solid #38bdf8" : "1px solid #1f2937",
+                        background: highlightNew && isNew ? "#3f2f06" : approved ? "#0b1f3a" : "#111827",
                         padding: 10,
                         cursor: "pointer",
                       }}
@@ -523,6 +634,19 @@ export default function Page({ params }: { params: { sigungu: string } }) {
                         >
                           {item.title}
                         </a>
+                        {isNew && (
+                          <span
+                            style={{
+                              borderRadius: 999,
+                              border: "1px solid #fbbf24",
+                              padding: "2px 6px",
+                              fontSize: 10,
+                              color: "#fcd34d",
+                            }}
+                          >
+                            NEW
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 11 }}>
                         <span style={{ color: "#94a3b8" }}>{item.source}</span>
