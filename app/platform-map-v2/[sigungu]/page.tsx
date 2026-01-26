@@ -44,6 +44,9 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [fetches, setFetches] = useState<Array<Record<string, unknown>>>([]);
+  const [showFetches, setShowFetches] = useState(false);
   const [userState, setUserState] = useState<Record<AxisKey, AxisUserState>>(buildDefaultState);
 
   useEffect(() => {
@@ -77,18 +80,27 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     return () => window.clearTimeout(timeout);
   }, [storageKey, userState]);
 
-  const loadEvidence = async () => {
+  const loadEvidence = async (withDebug = false) => {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/platform-map-v2/rss?sigungu=${encodeURIComponent(sigungu)}&days=30`,
+        `/api/platform-map-v2/rss?sigungu=${encodeURIComponent(sigungu)}&days=30${
+          withDebug ? "&debug=1" : ""
+        }`,
       );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const data = (await response.json()) as { ok: boolean; packs?: AxisEvidencePack[] };
+      const data = (await response.json()) as {
+        ok: boolean;
+        packs?: AxisEvidencePack[];
+        warnings?: string[];
+        fetches?: Array<Record<string, unknown>>;
+      };
       setPacks(data.packs ?? []);
+      setWarnings(data.warnings ?? []);
+      setFetches(data.fetches ?? []);
       setUpdatedAt(new Date().toISOString());
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
@@ -109,6 +121,11 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     return map;
   }, [packs]);
 
+  const totalItems = useMemo(
+    () => packs.reduce((sum, pack) => sum + (pack.items?.length ?? 0), 0),
+    [packs],
+  );
+
   const updateAxisState = (axis: AxisKey, updater: (prev: AxisUserState) => AxisUserState) => {
     setUserState((prev) => ({ ...prev, [axis]: updater(prev[axis] ?? buildDefaultState()[axis]) }));
   };
@@ -123,7 +140,9 @@ export default function Page({ params }: { params: { sigungu: string } }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <button
             type="button"
-            onClick={loadEvidence}
+            onClick={() => {
+              void loadEvidence();
+            }}
             style={{
               borderRadius: 999,
               border: "1px solid #1f2937",
@@ -155,6 +174,51 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           </span>
           {error && <span style={{ fontSize: 11, color: "#fca5a5" }}>오류: {error}</span>}
         </div>
+        {totalItems === 0 && !loading && !error && (
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>
+            최근 30일 내 매칭 근거가 없습니다(소스/키워드 조건).
+          </div>
+        )}
+        {warnings.length > 0 && (
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ fontSize: 12, color: "#fca5a5" }}>
+              일부 소스 수집 실패 ({warnings.length})
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showFetches;
+                setShowFetches(next);
+                if (next && fetches.length === 0) {
+                  void loadEvidence(true);
+                }
+              }}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: "#111827",
+                color: "#e5e7eb",
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: "pointer",
+                width: "fit-content",
+              }}
+            >
+              자세히 보기 {showFetches ? "닫기" : "열기"}
+            </button>
+            {showFetches && fetches.length > 0 && (
+              <div style={{ display: "grid", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                {fetches.map((item, index) => (
+                  <div key={`${item.sourceId ?? "source"}-${index}`}>
+                    {String(item.sourceTitle ?? item.sourceId ?? "source")} ·{" "}
+                    {String(item.status ?? "unknown")} · {String(item.elapsedMs ?? "-")}ms ·{" "}
+                    {String(item.items ?? "-")}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <section style={{ display: "grid", gap: 12 }}>

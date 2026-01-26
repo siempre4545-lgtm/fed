@@ -2,33 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { createHash } from "crypto";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
-import {
-  buildRegionHints,
-  classifyText,
-  getReliabilityFromUrl,
-  getScoreHint,
-  matchRegionHints,
-} from "../../../../lib/platform-map-v2/classify";
+import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
+import { classifyText, getReliabilityFromUrl, getScoreHint } from "../../../../lib/platform-map-v2/classify";
+import { buildRegionContext, matchRegionHints } from "../../../../lib/platform-map-v2/region/match";
+import { dedupe } from "../../../../lib/platform-map-v2/rss/dedupe";
+import { RSS_SOURCES } from "../../../../lib/platform-map-v2/rss/sources";
 import { AXIS_DEFINITIONS, type AxisEvidencePack, type AxisKey, type EvidenceItem } from "../../../../lib/platform-map-v2/types";
 
 export const runtime = "nodejs";
 
-type RssSource = {
-  id: string;
-  name: string;
-  url: string;
-};
-
-const RSS_SOURCES: RssSource[] = [
-  { id: "kdi", name: "KDI 보도자료", url: "https://www.kdi.re.kr/kdi_news/press/rss" },
-  { id: "molit", name: "국토교통부", url: "https://www.molit.go.kr/USR/NEWS/rss/m_71.xml" },
-  { id: "kostat", name: "통계청", url: "https://www.kostat.go.kr/portal/korea/rss/press.xml" },
-  { id: "yonhap-econ", name: "연합뉴스 경제", url: "https://www.yna.co.kr/rss/economy.xml" },
-  { id: "yonhap-local", name: "연합뉴스 지역", url: "https://www.yna.co.kr/rss/region.xml" },
-  { id: "hankyung-econ", name: "한국경제", url: "https://rss.hankyung.com/economy.xml" },
-];
-
 const parser = new Parser();
+const cacheStore = createCacheStore();
+const MAX_ITEMS_PER_SOURCE = 80;
 
 const fetchWithTimeout = async (url: string, timeoutMs: number) => {
   const controller = new AbortController();
@@ -62,19 +47,37 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const sigungu = searchParams.get("sigungu")?.trim();
   const daysParam = Number(searchParams.get("days") ?? "30");
+  const debug = searchParams.get("debug") === "1";
   const days = Number.isFinite(daysParam) ? Math.min(Math.max(daysParam, 1), 90) : 30;
 
   if (!sigungu) {
     return NextResponse.json({ ok: false, error: "sigungu is required" }, { status: 400 });
   }
 
-  const regionHints = buildRegionHints(sigungu, aliases);
+  const cacheKey = `pmv2:rss:${sigungu}:${days}`;
+  if (!debug) {
+    const cached = await cacheStore.get<{
+      ok: boolean;
+      sigungu: string;
+      days: number;
+      packs: AxisEvidencePack[];
+      warnings: string[];
+    }>(cacheKey);
+    if (cached) {
+      const response = NextResponse.json(cached);
+      response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
+      return response;
+    }
+  }
+
+  const regionContext = buildRegionContext(sigungu, aliases);
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const axisReasonMap: Record<AxisKey, Set<string>> = AXIS_DEFINITIONS.reduce(
     (acc, axis) => ({ ...acc, [axis.key]: new Set<string>() }),
     {} as Record<AxisKey, Set<string>>,
   );
-  const logs: Array<Record<string, unknown>> = [];
+  const fetches: Array<Record<string, unknown>> = [];
+  const warnings: string[] = [];
   const collected: EvidenceItem[] = [];
 
   await Promise.all(
@@ -87,7 +90,7 @@ export async function GET(request: NextRequest) {
         }
         const text = await response.text();
         const feed = await parser.parseString(text);
-        const items = (feed.items ?? []).slice(0, 40);
+        const items = (feed.items ?? []).slice(0, MAX_ITEMS_PER_SOURCE);
         let added = 0;
 
         for (const item of items) {
@@ -100,12 +103,8 @@ export async function GET(request: NextRequest) {
             item.contentSnippet || item.content || item.summary || item.description || "";
           const snippet = buildSnippet(snippetRaw);
           const textForClassify = `${title} ${snippet}`;
-          const regionMatches =
-            regionHints.length === 0 ? [] : matchRegionHints(textForClassify, regionHints);
-
-          if (regionHints.length > 0 && regionMatches.length === 0) {
-            continue;
-          }
+          const regionMatches = matchRegionHints(textForClassify, regionContext);
+          if (regionMatches.length === 0) continue;
 
           const { axes, axisReasons, sentiment } = classifyText(textForClassify);
           if (axes.length === 0) continue;
@@ -118,27 +117,30 @@ export async function GET(request: NextRequest) {
           collected.push({
             id: createEvidenceId(`${link}-${publishedAt}`),
             title,
-            source: feed.title ?? source.name,
+            source: source.title || feed.title || "RSS",
             publishedAt,
             url: link,
             snippet,
             axes,
             regionHints: regionMatches,
-            reliability: getReliabilityFromUrl(link),
+            reliability: source.reliability ?? getReliabilityFromUrl(link),
             sentiment,
           });
           added += 1;
         }
 
-        logs.push({
-          source: source.name,
+        fetches.push({
+          sourceId: source.id,
+          sourceTitle: source.title,
           status: "ok",
           elapsedMs: Date.now() - start,
           items: added,
         });
       } catch (error) {
-        logs.push({
-          source: source.name,
+        warnings.push(source.id);
+        fetches.push({
+          sourceId: source.id,
+          sourceTitle: source.title,
           status: "error",
           elapsedMs: Date.now() - start,
           reason: error instanceof Error ? error.message : "unknown",
@@ -147,10 +149,10 @@ export async function GET(request: NextRequest) {
     }),
   );
 
-  collected.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const deduped = dedupe(collected).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
   const packs: AxisEvidencePack[] = AXIS_DEFINITIONS.map((axis) => {
-    const items = collected.filter((item) => item.axes.includes(axis.key)).slice(0, 10);
+    const items = deduped.filter((item) => item.axes.includes(axis.key)).slice(0, 10);
     const reasonList = Array.from(axisReasonMap[axis.key]);
     return {
       axis: axis.key,
@@ -160,13 +162,18 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const response = NextResponse.json({
+  const payload = {
     ok: true,
     sigungu,
     days,
     packs,
-    meta: { totalItems: collected.length, logs },
-  });
+    warnings,
+    ...(debug ? { fetches } : {}),
+  };
+
+  await cacheStore.set(cacheKey, payload, 1800);
+
+  const response = NextResponse.json(payload);
   response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
   return response;
 }

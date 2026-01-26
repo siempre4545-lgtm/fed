@@ -1,7 +1,5 @@
 import type { AxisKey, EvidenceItem } from "./types";
 
-export type RegionAliasMap = Record<string, string[]>;
-
 export type AxisReasonMap = Partial<Record<AxisKey, string[]>>;
 
 export type Sentiment = "pos" | "neg" | "neutral";
@@ -70,31 +68,6 @@ export const classifyText = (text: string) => {
   }
 
   return { axes, axisReasons, sentiment };
-};
-
-export const buildRegionHints = (sigungu: string, aliases: RegionAliasMap) => {
-  const hints = new Set<string>();
-  const trimmed = sigungu.trim();
-  if (trimmed) hints.add(trimmed);
-
-  const parts = trimmed.split(/\s+/).filter(Boolean);
-  parts.forEach((part) => {
-    hints.add(part);
-    const shortened = part.replace(/(특별시|광역시|특별자치시|특별자치도|자치구|시|군|구)$/g, "");
-    if (shortened && shortened !== part) {
-      hints.add(shortened);
-    }
-  });
-
-  const aliasList = aliases[trimmed] ?? [];
-  aliasList.forEach((alias) => hints.add(alias));
-
-  return Array.from(hints).filter((hint) => hint.length > 1);
-};
-
-export const matchRegionHints = (text: string, hints: string[]) => {
-  const normalized = normalizeText(text);
-  return hints.filter((hint) => normalized.includes(normalizeText(hint)));
 };
 
 export const getReliabilityFromUrl = (url: string) => {
