@@ -10,12 +10,14 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx api/index.ts",
-    "build": "echo 'No build step required for Express server'",
+    "build": "next build",
     "build:tsc": "tsc -p tsconfig.json",
     "report": "tsx src/notify.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke:thu": "node scripts/smoke-thursday.ts",
+    "smoke:prices": "node scripts/smoke-prices.ts",
     "lint": "echo 'No ESLint configured. Run typecheck instead.' && npm run typecheck",
     "audit:local": "tsx scripts/audit-site.ts",
     "audit:prod": "BASE_URL=https://fedreportsh.vercel.app tsx scripts/audit-site.ts"
@@ -29,6 +31,8 @@
     "pdf-parse": "^1.1.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "recharts": "^3.7.0",
+    "rss-parser": "^3.13.0",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.5"
   },
