@@ -595,78 +595,124 @@ export default function Page({ params }: { params: { sigungu: string } }) {
                     {showNewOnly ? "새 기사 없음" : "해당 축 근거 없음"}
                   </div>
                 )}
-                {visibleItems.map((item) => {
-                  const approved = axisState.approvedEvidenceIds.includes(item.id);
-                  const isNew = newKeySet.has(
-                    canonicalKey({ title: item.title, url: item.url, publishedAt: item.publishedAt }),
-                  );
-                  return (
-                    <label
-                      key={item.id}
-                      style={{
-                        display: "grid",
-                        gap: 6,
-                        borderRadius: 10,
-                        border: highlightNew && isNew ? "1px solid #fbbf24" : approved ? "1px solid #38bdf8" : "1px solid #1f2937",
-                        background: highlightNew && isNew ? "#3f2f06" : approved ? "#0b1f3a" : "#111827",
-                        padding: 10,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={approved}
-                          onChange={() =>
-                            updateAxisState(axis.key, (prev) => ({
-                              ...prev,
-                              approvedEvidenceIds: approved
-                                ? prev.approvedEvidenceIds.filter((id) => id !== item.id)
-                                : [...prev.approvedEvidenceIds, item.id],
-                            }))
-                          }
-                        />
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontSize: 12, color: "#e5e7eb", textDecoration: "none" }}
-                        >
-                          {item.title}
-                        </a>
-                        {isNew && (
+                {visibleItems.length > 0 &&
+                  (() => {
+                  const renderItem = (item: (typeof visibleItems)[number], approved: boolean) => {
+                    const isNew = newKeySet.has(
+                      canonicalKey({
+                        title: item.title,
+                        url: item.url,
+                        publishedAt: item.publishedAt,
+                      }),
+                    );
+                    return (
+                      <label
+                        key={item.id}
+                        style={{
+                          display: "grid",
+                          gap: 6,
+                          borderRadius: 10,
+                          border:
+                            highlightNew && isNew
+                              ? "1px solid #fbbf24"
+                              : approved
+                                ? "1px solid #38bdf8"
+                                : "1px solid #1f2937",
+                          background:
+                            highlightNew && isNew ? "#3f2f06" : approved ? "#0b1f3a" : "#111827",
+                          padding: 10,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={approved}
+                            onChange={() =>
+                              updateAxisState(axis.key, (prev) => ({
+                                ...prev,
+                                approvedEvidenceIds: approved
+                                  ? prev.approvedEvidenceIds.filter((id) => id !== item.id)
+                                  : [...prev.approvedEvidenceIds, item.id],
+                              }))
+                            }
+                          />
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: 12, color: "#e5e7eb", textDecoration: "none" }}
+                          >
+                            {item.title}
+                          </a>
+                          {isNew && (
+                            <span
+                              style={{
+                                borderRadius: 999,
+                                border: "1px solid #fbbf24",
+                                padding: "2px 6px",
+                                fontSize: 10,
+                                color: "#fcd34d",
+                              }}
+                            >
+                              NEW
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 11 }}>
+                          <span style={{ color: "#94a3b8" }}>{item.source}</span>
+                          <span style={{ color: "#94a3b8" }}>{formatDate(item.publishedAt)}</span>
                           <span
                             style={{
                               borderRadius: 999,
-                              border: "1px solid #fbbf24",
-                              padding: "2px 6px",
+                              border: "1px solid #1f2937",
+                              padding: "2px 8px",
                               fontSize: 10,
-                              color: "#fcd34d",
+                              color: "#e5e7eb",
                             }}
                           >
-                            NEW
+                            신뢰도 {item.reliability}
                           </span>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 11 }}>
-                        <span style={{ color: "#94a3b8" }}>{item.source}</span>
-                        <span style={{ color: "#94a3b8" }}>{formatDate(item.publishedAt)}</span>
-                        <span
-                          style={{
-                            borderRadius: 999,
-                            border: "1px solid #1f2937",
-                            padding: "2px 8px",
-                            fontSize: 10,
-                            color: "#e5e7eb",
-                          }}
-                        >
-                          신뢰도 {item.reliability}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: "#cbd5f5" }}>{item.snippet}</div>
-                    </label>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#cbd5f5" }}>{item.snippet}</div>
+                      </label>
+                    );
+                  };
+
+                  const approvedItems = visibleItems.filter((item) =>
+                    axisState.approvedEvidenceIds.includes(item.id),
                   );
-                })}
+                  const pendingItems = visibleItems.filter(
+                    (item) => !axisState.approvedEvidenceIds.includes(item.id),
+                  );
+
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>승인 근거</div>
+                        {approvedItems.length === 0 && (
+                          <div style={{ fontSize: 12, color: "#94a3b8" }}>승인 근거 없음</div>
+                        )}
+                        {approvedItems.map((item) => renderItem(item, true))}
+                        {pendingItems.length > 0 && (
+                          <details>
+                            <summary
+                              style={{
+                                cursor: "pointer",
+                                fontSize: 11,
+                                color: "#94a3b8",
+                                marginBottom: 6,
+                              }}
+                            >
+                              제안 {pendingItems.length}건
+                            </summary>
+                            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                              {pendingItems.map((item) => renderItem(item, false))}
+                            </div>
+                          </details>
+                        )}
+                      </>
+                    );
+                  })()}
               </div>
 
               <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
