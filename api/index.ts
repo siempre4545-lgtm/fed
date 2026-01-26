@@ -1729,14 +1729,6 @@ app.get("/", async (req, res) => {
         </a>
       </div>
       <div class="traffic-light-container">
-        <a href="/platform-map" class="traffic-light-link" title="보물지도: 한국 시군구 플랫폼 편입 등급 지도">
-          <div class="traffic-light-circle" style="background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%)"></div>
-          <div class="traffic-light-label">보물지도</div>
-          <div class="traffic-light-label" style="color:#22c55e;font-weight:700">시군구</div>
-          <div class="traffic-light-score">등급</div>
-        </a>
-      </div>
-      <div class="traffic-light-container">
         <a href="/platform-map-v2" class="traffic-light-link" title="보물지도 v2">
           <div class="traffic-light-circle" style="background:linear-gradient(135deg,#34d399 0%,#10b981 100%)"></div>
           <div class="traffic-light-label">보물지도</div>
