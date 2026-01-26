@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SAMPLE_REGIONS } from "../../../data/platform-map-v2/sample";
-import { AXIS_DEFINITIONS, type AxisEvidencePack, type AxisKey } from "../../../lib/platform-map-v2/types";
+import {
+  AXIS_DEFINITIONS,
+  type AxisEvidencePack,
+  type AxisKey,
+  type PlatformMapRating,
+} from "../../../lib/platform-map-v2/types";
 import { canonicalKey } from "../../../lib/platform-map-v2/rss/dedupe";
 import {
   createDefaultScoreState,
@@ -125,22 +129,34 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const [newKeys, setNewKeys] = useState<string[]>([]);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [highlightNew, setHighlightNew] = useState(false);
+  const [rating, setRating] = useState<PlatformMapRating | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [newsSources, setNewsSources] = useState<
+    Array<{
+      source: string;
+      ok: boolean;
+      status?: number;
+      elapsedMs: number;
+      titleCount: number;
+      errorReason?: string;
+    }>
+  >([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState<string | null>(null);
+  const [showNewsFailures, setShowNewsFailures] = useState(false);
 
   const baseScores = useMemo(() => {
-    const sample = SAMPLE_REGIONS.find((region) => region.name === sigungu);
     return AXIS_DEFINITIONS.reduce(
       (acc, axis) => ({
         ...acc,
-        [axis.key]: sample?.axes.find((item) => item.key === axis.key)?.score ?? 0,
+        [axis.key]: rating?.axisScores.find((item) => item.key === axis.key)?.score ?? 0,
       }),
       {} as Record<AxisKey, number>,
     );
-  }, [sigungu]);
+  }, [rating]);
 
-  const hasBaseScore = useMemo(
-    () => SAMPLE_REGIONS.some((region) => region.name === sigungu),
-    [sigungu],
-  );
+  const hasBaseScore = useMemo(() => Boolean(rating), [rating]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -180,6 +196,58 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     setHighlightNew(false);
   }, [sigungu]);
 
+  const loadRating = async () => {
+    setRatingLoading(true);
+    setRatingError(null);
+    try {
+      const response = await fetch(
+        `/api/platform-map-v2/data?sigungu=${encodeURIComponent(sigungu)}`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as { ok: boolean; rating?: PlatformMapRating | null };
+      setRating(data.rating ?? null);
+    } catch (fetchError) {
+      setRatingError(fetchError instanceof Error ? fetchError.message : "unknown");
+      setRating(null);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  const loadNewsStatus = async (key?: string | null) => {
+    setNewsLoading(true);
+    setNewsError(null);
+    try {
+      const response = await fetch(
+        `/api/platform-map-v2/news?sigungu=${encodeURIComponent(sigungu)}${
+          key ? `&sigunguKey=${encodeURIComponent(key)}` : ""
+        }`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as {
+        ok: boolean;
+        sources?: Array<{
+          source: string;
+          ok: boolean;
+          status?: number;
+          elapsedMs: number;
+          titleCount: number;
+          errorReason?: string;
+        }>;
+      };
+      setNewsSources(data.sources ?? []);
+    } catch (fetchError) {
+      setNewsError(fetchError instanceof Error ? fetchError.message : "unknown");
+      setNewsSources([]);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -193,6 +261,19 @@ export default function Page({ params }: { params: { sigungu: string } }) {
       active = false;
     };
   }, [sigungu]);
+
+  useEffect(() => {
+    if (sigungu) {
+      void loadRating();
+      void loadNewsStatus();
+    }
+  }, [sigungu]);
+
+  useEffect(() => {
+    if (rating?.sigunguKey) {
+      void loadNewsStatus(rating.sigunguKey);
+    }
+  }, [rating?.sigunguKey]);
 
   useEffect(() => {
     if (!scoreReady || !scoreState) return;
@@ -297,6 +378,15 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const newItemCount = newKeys.length;
   const newKeySet = useMemo(() => new Set(newKeys), [newKeys]);
 
+  const successCount = useMemo(
+    () => newsSources.filter((item) => item.ok).length,
+    [newsSources],
+  );
+  const failureCount = useMemo(
+    () => newsSources.filter((item) => !item.ok).length,
+    [newsSources],
+  );
+
   const updateAxisState = (axis: AxisKey, updater: (prev: AxisUserState) => AxisUserState) => {
     setUserState((prev) => ({ ...prev, [axis]: updater(prev[axis] ?? buildDefaultState()[axis]) }));
   };
@@ -361,6 +451,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             기준 점수가 없으므로 현재 점수는 0 기준으로 계산됩니다.
           </div>
         )}
+        {ratingLoading && <div style={{ fontSize: 11, color: "#94a3b8" }}>점수 데이터 불러오는 중...</div>}
+        {ratingError && <div style={{ fontSize: 11, color: "#fca5a5" }}>점수 데이터 오류: {ratingError}</div>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <button
             type="button"
@@ -427,6 +519,24 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             />
             새 기사만 보기
           </label>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            소스 성공 {successCount} / 실패 {failureCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowNewsFailures((prev) => !prev)}
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: "#111827",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            실패 상세 {showNewsFailures ? "닫기" : "보기"}
+          </button>
         </div>
         {scoreState?.lastSnapshot && (
           <button
@@ -451,45 +561,37 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             최근 30일 내 매칭 근거가 없습니다(소스/키워드 조건).
           </div>
         )}
-        {warnings.length > 0 && (
-          <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 12, color: "#fca5a5" }}>
-              일부 소스 수집 실패 ({warnings.length})
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !showFetches;
-                setShowFetches(next);
-                if (next && fetches.length === 0) {
-                  void loadEvidence(true);
-                }
-              }}
-              style={{
-                borderRadius: 999,
-                border: "1px solid #1f2937",
-                background: "#111827",
-                color: "#e5e7eb",
-                padding: "4px 10px",
-                fontSize: 11,
-                cursor: "pointer",
-                width: "fit-content",
-              }}
-            >
-              자세히 보기 {showFetches ? "닫기" : "열기"}
-            </button>
-            {showFetches && fetches.length > 0 && (
-              <div style={{ display: "grid", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                {fetches.map((item, index) => (
-                  <div key={`${item.sourceId ?? "source"}-${index}`}>
-                    {String(item.sourceTitle ?? item.sourceId ?? "source")} ·{" "}
-                    {String(item.status ?? "unknown")} · {String(item.elapsedMs ?? "-")}ms ·{" "}
-                    {String(item.items ?? "-")}
-                  </div>
-                ))}
-              </div>
-            )}
+        {newsLoading && <div style={{ fontSize: 11, color: "#94a3b8" }}>뉴스 상태 확인 중...</div>}
+        {newsError && <div style={{ fontSize: 11, color: "#fca5a5" }}>뉴스 상태 오류: {newsError}</div>}
+        {showNewsFailures && failureCount > 0 && (
+          <div style={{ display: "grid", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+            {newsSources
+              .filter((item) => !item.ok)
+              .map((item) => (
+                <div key={item.source}>
+                  {item.source} · {item.status ?? "-"} · {item.elapsedMs}ms ·{" "}
+                  {item.errorReason ?? "unknown"}
+                </div>
+              ))}
           </div>
+        )}
+        {(newsError || (failureCount === newsSources.length && newsSources.length > 0)) && (
+          <button
+            type="button"
+            onClick={() => loadNewsStatus(rating?.sigunguKey)}
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: "#111827",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              cursor: "pointer",
+              width: "fit-content",
+            }}
+          >
+            뉴스 다시 시도
+          </button>
         )}
       </header>
 

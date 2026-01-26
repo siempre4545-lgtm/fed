@@ -7,9 +7,17 @@ type Props = {
   onSelect: (id: string) => void;
   search: string;
   onSearch: (value: string) => void;
+  totalCount: number;
 };
 
-export default function ListShell({ items, selectedId, onSelect, search, onSearch }: Props) {
+export default function ListShell({
+  items,
+  selectedId,
+  onSelect,
+  search,
+  onSearch,
+  totalCount,
+}: Props) {
   return (
     <div
       style={{
@@ -36,6 +44,9 @@ export default function ListShell({ items, selectedId, onSelect, search, onSearc
             fontSize: 12,
           }}
         />
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          표시 {items.length} / 전체 {totalCount}
+        </div>
       </div>
       <div style={{ display: "grid", gap: 8 }}>
         {items.length === 0 && (

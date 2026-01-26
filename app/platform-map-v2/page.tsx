@@ -1,41 +1,71 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import DetailShell from "../../components/platform-map-v2/DetailShell";
 import ListShell from "../../components/platform-map-v2/ListShell";
-import MapShell from "../../components/platform-map-v2/MapShell";
-import { SAMPLE_REGIONS } from "../../data/platform-map-v2/sample";
-import type { Grade } from "../../lib/platform-map-v2/scoring";
-import { getScoreSummary } from "../../lib/platform-map-v2/scoring";
+import Map from "../../components/platform-map-v2/Map";
+import type { PlatformMapDataResponse, PlatformMapGrade, PlatformMapRating } from "../../lib/platform-map-v2/types";
 
-const GRADE_OPTIONS: Grade[] = ["A", "B", "C", "D"];
+const GRADE_OPTIONS: PlatformMapGrade[] = ["A", "B", "C", "D"];
+const GRADE_ORDER: Record<PlatformMapGrade, number> = { A: 0, B: 1, C: 2, D: 3 };
 
 export default function Page() {
-  const [selectedId, setSelectedId] = useState(SAMPLE_REGIONS[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedGrades, setSelectedGrades] = useState<Grade[]>([]);
+  const [selectedGrades, setSelectedGrades] = useState<PlatformMapGrade[]>([]);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  const [geojson, setGeojson] = useState<any>(null);
+  const [ratings, setRatings] = useState<PlatformMapRating[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
-  const itemsWithScore = useMemo(
-    () =>
-      SAMPLE_REGIONS.map((item) => {
-        const summary = getScoreSummary(item.axes);
-        return { ...item, total: summary.total, grade: summary.grade };
-      }),
-    [],
-  );
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/platform-map-v2/data?debug=1");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as PlatformMapDataResponse;
+      setGeojson(data.geojson);
+      setRatings(data.ratings ?? []);
+      setUpdatedAt(data.meta?.updatedAt ?? new Date().toISOString());
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "unknown");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, []);
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     const gradeSet = new Set(selectedGrades);
-    return itemsWithScore
+    return ratings
       .filter((item) => {
         const nameMatch = term.length === 0 || item.name.toLowerCase().includes(term);
         const gradeMatch = gradeSet.size === 0 || gradeSet.has(item.grade);
         return nameMatch && gradeMatch;
       })
-      .sort((a, b) => b.total - a.total);
-  }, [itemsWithScore, search, selectedGrades]);
+      .sort((a, b) => {
+        if (GRADE_ORDER[a.grade] !== GRADE_ORDER[b.grade]) {
+          return GRADE_ORDER[a.grade] - GRADE_ORDER[b.grade];
+        }
+        return b.totalScore - a.totalScore;
+      })
+      .map((item) => ({
+        ...item,
+        id: item.sigunguKey,
+        axes: item.axisScores,
+        total: item.totalScore,
+      }));
+  }, [ratings, search, selectedGrades]);
 
   useEffect(() => {
     if (!filteredItems.find((item) => item.id === selectedId)) {
@@ -44,11 +74,11 @@ export default function Page() {
   }, [filteredItems, selectedId]);
 
   const selectedRegion = useMemo(
-    () => itemsWithScore.find((region) => region.id === selectedId),
-    [itemsWithScore, selectedId],
+    () => ratings.find((region) => region.sigunguKey === selectedId) ?? null,
+    [ratings, selectedId],
   );
 
-  const toggleGrade = (grade: Grade) => {
+  const toggleGrade = (grade: PlatformMapGrade) => {
     setSelectedGrades((prev) =>
       prev.includes(grade) ? prev.filter((item) => item !== grade) : [...prev, grade],
     );
@@ -64,7 +94,43 @@ export default function Page() {
           데이터·네트워크·금융화 관점의 미래 도시 편입 가능성 트래킹
         </div>
         <div style={{ fontSize: 12, color: "#9ca3af" }}>
-          샘플 3개 지역만 하드코딩되어 있으며 외부 연동은 없습니다.
+          전국 시군구 기준으로 초기 점수를 표시합니다.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <Link
+            href="/"
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: "#111827",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              textDecoration: "none",
+            }}
+          >
+            대시보드
+          </Link>
+          <button
+            type="button"
+            onClick={loadData}
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: "#0b1f3a",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            새로고침
+          </button>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            마지막 갱신: {updatedAt ? new Date(updatedAt).toLocaleString("ko-KR", { hour12: false }) : "-"}
+          </span>
+          {error && <span style={{ fontSize: 11, color: "#fca5a5" }}>오류: {error}</span>}
+          {loading && <span style={{ fontSize: 11, color: "#94a3b8" }}>불러오는 중...</span>}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "#94a3b8" }}>등급 필터</span>
@@ -90,7 +156,7 @@ export default function Page() {
             );
           })}
           <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            표시 {filteredItems.length}/{itemsWithScore.length}
+            표시 {filteredItems.length}/{ratings.length}
           </span>
           <div className="mobileToggle" style={{ display: "flex", gap: 6 }}>
             <button
@@ -128,24 +194,19 @@ export default function Page() {
       </header>
 
       <section className="layout" style={{ marginTop: 16, display: "grid", gap: 16 }}>
-        <div
-          className="layoutList"
-          style={{ display: mobileView === "list" ? "grid" : "none", gap: 16 }}
-        >
+        <div className="layoutList" style={{ display: mobileView === "list" ? "grid" : "none", gap: 16 }}>
           <ListShell
             items={filteredItems}
             selectedId={selectedId}
             onSelect={setSelectedId}
             search={search}
             onSearch={setSearch}
+            totalCount={ratings.length}
           />
           <DetailShell region={selectedRegion} />
         </div>
-        <div
-          className="layoutMap"
-          style={{ display: mobileView === "map" ? "grid" : "none", gap: 16 }}
-        >
-          <MapShell items={filteredItems} selectedId={selectedId} />
+        <div className="layoutMap" style={{ display: mobileView === "map" ? "grid" : "none", gap: 16 }}>
+          <Map geojson={geojson} ratings={ratings} selectedGrades={selectedGrades} />
         </div>
       </section>
 

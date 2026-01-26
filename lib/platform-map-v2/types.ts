@@ -44,6 +44,29 @@ export type PlatformMapSample = {
   axes: AxisScore[];
 };
 
+export type PlatformMapGrade = "A" | "B" | "C" | "D";
+
+export type PlatformMapRating = {
+  name: string;
+  sigunguKey: string;
+  grade: PlatformMapGrade;
+  totalScore: number;
+  axisScores: AxisScore[];
+  top3Axes: AxisScore[];
+};
+
+export type PlatformMapDataResponse = {
+  ok: true;
+  geojson: any;
+  ratings: PlatformMapRating[];
+  meta: { updatedAt: string; source: string };
+  debug?: {
+    totalFeatures: number;
+    totalRatings: number;
+    gradesCount: Record<PlatformMapGrade, number>;
+  };
+};
+
 export type EvidenceItem = {
   id: string;
   title: string;

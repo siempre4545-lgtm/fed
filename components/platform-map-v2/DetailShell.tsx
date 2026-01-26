@@ -1,8 +1,8 @@
-import { AXIS_MAX_SCORE, getScoreSummary, TOTAL_MAX_SCORE } from "../../lib/platform-map-v2/scoring";
-import type { PlatformMapSample } from "../../lib/platform-map-v2/types";
+import { AXIS_MAX_SCORE, TOTAL_MAX_SCORE } from "../../lib/platform-map-v2/scoring";
+import type { PlatformMapRating } from "../../lib/platform-map-v2/types";
 
 type Props = {
-  region?: PlatformMapSample;
+  region?: PlatformMapRating | null;
 };
 
 const formatScore = (value: number) => (Number.isInteger(value) ? value.toString() : value.toFixed(1));
@@ -25,8 +25,6 @@ export default function DetailShell({ region }: Props) {
     );
   }
 
-  const summary = getScoreSummary(region.axes);
-
   return (
     <div
       style={{
@@ -37,10 +35,10 @@ export default function DetailShell({ region }: Props) {
         color: "#cbd5f5",
       }}
     >
-      <div style={{ fontSize: 13, marginBottom: 8 }}>상세 (샘플)</div>
+      <div style={{ fontSize: 13, marginBottom: 8 }}>상세</div>
       <div style={{ fontSize: 12, marginBottom: 6 }}>선택된 지역: {region.name}</div>
       <div style={{ fontSize: 12, marginBottom: 10 }}>
-        총점 {summary.total}/{TOTAL_MAX_SCORE} · 등급 {summary.grade}
+        총점 {region.totalScore}/{TOTAL_MAX_SCORE} · 등급 {region.grade}
       </div>
       <div
         style={{
@@ -50,7 +48,7 @@ export default function DetailShell({ region }: Props) {
           paddingTop: 8,
         }}
       >
-        {region.axes.map((axis) => (
+        {region.axisScores.map((axis) => (
           <div
             key={axis.key}
             style={{
