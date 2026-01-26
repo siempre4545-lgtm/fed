@@ -10,6 +10,7 @@ import { RSS_SOURCES } from "../../../../lib/platform-map-v2/rss/sources";
 import { AXIS_DEFINITIONS, type AxisEvidencePack, type AxisKey, type EvidenceItem } from "../../../../lib/platform-map-v2/types";
 
 export const runtime = "nodejs";
+const LOG_PREFIX = "[PMV2]";
 
 const parser = new Parser();
 const cacheStore = createCacheStore();
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
   const days = Number.isFinite(daysParam) ? Math.min(Math.max(daysParam, 1), 90) : 30;
 
   if (!sigungu) {
+    console.warn(LOG_PREFIX, "rss missing sigungu");
     return NextResponse.json({ ok: false, error: "sigungu is required" }, { status: 400 });
   }
 
@@ -64,12 +66,14 @@ export async function GET(request: NextRequest) {
       warnings: string[];
     }>(cacheKey);
     if (cached) {
+      console.info(LOG_PREFIX, "rss cache hit", { sigungu, days });
       const response = NextResponse.json(cached);
       response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
       return response;
     }
   }
 
+  console.info(LOG_PREFIX, "rss fetch start", { sigungu, days, debug });
   const regionContext = buildRegionContext(sigungu, aliases);
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const axisReasonMap: Record<AxisKey, Set<string>> = AXIS_DEFINITIONS.reduce(
@@ -171,6 +175,12 @@ export async function GET(request: NextRequest) {
     ...(debug ? { fetches } : {}),
   };
 
+  console.info(LOG_PREFIX, "rss fetch done", {
+    sigungu,
+    days,
+    items: deduped.length,
+    warnings: warnings.length,
+  });
   await cacheStore.set(cacheKey, payload, 1800);
 
   const response = NextResponse.json(payload);
