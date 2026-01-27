@@ -91,6 +91,7 @@ export const generateCapitalReport = async (params: {
   const leading = rows.filter((row) => row.status === "선행").slice(0, 6);
   const lagging = rows.filter((row) => row.status === "후행").slice(0, 6);
   const mismatch = rows.filter((row) => row.status === "불일치").slice(0, 6);
+  const holdingsRegions = Object.values(holdingsMap).filter((items) => items.length > 0).length;
 
   const metroCount = ratings.filter((rating) => getRegionType(rating.name, rating.sigunguKey) === "metro").length;
   const metroShare = ratings.length === 0 ? 0 : Math.round((metroCount / ratings.length) * 100);
@@ -98,14 +99,14 @@ export const generateCapitalReport = async (params: {
 
   const summary = [
     `정합 ${aligned.length} · 선행 ${leading.length} · 후행 ${lagging.length} · 불일치 ${mismatch.length}`,
-    `수도권 비중 ${metroShare}% · 평균 자본 일치도 ${avgAlignment}`,
-    period === "monthly" ? "월간 누적 변화 기준으로 신호를 비교했습니다." : "주간 스냅샷 기준으로 신호를 비교했습니다.",
+    `보유 스냅샷 연결 지역 ${holdingsRegions} / ${ratings.length} · 평균 자본 일치도 ${avgAlignment}`,
+    `수도권 비중 ${metroShare}% · ${period === "monthly" ? "월간 누적" : "주간"} 기준 관찰`,
   ];
 
   const institutionView = {
     reasons: [
-      "정책·제도 확정 이후 공공·준공공 자본 신호가 이어지는 지역에서 정합도가 높습니다.",
-      "금융기관 담보·평가 구조가 확인되는 지역은 점수 반영 속도가 빠른 편입니다.",
+      "정책·제도 확정 이후 공공·준공공 자본 신호가 확인되는 지역에서 정합도가 높습니다.",
+      "금융기관 담보·평가 구조가 드러난 지역은 점수 반영 속도가 빠른 편입니다.",
     ],
     notYet: [
       "지정·고시 이전 단계는 자본 진입보다 뉴스 노출이 앞설 수 있습니다.",

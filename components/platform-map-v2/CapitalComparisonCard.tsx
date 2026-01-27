@@ -2,9 +2,9 @@ import type { CapitalComparison } from "../../lib/platform-map-v2/types";
 
 const STATUS_COLOR: Record<CapitalComparison["status"], string> = {
   정합: "#22c55e",
-  선행: "#facc15",
-  후행: "#fb7185",
-  불일치: "#f97316",
+  선행: "#f59e0b",
+  후행: "#60a5fa",
+  불일치: "#ef4444",
 };
 
 const CONFIDENCE_LABEL: Record<"HIGH" | "MEDIUM" | "LOW", string> = {
@@ -20,6 +20,8 @@ type Props = {
 export default function CapitalComparisonCard({ comparison }: Props) {
   if (!comparison) return null;
 
+  const holdingsCount = comparison.holdings.length;
+
   return (
     <div
       style={{
@@ -29,7 +31,15 @@ export default function CapitalComparisonCard({ comparison }: Props) {
         padding: 16,
       }}
     >
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 8,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700 }}>실제 자본 이동 비교</div>
         <span
           style={{
@@ -50,6 +60,7 @@ export default function CapitalComparisonCard({ comparison }: Props) {
         <div style={{ fontSize: 12, color: "#e5e7eb" }}>
           보유 기관 유형: {comparison.institutionTypes.length > 0 ? comparison.institutionTypes.join(" / ") : "확인 없음"}
         </div>
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>보유 스냅샷 {holdingsCount}건</div>
         <div style={{ fontSize: 11, color: "#94a3b8" }}>
           실제 보유 정보는 분기/반기 스냅샷 기준이며 투자 권유가 아닙니다.
         </div>

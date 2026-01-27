@@ -1,52 +1,32 @@
 [
   {
-    "entity": "KB금융",
-    "type": "financial_holding",
+    "entity": "ESR켄달스퀘어리츠",
+    "type": "reit",
+    "updatedAt": "2025-11-30",
     "regions": [
-      { "sigungu": "서울특별시 종로구", "confidence": "HIGH", "note": "샘플" },
-      { "sigungu": "서울특별시 강남구", "confidence": "MEDIUM", "note": "샘플" }
+      { "sigungu": "고양시", "confidence": "HIGH", "note": "고양 물류센터" },
+      { "sigungu": "부천시", "confidence": "HIGH", "note": "부천 물류센터(저온)" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터10" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터9" },
+      { "sigungu": "천안시", "confidence": "HIGH", "note": "천안 물류센터1" },
+      { "sigungu": "용인시", "confidence": "HIGH", "note": "용인 물류센터1" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터8" },
+      { "sigungu": "용인시", "confidence": "HIGH", "note": "용인 물류센터2" },
+      { "sigungu": "용인시", "confidence": "HIGH", "note": "용인 물류센터3(BRIC)" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터2" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터3" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터4" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터5" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터6" },
+      { "sigungu": "이천시", "confidence": "HIGH", "note": "이천 물류센터7" },
+      { "sigungu": "평택시", "confidence": "HIGH", "note": "평택 물류센터" },
+      { "sigungu": "안성시", "confidence": "HIGH", "note": "안성 물류센터1" },
+      { "sigungu": "안성시", "confidence": "HIGH", "note": "안성 물류센터2" },
+      { "sigungu": "안성시", "confidence": "HIGH", "note": "안성 물류센터3" },
+      { "sigungu": "안성시", "confidence": "HIGH", "note": "안성 물류센터4" },
+      { "sigungu": "김해시", "confidence": "HIGH", "note": "김해 물류센터1" },
+      { "sigungu": "김해시", "confidence": "HIGH", "note": "김해 물류센터2" }
     ],
-    "source": "https://www.kbfg.com/IR"
-  },
-  {
-    "entity": "신한금융",
-    "type": "financial_holding",
-    "regions": [
-      { "sigungu": "서울특별시 중구", "confidence": "MEDIUM", "note": "샘플" },
-      { "sigungu": "경기도 성남시", "confidence": "LOW", "note": "샘플" }
-    ],
-    "source": "https://www.shinhan.com/ir"
-  },
-  {
-    "entity": "하나금융",
-    "type": "financial_holding",
-    "regions": [
-      { "sigungu": "서울특별시 강남구", "confidence": "MEDIUM", "note": "샘플" }
-    ],
-    "source": "https://www.hanafn.com/ir"
-  },
-  {
-    "entity": "우리금융",
-    "type": "financial_holding",
-    "regions": [
-      { "sigungu": "서울특별시 중구", "confidence": "MEDIUM", "note": "샘플" }
-    ],
-    "source": "https://www.woorifg.com/ir"
-  },
-  {
-    "entity": "공공 리츠",
-    "type": "public_reit",
-    "regions": [
-      { "sigungu": "부산광역시 해운대구", "confidence": "LOW", "note": "샘플" }
-    ],
-    "source": "https://www.molit.go.kr"
-  },
-  {
-    "entity": "민간 BTR 리츠",
-    "type": "btr_reit",
-    "regions": [
-      { "sigungu": "인천광역시 연수구", "confidence": "LOW", "note": "샘플" }
-    ],
-    "source": "https://www.reits.or.kr"
+    "source": "https://www.esrks-reit.com/portfolio/assets/status"
   }
 ]

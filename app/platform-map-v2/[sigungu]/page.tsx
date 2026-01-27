@@ -166,6 +166,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           </div>
         </div>
 
+        <CapitalComparisonCard comparison={capitalComparison} />
+
         {capital && (
           <div
             style={{
@@ -191,8 +193,6 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             )}
           </div>
         )}
-
-        <CapitalComparisonCard comparison={capitalComparison} />
 
         <InstitutionSummaryCard summary={institutionSummary} />
 
