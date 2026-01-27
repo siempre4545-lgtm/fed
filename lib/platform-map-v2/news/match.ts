@@ -9,6 +9,12 @@ export type RegionContext = {
   allTokens: string[];
 };
 
+export type RegionMatchResult = {
+  matched: boolean;
+  level: "sigungu" | "sido" | "unknown";
+  matchedTokens: string[];
+};
+
 const SIDO_ALIASES: Record<string, string> = {
   "서울특별시": "서울",
   서울: "서울",
@@ -147,14 +153,27 @@ export const buildSingleRegionContext = (name: string, aliases: RegionAliasMap):
   };
 };
 
-export const matchRegionNormalized = (normalizedText: string, context: RegionContext) => {
-  const hasAlias = context.aliasTokens.some((token) => normalizedText.includes(token));
-  if (hasAlias) return true;
-  const hasCore = context.coreTokens.some((token) => normalizedText.includes(token));
-  if (!hasCore) return false;
-  if (context.sido && normalizedText.includes(context.sido)) return true;
-  return true;
+export const matchRegionNormalizedDetailed = (
+  normalizedText: string,
+  context: RegionContext,
+): RegionMatchResult => {
+  const aliasHits = context.aliasTokens.filter((token) => normalizedText.includes(token));
+  const coreHits = context.coreTokens.filter((token) => normalizedText.includes(token));
+  if (aliasHits.length > 0 || coreHits.length > 0) {
+    return {
+      matched: true,
+      level: "sigungu",
+      matchedTokens: Array.from(new Set([...aliasHits, ...coreHits])).slice(0, 6),
+    };
+  }
+  if (context.sido && normalizedText.includes(context.sido)) {
+    return { matched: true, level: "sido", matchedTokens: [context.sido] };
+  }
+  return { matched: false, level: "unknown", matchedTokens: [] };
 };
+
+export const matchRegionNormalized = (normalizedText: string, context: RegionContext) =>
+  matchRegionNormalizedDetailed(normalizedText, context).level === "sigungu";
 
 export const matchRegionText = (text: string, context: RegionContext) =>
   matchRegionNormalized(normalizeText(text), context);

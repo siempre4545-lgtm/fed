@@ -6,9 +6,9 @@ export const TOTAL_MIN_SCORE = AXIS_DEFINITIONS.length * AXIS_MIN_SCORE;
 export const TOTAL_MAX_SCORE = AXIS_DEFINITIONS.length * AXIS_MAX_SCORE;
 
 export const GRADE_THRESHOLDS = {
-  A: 95,
-  B: 80,
-  C: 60,
+  A: 90,
+  B: 75,
+  C: 55,
   D: 0,
 } as const;
 

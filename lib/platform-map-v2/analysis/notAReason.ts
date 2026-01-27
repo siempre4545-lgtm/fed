@@ -1,4 +1,4 @@
-import { AXIS_DEFINITIONS, type AxisKey, type PlatformMapRating } from "../types";
+import { AXIS_DEFINITIONS, type AxisArticleMap, type AxisKey, type PlatformMapRating } from "../types";
 
 export type NotAReasonItem = {
   axis: AxisKey;
@@ -7,6 +7,7 @@ export type NotAReasonItem = {
   articleCount: number;
   aAvgArticleCount: number;
   scoreGap: number;
+  links: Array<{ title: string; url: string; source: string }>;
 };
 
 export type NotAReasonResult = {
@@ -20,8 +21,9 @@ export const buildNotAReasons = (params: {
   target: PlatformMapRating;
   ratings: PlatformMapRating[];
   axisArticleCounts: Record<string, Record<AxisKey, number>>;
+  axisArticles: Record<string, AxisArticleMap>;
 }) => {
-  const { target, ratings, axisArticleCounts } = params;
+  const { target, ratings, axisArticleCounts, axisArticles } = params;
   if (!target || target.grade === "A") return null;
 
   const aRegions = ratings.filter((item) => item.grade === "A");
@@ -59,6 +61,7 @@ export const buildNotAReasons = (params: {
   }, {} as Record<AxisKey, number>);
 
   const targetCounts = axisArticleCounts[target.sigunguKey] ?? ({} as Record<AxisKey, number>);
+  const targetArticles = axisArticles[target.sigunguKey] ?? ({} as AxisArticleMap);
 
   const candidates = AXIS_DEFINITIONS.map((axis) => {
     const scoreGap = Math.max(0, aAxisAvg[axis.key] - targetAxisMap[axis.key]);
@@ -90,6 +93,9 @@ export const buildNotAReasons = (params: {
     } else {
       message = `${item.label} 관련 지표가 A등급 평균 대비 약합니다.`;
     }
+    const links = (targetArticles[item.axis] ?? [])
+      .slice(0, 3)
+      .map((article) => ({ title: article.title, url: article.url, source: article.source }));
     return {
       axis: item.axis,
       label: item.label,
@@ -97,6 +103,7 @@ export const buildNotAReasons = (params: {
       articleCount: item.articleCount,
       aAvgArticleCount: item.aAvgArticleCount,
       scoreGap: item.scoreGap,
+      links,
     };
   });
 

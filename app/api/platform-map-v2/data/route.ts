@@ -3,7 +3,11 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
-import { ensureHistorySnapshot, loadHistoryWindow } from "../../../../lib/platform-map-v2/history/store";
+import {
+  ensureHistorySnapshot,
+  ensureWeeklySnapshot,
+  loadHistoryWindow,
+} from "../../../../lib/platform-map-v2/history/store";
 import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import { buildNotAReasons } from "../../../../lib/platform-map-v2/analysis/notAReason";
 import { buildInstitutionSummary } from "../../../../lib/platform-map-v2/analysis/institutionSummary";
@@ -11,23 +15,28 @@ import { computeCapitalWarnings, type CapitalAlignment } from "../../../../lib/p
 import { getRegionType } from "../../../../lib/platform-map-v2/capital/signals";
 import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
 import { buildCapitalComparison } from "../../../../lib/platform-map-v2/capital/compare";
-import { applyFactLayer } from "../../../../lib/platform-map-v2/fact/apply";
+import { applyFactLayer, loadFactLayer } from "../../../../lib/platform-map-v2/facts";
 import { computePisMap, computeScoreDeltaMap } from "../../../../lib/platform-map-v2/pis/compute";
+import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
   type RawRating,
 } from "../../../../lib/platform-map-v2/news/compute";
-import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib/platform-map-v2/types";
+import {
+  AXIS_DEFINITIONS,
+  type AxisArticleMap,
+  type AxisKey,
+  type PlatformMapRating,
+} from "../../../../lib/platform-map-v2/types";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v4";
+const CACHE_VERSION = "platform-map-v2:v5";
 const CACHE_TTL_SECONDS = 1800;
 
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
-const FACT_LAYER_PATH = path.join(process.cwd(), "data/platform-map-v2/fact-layer.json");
 const cacheStore = createCacheStore();
 
 type CachePayload = {
@@ -39,6 +48,32 @@ type CachePayload = {
   regionCapital: Record<string, CapitalAlignment>;
   updatedAt: string;
 };
+
+const buildSigunguList = (geojson: any) => {
+  const features: any[] = geojson?.features ?? [];
+  return features
+    .map((feature) => {
+      const key = String(feature.properties?.code || feature.properties?.SIG_CD || "");
+      const name = String(feature.properties?.name || feature.properties?.SIG_KOR_NM || "");
+      if (!key || !name) return null;
+      return { sigunguKey: key, name };
+    })
+    .filter(Boolean) as Array<{ sigunguKey: string; name: string }>;
+};
+
+const buildPlaceholderRating = (name: string, sigunguKey: string): PlatformMapRating => ({
+  name,
+  sigunguKey,
+  grade: "D",
+  gradeLabel: "산정중",
+  scoreStatus: "산정중",
+  totalScore: 0,
+  axisScores: AXIS_DEFINITIONS.map((axis) => ({ key: axis.key, label: axis.label, score: 0 })),
+  top3Axes: AXIS_DEFINITIONS.slice(0, 3).map((axis) => ({ key: axis.key, label: axis.label, score: 0 })),
+  capitalAlignmentScore: 0,
+  capitalAlignmentBand: "자본 흐름 없음",
+  capitalStage: 0,
+});
 
 const buildReasons = (debug: PlatformMapDebugInfo, cacheHit: boolean) => {
   const reasons = new Set<PlatformMapDebugInfo["scoringStatus"]["reason"][number]>();
@@ -103,17 +138,33 @@ export async function GET(request: NextRequest) {
       ),
     }));
     await ensureHistorySnapshot(dateKey, historyEntries);
+    await ensureWeeklySnapshot(dateKey, historyEntries);
   } else {
     cacheHit = true;
   }
 
-  const factLayerRaw = await readFile(FACT_LAYER_PATH, "utf-8").catch(() => "");
-  const factLayerEntries = factLayerRaw ? (JSON.parse(factLayerRaw).entries ?? []) : [];
-  let ratings = applyFactLayer(cached.ratings, factLayerEntries);
+  const factLayer = await loadFactLayer();
+  const factEntries = factLayer.entries ?? [];
+  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
+  factEntries.forEach((entry) => {
+    factEntryMap.set(entry.sigungu, entry);
+    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
+  });
+  let ratings = applyFactLayer(cached.ratings, factEntries);
+  const gradeMap = assignGrades(
+    ratings.map((rating) => ({ key: rating.sigunguKey, score: rating.totalScore })),
+    { minRelativeCount: 150, allowRelative: true },
+  );
+  ratings = ratings.map((rating) => ({
+    ...rating,
+    grade: gradeMap.grades[rating.sigunguKey] ?? rating.grade,
+  }));
 
   const historyWindow = await loadHistoryWindow(28);
   const pisMap = computePisMap(historyWindow, ratings);
   const scoreDeltaMap = computeScoreDeltaMap(historyWindow);
+  const holdings = await loadCapitalHoldings();
+  const holdingsIndex = buildHoldingsIndex(holdings, ratings);
 
   const mergeTags = (base: string[] | undefined, next: string[] | undefined) => {
     const set = new Set<string>();
@@ -132,17 +183,33 @@ export async function GET(request: NextRequest) {
           ? "A(Stable)"
           : "A-"
         : rating.grade;
-    const tags = mergeTags(rating.tags, isSaturated ? ["포화 플랫폼 지역"] : undefined);
+    const hasEvidence = Object.values(cached.regionAxisCounts[rating.sigunguKey] ?? {}).some(
+      (count) => count > 0,
+    );
+    const scoreStatus = hasEvidence ? undefined : "데이터 부족";
+    const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const reasons: string[] = [];
+    if (factEntry) reasons.push("기정사실");
+    if (pis?.status === "기관 선행 구간") reasons.push("PIS 상승");
+    if ((holdingsIndex.bySigunguKey[rating.sigunguKey] ?? []).length > 0) reasons.push("공시 노출");
+    const preInstitutionalMove = reasons.length >= 2;
+    const tags = mergeTags(
+      rating.tags,
+      mergeTags(isSaturated ? ["포화 플랫폼 지역"] : undefined, preInstitutionalMove ? ["Pre-Institutional Move"] : undefined),
+    );
     return {
       ...rating,
       pisScore: pis?.score ?? 0,
       pisStatus: pis?.status ?? "정체",
       pisDelta: pis?.delta ?? 0,
       gradeLabel,
+      scoreStatus,
+      preInstitutionalMove,
+      preInstitutionalReasons: reasons,
       tags,
     };
   });
-  const meta = { updatedAt: cached.updatedAt, source: "local", relativeGrade: cached.relativeGradeApplied };
+  const meta = { updatedAt: cached.updatedAt, source: "local", relativeGrade: gradeMap.relativeApplied };
 
   if (sigungu || sigunguKey) {
     const target =
@@ -155,6 +222,7 @@ export async function GET(request: NextRequest) {
             target,
             ratings,
             axisArticleCounts: cached.regionAxisCounts,
+            axisArticles: cached.regionAxisArticles,
           })
         : null;
     const articlesByAxis = target ? cached.regionAxisArticles[target.sigunguKey] : undefined;
@@ -167,8 +235,6 @@ export async function GET(request: NextRequest) {
             regionType: getRegionType(target.name, target.sigunguKey),
           })
         : undefined;
-    const holdings = await loadCapitalHoldings();
-    const holdingsIndex = buildHoldingsIndex(holdings, ratings);
     const comparison =
       target && capital
         ? buildCapitalComparison({
@@ -203,16 +269,31 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
+  let geojson: any = null;
+  let sigunguList: Array<{ sigunguKey: string; name: string }> | undefined;
+  let responseRatings = ratings;
+  if (!sigungu && !sigunguKey) {
+    const geoRaw = await readFile(GEOJSON_PATH, "utf-8");
+    geojson = JSON.parse(geoRaw);
+    sigunguList = buildSigunguList(geojson);
+    if (sigunguList.length > 0) {
+      const ratingMap = new Map(ratings.map((item) => [item.sigunguKey, item]));
+      responseRatings = sigunguList.map((item) => ratingMap.get(item.sigunguKey) ?? buildPlaceholderRating(item.name, item.sigunguKey));
+    }
+  }
+
   const payload: {
     ok: true;
     geojson: any;
     ratings: PlatformMapRating[];
+    sigunguList?: Array<{ sigunguKey: string; name: string }>;
     meta: typeof meta;
     debug?: PlatformMapDebugInfo;
   } = {
     ok: true,
-    geojson: null,
-    ratings,
+    geojson,
+    ratings: responseRatings,
+    sigunguList,
     meta,
   };
 
@@ -225,11 +306,6 @@ export async function GET(request: NextRequest) {
       },
     };
     payload.debug = debugInfo;
-  }
-
-  if (!sigungu && !sigunguKey) {
-    const geoRaw = await readFile(GEOJSON_PATH, "utf-8");
-    payload.geojson = JSON.parse(geoRaw);
   }
 
   const response = NextResponse.json(payload, { status: 200 });

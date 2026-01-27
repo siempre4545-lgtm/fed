@@ -38,7 +38,7 @@ export default function DetailShell({ region }: Props) {
       <div style={{ fontSize: 13, marginBottom: 8 }}>상세</div>
       <div style={{ fontSize: 12, marginBottom: 6 }}>선택된 지역: {region.name}</div>
       <div style={{ fontSize: 12, marginBottom: 6 }}>
-        총점 {region.totalScore}/{TOTAL_MAX_SCORE} · 등급 {region.gradeLabel ?? region.grade}
+        총점 {region.totalScore}/{TOTAL_MAX_SCORE} · 등급 {region.scoreStatus ?? region.gradeLabel ?? region.grade}
       </div>
       {region.pisStatus && (
         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
@@ -48,6 +48,11 @@ export default function DetailShell({ region }: Props) {
       {region.tags && region.tags.length > 0 && (
         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>
           태그: {region.tags.join(", ")}
+        </div>
+      )}
+      {region.preInstitutionalMove && (
+        <div style={{ fontSize: 11, color: "#fbbf24", marginBottom: 10 }}>
+          Pre-Institutional Move: 기관 조건 충족률 상승
         </div>
       )}
       <div

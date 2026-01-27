@@ -17,6 +17,8 @@ const PIS_STYLES: Record<PisStatus, { stroke: string; dash: string; animate: boo
   정체: { stroke: "#94a3b8", dash: "1 6", animate: false },
 };
 
+const PRE_MOVE_STYLE = { stroke: "#f97316", dash: "2 3", animate: true };
+
 const walkCoords = (coords: any, onPoint: (lng: number, lat: number) => void) => {
   if (typeof coords[0] === "number") {
     onPoint(coords[0], coords[1]);
@@ -70,6 +72,8 @@ type Props = {
   geojson: any;
   ratings: PlatformMapRating[];
   selectedGrades: PlatformMapGrade[];
+  minHeight?: number;
+  touchAction?: React.CSSProperties["touchAction"];
 };
 
 type MapPath = {
@@ -78,7 +82,7 @@ type MapPath = {
   path: string;
 };
 
-export default function PlatformMapView({ geojson, ratings, selectedGrades }: Props) {
+export default function PlatformMapView({ geojson, ratings, selectedGrades, minHeight = 320, touchAction }: Props) {
   const router = useRouter();
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -105,8 +109,8 @@ export default function PlatformMapView({ geojson, ratings, selectedGrades }: Pr
       return [x, y];
     };
     const paths = features.map((feature: any): MapPath => {
-      const code = String(feature.properties?.code || "");
-      const name = feature.properties?.name || code;
+      const code = String(feature.properties?.code || feature.properties?.SIG_CD || "");
+      const name = feature.properties?.name || feature.properties?.SIG_KOR_NM || code;
       return {
         key: code || name,
         name,
@@ -121,12 +125,13 @@ export default function PlatformMapView({ geojson, ratings, selectedGrades }: Pr
   return (
     <div
       style={{
-        minHeight: 320,
+        minHeight,
         borderRadius: 12,
         border: "1px solid #1f2937",
         background: "#0f172a",
         padding: 16,
         color: "#cbd5f5",
+        touchAction,
       }}
     >
       <div style={{ fontSize: 13, marginBottom: 8 }}>대한민국 시군구 등급 지도</div>
@@ -156,6 +161,7 @@ export default function PlatformMapView({ geojson, ratings, selectedGrades }: Pr
               const pisStatus = rating?.pisStatus ?? "정체";
               const pisStyle = PIS_STYLES[pisStatus];
               const gradeLabel = rating?.gradeLabel ?? grade;
+              const preMove = Boolean(rating?.preInstitutionalMove);
               const showOverlay = rating?.pisStatus && rating.pisStatus !== "정체";
               return (
                 <g key={item.key}>
@@ -186,6 +192,19 @@ export default function PlatformMapView({ geojson, ratings, selectedGrades }: Pr
                       opacity={isVisible ? 0.9 : 0}
                       style={{
                         animation: pisStyle.animate ? "pmv2Ring 2s linear infinite" : undefined,
+                      }}
+                    />
+                  )}
+                  {preMove && (
+                    <path
+                      d={item.path}
+                      fill="none"
+                      stroke={PRE_MOVE_STYLE.stroke}
+                      strokeWidth={1.2}
+                      strokeDasharray={PRE_MOVE_STYLE.dash}
+                      opacity={isVisible ? 0.9 : 0}
+                      style={{
+                        animation: PRE_MOVE_STYLE.animate ? "pmv2Ring 1.6s linear infinite" : undefined,
                       }}
                     />
                   )}

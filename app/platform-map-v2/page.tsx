@@ -16,6 +16,32 @@ import type {
 const GRADE_OPTIONS: PlatformMapGrade[] = ["A", "B", "C", "D"];
 const GRADE_ORDER: Record<PlatformMapGrade, number> = { A: 0, B: 1, C: 2, D: 3 };
 
+type HealthResponse = {
+  ok: boolean;
+  build?: { gitSha?: string; vercelRegion?: string; runtime?: string };
+  data?: {
+    sigunguCountGeojson?: number;
+    sigunguCountMaster?: number;
+    ratingsCount?: number;
+    seoulCount?: number;
+    sampleSeoulNames?: string[];
+  };
+  rss?: {
+    sourcesCount?: number;
+    fetchedLast24h?: number;
+    matchedArticlesLast24h?: number;
+    dedupedLast24h?: number;
+  };
+  scoring?: {
+    defaultScoreValue?: number;
+    defaultAxisValue?: number;
+    nonDefaultRegionsCount?: number;
+    gradeDistribution?: Record<string, number>;
+  };
+  cache?: { provider?: string; hitRate?: number | null; keysSample?: string[] };
+  errors?: string[];
+};
+
 function PageContent() {
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -23,14 +49,40 @@ function PageContent() {
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [geojson, setGeojson] = useState<any>(null);
   const [ratings, setRatings] = useState<PlatformMapRating[]>([]);
+  const [sigunguList, setSigunguList] = useState<Array<{ sigunguKey: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<PlatformMapDebugInfo | null>(null);
   const [relativeGrade, setRelativeGrade] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
+  const [diagnosticMode, setDiagnosticMode] = useState(false);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthOpen, setHealthOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const searchParams = useSearchParams();
   const debugMode = searchParams.get("debug") === "1";
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === "undefined") return;
+      setIsMobile(window.innerWidth < 960);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const loadHealth = async () => {
+    try {
+      const response = await fetch("/api/platform-map-v2/health");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as HealthResponse;
+      setHealth(data);
+    } catch (fetchError) {
+      setHealth({ ok: false, errors: ["health fetch failed"] });
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -43,6 +95,7 @@ function PageContent() {
       const data = (await response.json()) as PlatformMapDataResponse;
       setGeojson(data.geojson);
       setRatings(data.ratings ?? []);
+      setSigunguList(data.sigunguList ?? []);
       setUpdatedAt(data.meta?.updatedAt ?? new Date().toISOString());
       setDebugInfo(debugMode ? data.debug ?? null : null);
       setRelativeGrade(Boolean(data.meta?.relativeGrade));
@@ -56,6 +109,12 @@ function PageContent() {
   useEffect(() => {
     void loadData();
   }, [debugMode]);
+
+  useEffect(() => {
+    if (diagnosticMode) {
+      void loadHealth();
+    }
+  }, [diagnosticMode]);
 
   const runRecompute = async () => {
     setRecomputing(true);
@@ -168,6 +227,25 @@ function PageContent() {
           >
             새로고침
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDiagnosticMode((prev) => !prev);
+              setHealthOpen(true);
+              if (!diagnosticMode) void loadHealth();
+            }}
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: diagnosticMode ? "#1f2937" : "#0b1220",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            진단 모드
+          </button>
           {relativeGrade && (
             <span
               style={{
@@ -233,6 +311,20 @@ function PageContent() {
           </div>
         )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="시군구명 검색"
+            style={{
+              borderRadius: 10,
+              border: "1px solid #1f2937",
+              padding: "6px 10px",
+              background: "#0b1220",
+              color: "#e5e7eb",
+              fontSize: 12,
+              minWidth: 180,
+            }}
+          />
           <span style={{ fontSize: 12, color: "#94a3b8" }}>등급 필터</span>
           {GRADE_OPTIONS.map((grade) => {
             const active = selectedGrades.includes(grade);
@@ -256,7 +348,7 @@ function PageContent() {
             );
           })}
           <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            표시 {filteredItems.length}/{ratings.length}
+            표시 {filteredItems.length}/{sigunguList.length || ratings.length}
           </span>
           <div className="mobileToggle" style={{ display: "flex", gap: 6 }}>
             <button
@@ -292,6 +384,83 @@ function PageContent() {
           </div>
         </div>
       </header>
+      {diagnosticMode && (
+        <section
+          style={{
+            marginTop: 12,
+            border: "1px solid #1f2937",
+            borderRadius: 12,
+            padding: 12,
+            background: "#0f172a",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <strong style={{ fontSize: 12 }}>진단 패널</strong>
+            <button
+              type="button"
+              onClick={() => setHealthOpen((prev) => !prev)}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: "#111827",
+                color: "#e5e7eb",
+                padding: "2px 8px",
+                fontSize: 10,
+                cursor: "pointer",
+              }}
+            >
+              {healthOpen ? "접기" : "펼치기"}
+            </button>
+            <button
+              type="button"
+              onClick={loadHealth}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: "#0b1f3a",
+                color: "#e5e7eb",
+                padding: "2px 8px",
+                fontSize: 10,
+                cursor: "pointer",
+              }}
+            >
+              새로고침
+            </button>
+          </div>
+          {healthOpen && (
+            <div style={{ marginTop: 8, display: "grid", gap: 6, fontSize: 11, color: "#cbd5f5" }}>
+              <div>
+                geojson: {health?.data?.sigunguCountGeojson ?? "-"} · master:{" "}
+                {health?.data?.sigunguCountMaster ?? "-"} · ratings: {health?.data?.ratingsCount ?? "-"}
+              </div>
+              <div>
+                서울: {health?.data?.seoulCount ?? "-"} · sample:{" "}
+                {(health?.data?.sampleSeoulNames ?? []).slice(0, 3).join(", ") || "-"}
+              </div>
+              <div>
+                RSS 24h: fetch {health?.rss?.fetchedLast24h ?? "-"} · dedupe{" "}
+                {health?.rss?.dedupedLast24h ?? "-"} · match {health?.rss?.matchedArticlesLast24h ?? "-"}
+              </div>
+              <div>
+                grade 분포:{" "}
+                {health?.scoring?.gradeDistribution
+                  ? Object.entries(health.scoring.gradeDistribution)
+                      .map(([grade, count]) => `${grade}:${count}`)
+                      .join(" ")
+                  : "-"}
+              </div>
+              <div>
+                cache: {health?.cache?.provider ?? "-"} · hitRate:{" "}
+                {health?.cache?.hitRate ?? "-"} · keys:{" "}
+                {(health?.cache?.keysSample ?? []).slice(0, 3).join(", ") || "-"}
+              </div>
+              {health?.errors && health.errors.length > 0 && (
+                <div style={{ color: "#fca5a5" }}>경고: {health.errors.join(" / ")}</div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="layout" style={{ marginTop: 16, display: "grid", gap: 16 }}>
         <div className="layoutList" style={{ display: mobileView === "list" ? "grid" : "none", gap: 16 }}>
@@ -301,12 +470,18 @@ function PageContent() {
             onSelect={setSelectedId}
             search={search}
             onSearch={setSearch}
-            totalCount={ratings.length}
+            totalCount={sigunguList.length || ratings.length}
           />
           <DetailShell region={selectedRegion} />
         </div>
         <div className="layoutMap" style={{ display: mobileView === "map" ? "grid" : "none", gap: 16 }}>
-          <Map geojson={geojson} ratings={ratings} selectedGrades={selectedGrades} />
+          <Map
+            geojson={geojson}
+            ratings={ratings}
+            selectedGrades={selectedGrades}
+            minHeight={isMobile ? 420 : 520}
+            touchAction="manipulation"
+          />
         </div>
       </section>
 

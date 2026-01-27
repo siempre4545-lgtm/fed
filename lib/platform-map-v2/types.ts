@@ -51,6 +51,7 @@ export type PlatformMapRating = {
   sigunguKey: string;
   grade: PlatformMapGrade;
   gradeLabel?: string;
+  scoreStatus?: "산정중" | "데이터 부족";
   totalScore: number;
   axisScores: AxisScore[];
   top3Axes: AxisScore[];
@@ -60,6 +61,8 @@ export type PlatformMapRating = {
   pisScore?: number;
   pisStatus?: PisStatus;
   pisDelta?: number;
+  preInstitutionalMove?: boolean;
+  preInstitutionalReasons?: string[];
   tags?: string[];
 };
 
@@ -121,6 +124,9 @@ export type AxisArticle = {
   source: string;
   reliability: "A" | "B" | "C";
   axes: AxisKey[];
+  confidence?: number;
+  dedupKey?: string;
+  sourceWeight?: number;
 };
 
 export type AxisArticleMap = Record<AxisKey, AxisArticle[]>;
@@ -140,12 +146,24 @@ export type PlatformMapNewsStats = {
   avgItemsPerRegion: number;
   noNewsRegions: string[];
   noNewsRegionSamples: Array<{ name: string; tokens: string[] }>;
+  fetchedLast24h?: number;
+  dedupedLast24h?: number;
+  matchedLast24h?: number;
+  duplicates?: number;
+  sidoOnlyMatches?: number;
 };
 
 export type PlatformMapScoringStatus = {
   scoringApplied: boolean;
   fallbackUsed: boolean;
-  reason: Array<"뉴스_매칭_없음" | "점수계산_미실행" | "캐시_기본값" | "기타">;
+  reason: Array<
+    | "뉴스_매칭_없음"
+    | "점수계산_미실행"
+    | "캐시_기본값"
+    | "기타"
+    | "점수분산_없음"
+    | "최근기사_매칭_0"
+  >;
 };
 
 export type PlatformMapSampleDebug = {
@@ -171,6 +189,7 @@ export type PlatformMapDataResponse = {
   ok: true;
   geojson: any;
   ratings: PlatformMapRating[];
+  sigunguList?: Array<{ sigunguKey: string; name: string }>;
   meta: { updatedAt: string; source: string; relativeGrade?: boolean };
   debug?: PlatformMapDebugInfo;
 };
@@ -189,6 +208,7 @@ export type PlatformMapDetailResponse = {
       articleCount: number;
       aAvgArticleCount: number;
       scoreGap: number;
+      links: Array<{ title: string; url: string; source: string }>;
     }>;
   } | null;
   capital?: {

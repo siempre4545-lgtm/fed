@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
-import { ensureHistorySnapshot } from "../../../../lib/platform-map-v2/history/store";
+import { ensureHistorySnapshot, ensureWeeklySnapshot } from "../../../../lib/platform-map-v2/history/store";
 import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import {
   computePlatformMapRatings,
@@ -15,7 +15,7 @@ import type { CapitalAlignment } from "../../../../lib/platform-map-v2/capital/s
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v4";
+const CACHE_VERSION = "platform-map-v2:v5";
 const CACHE_TTL_SECONDS = 1800;
 
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     ),
   }));
   await ensureHistorySnapshot(dateKey, historyEntries);
+  await ensureWeeklySnapshot(dateKey, historyEntries);
   console.info(LOG_PREFIX, "recompute done", { cacheKey });
 
   return NextResponse.json({ ok: true, recomputedAt: new Date().toISOString() });

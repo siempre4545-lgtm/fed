@@ -95,8 +95,22 @@ export default function ListShell({
                     {PIS_BADGE[item.pisStatus].label}
                   </span>
                 )}
+                {item.preInstitutionalMove && (
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      border: "1px solid #f97316",
+                      background: "#1f2937",
+                      color: "#f97316",
+                      padding: "2px 6px",
+                      fontSize: 10,
+                    }}
+                  >
+                    Pre-Institutional Move
+                  </span>
+                )}
                 <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                  {item.gradeLabel ?? item.grade} · {item.total}
+                  {item.scoreStatus ?? item.gradeLabel ?? item.grade} · {item.total}
                 </span>
                 <Link
                   href={`/platform-map-v2/${encodeURIComponent(item.name)}`}

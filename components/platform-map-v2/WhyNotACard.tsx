@@ -40,6 +40,21 @@ export default function WhyNotACard({ analysis }: Props) {
               기사 수 {reason.articleCount} · A평균 {reason.aAvgArticleCount.toFixed(1)} · 점수차{" "}
               {reason.scoreGap.toFixed(1)}
             </div>
+            {reason.links && reason.links.length > 0 && (
+              <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                {reason.links.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 10, color: "#93c5fd", textDecoration: "none" }}
+                  >
+                    {link.source} · {link.title}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

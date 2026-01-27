@@ -22,6 +22,15 @@ const formatDate = (value: string) => {
 
 const formatScore = (value: number) => (Number.isInteger(value) ? value.toString() : value.toFixed(1));
 
+type NewsSourceResult = {
+  source: string;
+  ok: boolean;
+  status?: number;
+  elapsedMs: number;
+  titleCount: number;
+  errorReason?: string;
+};
+
 const ScoreBars = ({
   series,
   color,
@@ -62,6 +71,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     PlatformMapDetailResponse["capitalComparison"] | null
   >(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [newsStatus, setNewsStatus] = useState<{ ok: boolean; sources: NewsSourceResult[] } | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +89,7 @@ export default function Page({ params }: { params: { sigungu: string } }) {
       setCapital(data.capital ?? null);
       setInstitutionSummary(data.institutionSummary ?? null);
       setCapitalComparison(data.capitalComparison ?? null);
+      await loadNewsStatus(data.rating?.sigunguKey);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
     } finally {
@@ -93,6 +105,21 @@ export default function Page({ params }: { params: { sigungu: string } }) {
       setHistory(data);
     } catch (fetchError) {
       setHistory(null);
+    }
+  };
+
+  const loadNewsStatus = async (sigunguKey?: string) => {
+    try {
+      const response = await fetch(
+        `/api/platform-map-v2/news?sigungu=${encodeURIComponent(sigungu)}${
+          sigunguKey ? `&sigunguKey=${encodeURIComponent(sigunguKey)}` : ""
+        }`,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as { ok: boolean; sources: NewsSourceResult[] };
+      setNewsStatus(data);
+    } catch (fetchError) {
+      setNewsStatus({ ok: false, sources: [] });
     }
   };
 
@@ -139,6 +166,23 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           </Link>
           {loading && <span style={{ fontSize: 11, color: "#94a3b8" }}>불러오는 중...</span>}
           {error && <span style={{ fontSize: 11, color: "#fca5a5" }}>오류: {error}</span>}
+          {error && (
+            <button
+              type="button"
+              onClick={loadDetail}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: "#111827",
+                color: "#e5e7eb",
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              다시 시도
+            </button>
+          )}
         </div>
       </header>
 
@@ -155,7 +199,7 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           <div style={{ fontSize: 14, marginTop: 6 }}>
             {rating ? (
               <>
-                {formatScore(rating.totalScore)} · {rating.gradeLabel ?? rating.grade}
+                {formatScore(rating.totalScore)} · {rating.scoreStatus ?? rating.gradeLabel ?? rating.grade}
               </>
             ) : (
               "데이터 없음"
@@ -171,10 +215,66 @@ export default function Page({ params }: { params: { sigungu: string } }) {
               태그: {rating.tags.join(", ")}
             </div>
           )}
+          {rating?.preInstitutionalMove && (
+            <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>
+              Pre-Institutional Move: 기관 조건 충족률 상승
+            </div>
+          )}
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
             점수는 RSS 뉴스 기반으로 자동 산출됩니다.
           </div>
         </div>
+
+        {newsStatus && (
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid #1f2937",
+              background: "#0f172a",
+              padding: 16,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700 }}>RSS 소스 수집 상태</div>
+            <div style={{ fontSize: 12, marginTop: 6, color: "#cbd5f5" }}>
+              성공 {newsStatus.sources.filter((item) => item.ok).length} · 실패{" "}
+              {newsStatus.sources.filter((item) => !item.ok).length}
+            </div>
+            {newsStatus.sources.some((item) => !item.ok) && (
+              <button
+                type="button"
+                onClick={() => setNewsOpen((prev) => !prev)}
+                style={{
+                  marginTop: 8,
+                  borderRadius: 999,
+                  border: "1px solid #1f2937",
+                  background: "#111827",
+                  color: "#e5e7eb",
+                  padding: "4px 10px",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                {newsOpen ? "실패 소스 접기" : "실패 소스 보기"}
+              </button>
+            )}
+            {newsOpen && (
+              <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                {newsStatus.sources
+                  .filter((item) => !item.ok)
+                  .map((item) => (
+                    <div key={item.source} style={{ fontSize: 11, color: "#fca5a5" }}>
+                      {item.source} · {item.errorReason ?? "unknown"} · {item.elapsedMs}ms
+                    </div>
+                  ))}
+              </div>
+            )}
+            {newsStatus.sources.length === 0 && (
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                소스 응답이 없습니다.
+              </div>
+            )}
+          </div>
+        )}
 
         <CapitalComparisonCard comparison={capitalComparison} />
 

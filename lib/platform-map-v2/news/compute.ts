@@ -5,11 +5,11 @@ import { AXIS_DEFINITIONS } from "../types";
 import { getReliabilityFromUrl } from "../classify";
 import { RSS_SOURCES } from "../rss/sources";
 import { dedupeNewsItems } from "./dedupe";
-import { classifyArticle, mapAxesNumberToKeys } from "./classify";
+import { classifyArticle } from "./classify";
 import {
   buildRegionContexts,
   getContextDebugTokens,
-  matchRegionNormalized,
+  matchRegionNormalizedDetailed,
   normalizeText,
   type RegionAliasMap,
 } from "./match";
@@ -42,12 +42,24 @@ export type PlatformMapNewsStats = {
   avgItemsPerRegion: number;
   noNewsRegions: string[];
   noNewsRegionSamples: Array<{ name: string; tokens: string[] }>;
+  fetchedLast24h: number;
+  dedupedLast24h: number;
+  matchedLast24h: number;
+  duplicates: number;
+  sidoOnlyMatches: number;
 };
 
 export type PlatformMapScoringStatus = {
   scoringApplied: boolean;
   fallbackUsed: boolean;
-  reason: Array<"뉴스_매칭_없음" | "점수계산_미실행" | "캐시_기본값" | "기타">;
+  reason: Array<
+    | "뉴스_매칭_없음"
+    | "점수계산_미실행"
+    | "캐시_기본값"
+    | "기타"
+    | "점수분산_없음"
+    | "최근기사_매칭_0"
+  >;
 };
 
 export type PlatformMapSampleDebug = {
@@ -85,31 +97,19 @@ type NewsItem = {
   snippet: string;
   source: string;
   reliability: "A" | "B" | "C";
+  category: "gov" | "thinktank" | "media" | "local" | "industry";
 };
 
 const MAX_ITEMS_PER_SOURCE = 80;
 const FETCH_TIMEOUT_MS = 6000;
 const DAYS = 30;
 
-const AXIS_MAP: Record<AxisKey, string> = {
-  data_infra: "data_infra",
-  residency_mobility: "residency_mobility",
-  institutional_bid: "institutional_demand",
-  financialization: "financialization",
-  city_services: "city_services",
-  subscription_profit: "subscription_housing",
-  jobs_industry: "jobs_future",
-  digital_payment_cbdc: "cbdc_payments",
-  network_infra: "network_infra",
-  governance: "governance",
-  skilled_inflow: "talent_inflow",
-  masterplan: "future_blueprint",
-};
-
-const normalizeAxisScore = (value: number | undefined) => {
-  const raw = Number.isFinite(value) ? Number(value) : 50;
-  const score = Math.max(0, Math.min(10, raw / 10));
-  return Math.round(score * 10) / 10;
+const SOURCE_WEIGHT: Record<NewsItem["category"], number> = {
+  gov: 0.9,
+  thinktank: 0.9,
+  local: 0.7,
+  media: 0.6,
+  industry: 0.6,
 };
 
 const createAxisRecord = <T,>(value: () => T) =>
@@ -208,6 +208,7 @@ export const computePlatformMapRatings = async (
             snippet: buildSnippet(snippetRaw),
             source: source.title,
             reliability: source.reliability ?? getReliabilityFromUrl(link),
+            category: source.category,
           });
         });
       } catch (error) {
@@ -217,26 +218,54 @@ export const computePlatformMapRatings = async (
   });
 
   await Promise.all(workers);
-  const { unique: deduped } = dedupeNewsItems(collected);
+  const { unique: deduped, duplicates } = dedupeNewsItems(collected);
+  const last24h = Date.now() - 24 * 60 * 60 * 1000;
+  const fetchedLast24h = collected.filter((item) => new Date(item.publishedAt).getTime() >= last24h).length;
+  const dedupedLast24h = deduped.filter((item) => new Date(item.publishedAt).getTime() >= last24h).length;
 
   let totalItemsUsed = 0;
+  let matchedArticlesLast24h = 0;
+  let sidoOnlyMatches = 0;
+
   deduped.forEach((item) => {
     const text = `${item.title} ${item.snippet}`;
     const normalizedText = normalizeText(text);
     const classification = classifyArticle(text);
-    const axes = mapAxesNumberToKeys(classification.matched_axes);
+    const axes = classification.matchedAxes;
     if (axes.length === 0) return;
-    const matched = regionContexts.filter((context) => matchRegionNormalized(normalizedText, context));
-    if (matched.length === 0) return;
+
+    const matches = regionContexts
+      .map((context) => ({
+        context,
+        result: matchRegionNormalizedDetailed(normalizedText, context),
+      }))
+      .filter((entry) => entry.result.matched);
+    const sigunguMatches = matches.filter((entry) => entry.result.level === "sigungu");
+    const hasSigunguMatch = sigunguMatches.length > 0;
+    if (!hasSigunguMatch) {
+      if (matches.some((entry) => entry.result.level === "sido")) {
+        sidoOnlyMatches += 1;
+      }
+      return;
+    }
 
     const articleId = createHash("sha1")
       .update(`${item.title}-${item.publishedAt}-${item.url}`)
       .digest("hex")
       .slice(0, 12);
     totalItemsUsed += 1;
+    const isRecent = new Date(item.publishedAt).getTime() >= last24h;
+    if (isRecent) matchedArticlesLast24h += 1;
     const capitalSignal = extractCapitalSignal(text, item.reliability);
+    const sourceWeight = SOURCE_WEIGHT[item.category] ?? 0.6;
+    const sourceType =
+      item.category === "gov" || item.category === "thinktank"
+        ? "public"
+        : item.category === "local"
+        ? "local"
+        : "media";
 
-    matched.forEach((context) => {
+    sigunguMatches.forEach(({ context, result }) => {
       const ids = regionArticleIds.get(context.sigunguKey);
       const axisInputs = regionAxisInputs.get(context.sigunguKey);
       const axisArticles = regionAxisArticles.get(context.sigunguKey);
@@ -247,7 +276,17 @@ export const computePlatformMapRatings = async (
         capitalSignals.push(capitalSignal);
       }
       axes.forEach((axis) => {
-        axisInputs[axis].push({ axis, reliability: item.reliability });
+        const confidence = classification.confidenceByAxis[axis] ?? 0.6;
+        axisInputs[axis].push({
+          axis,
+          confidence,
+          weight: sourceWeight,
+          sourceType,
+          title: item.title,
+          url: item.url,
+          publishedAt: item.publishedAt,
+          dedupKey: item.dedupKey,
+        });
         if (axisArticles[axis].length < 10) {
           axisArticles[axis].push({
             id: articleId,
@@ -257,6 +296,9 @@ export const computePlatformMapRatings = async (
             source: item.source,
             reliability: item.reliability,
             axes,
+            confidence,
+            dedupKey: item.dedupKey,
+            sourceWeight,
           });
         }
       });
@@ -273,10 +315,8 @@ export const computePlatformMapRatings = async (
     const axisCalc = calcAxisScores(axisInputs);
     regionAxisCalc.set(rating.sigunguCode, axisCalc);
     const axisScores: AxisScore[] = AXIS_DEFINITIONS.map((axis) => {
-      const legacyKey = AXIS_MAP[axis.key];
-      const base = normalizeAxisScore(rating.axes?.[legacyKey]);
       const calc = axisCalc[axis.key];
-      const score = Math.min(10, Math.round((base + calc.score) * 10) / 10);
+      const score = Math.round((calc?.score ?? 0) * 10) / 10;
       return {
         key: axis.key,
         label: axis.label,
@@ -305,7 +345,7 @@ export const computePlatformMapRatings = async (
     return {
       name: rating.sigunguName,
       sigunguKey: rating.sigunguCode,
-      grade: "C",
+      grade: "D",
       totalScore,
       axisScores,
       top3Axes,
@@ -351,6 +391,11 @@ export const computePlatformMapRatings = async (
       name: context.name,
       tokens: getContextDebugTokens(context),
     })),
+    fetchedLast24h,
+    dedupedLast24h,
+    matchedLast24h: matchedArticlesLast24h,
+    duplicates: duplicates.length,
+    sidoOnlyMatches,
   };
 
   const samples = Array.from(regionArticleIds.entries())
@@ -364,64 +409,39 @@ export const computePlatformMapRatings = async (
     .slice(0, 3)
     .map((item) => {
       const rating = ratings.find((entry) => entry.sigunguKey === item.sigunguKey);
-      const axisCalc = regionAxisCalc.get(item.sigunguKey) ?? createAxisRecord(() => ({ score: 0, articleCount: 0, weightedTotal: 0 }));
-      const baseScores = AXIS_DEFINITIONS.reduce((acc, axis) => {
-        const raw = rawRatings.find((rawItem) => rawItem.sigunguCode === item.sigunguKey)?.axes?.[AXIS_MAP[axis.key]];
-        return acc + normalizeAxisScore(raw);
-      }, 0);
-      const addedScores = AXIS_DEFINITIONS.reduce((acc, axis) => acc + (axisCalc[axis.key]?.weightedTotal ?? 0), 0);
+      const axisCalc = regionAxisCalc.get(item.sigunguKey) ?? createAxisRecord(() => ({ score: 0, articleCount: 0, itemsUsed: [] }));
+      const addedScores = AXIS_DEFINITIONS.reduce((acc, axis) => acc + (axisCalc[axis.key]?.score ?? 0), 0);
       return {
         name: item.name,
         sigunguKey: item.sigunguKey,
         articles: item.articleCount,
         axisDelta: AXIS_DEFINITIONS.reduce((acc, axis) => {
           const target = rating?.axisScores.find((entry) => entry.key === axis.key)?.score ?? 0;
-          const raw = rawRatings.find((rawItem) => rawItem.sigunguCode === item.sigunguKey)?.axes?.[AXIS_MAP[axis.key]];
-          const base = normalizeAxisScore(raw);
-          const delta = Math.round((target - base) * 10) / 10;
-          if (delta !== 0) acc[axis.key] = delta;
+          if (target > 0) acc[axis.key] = target;
           return acc;
         }, {} as Partial<Record<AxisKey, number>>),
-        totalBeforeClamp: Math.round((baseScores + addedScores) * 10) / 10,
+        totalBeforeClamp: Math.round(addedScores * 10) / 10,
         totalAfterClamp: rating?.totalScore ?? 0,
       };
     });
 
-  const newsRegionKeys = ratings
-    .filter((rating) => (regionArticleIds.get(rating.sigunguKey)?.size ?? 0) > 0)
-    .map((rating) => rating.sigunguKey);
-
-  const gradeMap =
-    newsRegionKeys.length >= 10
-      ? assignGrades(
-          newsRegionKeys.map((key) => ({
-            key,
-            score:
-              (ratings.find((item) => item.sigunguKey === key)?.totalScore ?? 0) +
-              ((regionCapital[key]?.score ?? 0) * 0.05),
-          })),
-          { minRelativeCount: 10, allowRelative: true },
-        )
-      : null;
-
+  const gradeMap = assignGrades(
+    ratings.map((rating) => ({ key: rating.sigunguKey, score: rating.totalScore })),
+    { minRelativeCount: 150, allowRelative: true },
+  );
   ratings.forEach((rating) => {
-    const hasNews = (regionArticleIds.get(rating.sigunguKey)?.size ?? 0) > 0;
-    if (!hasNews) {
-      rating.grade = "C";
-      return;
-    }
-    if (gradeMap) {
-      rating.grade = gradeMap.grades[rating.sigunguKey] ?? "C";
-    } else {
-      rating.grade = "C";
-    }
+    rating.grade = gradeMap.grades[rating.sigunguKey] ?? "D";
   });
 
-  const relativeGradeApplied = Boolean(gradeMap?.relativeApplied);
+  const relativeGradeApplied = Boolean(gradeMap.relativeApplied);
   const gradeCounts = computeGradeCounts(ratings);
 
   const scoringApplied = regionsWithNews > 0;
   const fallbackUsed = regionsWithNews === 0;
+  const scoringReasons: PlatformMapScoringStatus["reason"] = [];
+  if (regionsWithNews === 0) scoringReasons.push("뉴스_매칭_없음");
+  if (scoreStats.uniqueScoreCount <= 1) scoringReasons.push("점수분산_없음");
+  if (dedupedLast24h === 0 && fetchedLast24h > 0) scoringReasons.push("최근기사_매칭_0");
 
   return {
     ratings,
@@ -435,7 +455,7 @@ export const computePlatformMapRatings = async (
       scoringStatus: {
         scoringApplied,
         fallbackUsed,
-        reason: [],
+        reason: scoringReasons,
       },
       samples,
     },
