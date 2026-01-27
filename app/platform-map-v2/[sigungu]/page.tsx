@@ -11,6 +11,7 @@ import {
 } from "../../../lib/platform-map-v2/types";
 import type { HistoryResponse } from "../../../lib/platform-map-v2/history/types";
 import WhyNotACard from "../../../components/platform-map-v2/WhyNotACard";
+import InstitutionSummaryCard from "../../../components/platform-map-v2/InstitutionSummaryCard";
 
 const formatDate = (value: string) => {
   const parsed = new Date(value);
@@ -51,7 +52,11 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const sigungu = decodeURIComponent(params.sigungu ?? "").trim() || "선택 지역";
   const [rating, setRating] = useState<PlatformMapRating | null>(null);
   const [articlesByAxis, setArticlesByAxis] = useState<AxisArticleMap | null>(null);
-  const [analysis, setAnalysis] = useState<PlatformMapDetailResponse["analysis"]>(null);
+  const [analysis, setAnalysis] = useState<PlatformMapDetailResponse["analysis"] | null>(null);
+  const [capital, setCapital] = useState<PlatformMapDetailResponse["capital"] | null>(null);
+  const [institutionSummary, setInstitutionSummary] = useState<
+    PlatformMapDetailResponse["institutionSummary"] | null
+  >(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +71,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
       setRating(data.rating ?? null);
       setArticlesByAxis(data.articlesByAxis ?? null);
       setAnalysis(data.analysis ?? null);
+      setCapital(data.capital ?? null);
+      setInstitutionSummary(data.institutionSummary ?? null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
     } finally {
@@ -153,6 +160,34 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             점수는 RSS 뉴스 기반으로 자동 산출됩니다.
           </div>
         </div>
+
+        {capital && (
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid #1f2937",
+              background: "#0f172a",
+              padding: 16,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700 }}>자본 이동 일치도</div>
+            <div style={{ fontSize: 14, marginTop: 6 }}>
+              {capital.score} · {capital.band}
+            </div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+              점수는 12개 축과 분리된 참고 지표입니다.
+            </div>
+            {capital.warnings.length > 0 && (
+              <div style={{ display: "grid", gap: 4, marginTop: 8, fontSize: 11, color: "#fbbf24" }}>
+                {capital.warnings.map((warning) => (
+                  <div key={warning}>주의: {warning}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <InstitutionSummaryCard summary={institutionSummary} />
 
         <WhyNotACard analysis={analysis ?? null} />
 

@@ -11,6 +11,7 @@ import {
   type RawRating,
 } from "../../../../lib/platform-map-v2/news/compute";
 import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib/platform-map-v2/types";
+import type { CapitalAlignment } from "../../../../lib/platform-map-v2/capital/score";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
@@ -26,6 +27,7 @@ type CachePayload = {
   relativeGradeApplied: boolean;
   regionAxisCounts: Record<string, Record<AxisKey, number>>;
   regionAxisArticles: Record<string, AxisArticleMap>;
+  regionCapital: Record<string, CapitalAlignment>;
   updatedAt: string;
 };
 
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
     relativeGradeApplied: computed.relativeGradeApplied,
     regionAxisCounts: computed.regionAxisCounts,
     regionAxisArticles: computed.regionAxisArticles,
+    regionCapital: computed.regionCapital,
     updatedAt,
   };
 

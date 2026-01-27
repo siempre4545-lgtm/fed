@@ -6,6 +6,9 @@ import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
 import { ensureHistorySnapshot } from "../../../../lib/platform-map-v2/history/store";
 import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import { buildNotAReasons } from "../../../../lib/platform-map-v2/analysis/notAReason";
+import { buildInstitutionSummary } from "../../../../lib/platform-map-v2/analysis/institutionSummary";
+import { computeCapitalWarnings, type CapitalAlignment } from "../../../../lib/platform-map-v2/capital/score";
+import { getRegionType } from "../../../../lib/platform-map-v2/capital/signals";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
@@ -28,6 +31,7 @@ type CachePayload = {
   relativeGradeApplied: boolean;
   regionAxisCounts: Record<string, Record<AxisKey, number>>;
   regionAxisArticles: Record<string, AxisArticleMap>;
+  regionCapital: Record<string, CapitalAlignment>;
   updatedAt: string;
 };
 
@@ -76,6 +80,7 @@ export async function GET(request: NextRequest) {
       relativeGradeApplied: computed.relativeGradeApplied,
       regionAxisCounts: computed.regionAxisCounts,
       regionAxisArticles: computed.regionAxisArticles,
+      regionCapital: computed.regionCapital,
       updatedAt,
     };
     await cacheStore.set(cacheKey, cached, CACHE_TTL_SECONDS);
@@ -114,8 +119,34 @@ export async function GET(request: NextRequest) {
           })
         : null;
     const articlesByAxis = target ? cached.regionAxisArticles[target.sigunguKey] : undefined;
+    const capital = target ? cached.regionCapital[target.sigunguKey] : undefined;
+    const warnings = target ? computeCapitalWarnings(target.totalScore, target.capitalAlignmentScore) : [];
+    const institutionSummary =
+      target && capital
+        ? buildInstitutionSummary({
+            alignment: capital,
+            regionType: getRegionType(target.name),
+          })
+        : undefined;
     const response = NextResponse.json(
-      { ok: true, rating: target ?? null, meta, analysis, ...(articlesByAxis ? { articlesByAxis } : {}) },
+      {
+        ok: true,
+        rating: target ?? null,
+        meta,
+        analysis,
+        ...(articlesByAxis ? { articlesByAxis } : {}),
+        ...(capital
+          ? {
+              capital: {
+                score: capital.score,
+                band: capital.bandLabel,
+                stage: capital.stage,
+                warnings,
+              },
+            }
+          : {}),
+        ...(institutionSummary ? { institutionSummary } : {}),
+      },
       { status: 200 },
     );
     response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");

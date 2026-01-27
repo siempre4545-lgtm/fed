@@ -53,6 +53,9 @@ export type PlatformMapRating = {
   totalScore: number;
   axisScores: AxisScore[];
   top3Axes: AxisScore[];
+  capitalAlignmentScore: number;
+  capitalAlignmentBand: string;
+  capitalStage: number;
 };
 
 export type AxisArticle = {
@@ -133,6 +136,18 @@ export type PlatformMapDetailResponse = {
       scoreGap: number;
     }>;
   } | null;
+  capital?: {
+    score: number;
+    band: string;
+    stage: number;
+    warnings: string[];
+  };
+  institutionSummary?: {
+    reasonForInterest: string;
+    reasonNotYet: string;
+    trigger: string;
+    likelyInstitution: string;
+  };
 };
 
 export type EvidenceItem = {

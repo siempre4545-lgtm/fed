@@ -15,6 +15,8 @@ import {
 } from "./match";
 import { calcAxisScores, type ArticleScoreInput, type AxisScoreCalc } from "../scoring/calc";
 import { assignGrades } from "../scoring/grade";
+import { extractCapitalSignal, getRegionType, type CapitalSignal } from "../capital/signals";
+import { computeCapitalAlignment } from "../capital/score";
 
 export type RawRating = {
   sigunguCode: string;
@@ -73,6 +75,7 @@ export type PlatformMapComputeResult = {
   relativeGradeApplied: boolean;
   regionAxisCounts: Record<string, Record<AxisKey, number>>;
   regionAxisArticles: Record<string, AxisArticleMap>;
+  regionCapital: Record<string, ReturnType<typeof computeCapitalAlignment>>;
 };
 
 type NewsItem = {
@@ -159,6 +162,7 @@ export const computePlatformMapRatings = async (
   const regionArticleIds = new Map<string, Set<string>>();
   const regionAxisInputs = new Map<string, Record<AxisKey, ArticleScoreInput[]>>();
   const regionAxisArticles = new Map<string, AxisArticleMap>();
+  const regionCapitalSignals = new Map<string, CapitalSignal[]>();
 
   regionContexts.forEach((context) => {
     regionArticleIds.set(context.sigunguKey, new Set<string>());
@@ -170,6 +174,7 @@ export const computePlatformMapRatings = async (
       context.sigunguKey,
       createAxisRecord(() => [] as AxisArticle[]),
     );
+    regionCapitalSignals.set(context.sigunguKey, []);
   });
 
   const parser = new Parser();
@@ -229,13 +234,18 @@ export const computePlatformMapRatings = async (
       .digest("hex")
       .slice(0, 12);
     totalItemsUsed += 1;
+    const capitalSignal = extractCapitalSignal(text, item.reliability);
 
     matched.forEach((context) => {
       const ids = regionArticleIds.get(context.sigunguKey);
       const axisInputs = regionAxisInputs.get(context.sigunguKey);
       const axisArticles = regionAxisArticles.get(context.sigunguKey);
+      const capitalSignals = regionCapitalSignals.get(context.sigunguKey);
       if (!ids || !axisInputs || !axisArticles) return;
       ids.add(articleId);
+      if (capitalSignal && capitalSignals) {
+        capitalSignals.push(capitalSignal);
+      }
       axes.forEach((axis) => {
         axisInputs[axis].push({ axis, reliability: item.reliability });
         if (axisArticles[axis].length < 10) {
@@ -255,6 +265,7 @@ export const computePlatformMapRatings = async (
 
   const regionAxisCounts: Record<string, Record<AxisKey, number>> = {};
   const regionAxisArticlesPayload: Record<string, AxisArticleMap> = {};
+  const regionCapital: Record<string, ReturnType<typeof computeCapitalAlignment>> = {};
 
   const regionAxisCalc = new Map<string, Record<AxisKey, AxisScoreCalc>>();
   const ratings: PlatformMapRating[] = rawRatings.map((rating) => {
@@ -284,6 +295,9 @@ export const computePlatformMapRatings = async (
     );
     regionAxisArticlesPayload[rating.sigunguCode] =
       regionAxisArticles.get(rating.sigunguCode) ?? createAxisRecord(() => [] as AxisArticle[]);
+    const capitalSignals = regionCapitalSignals.get(rating.sigunguCode) ?? [];
+    const alignment = computeCapitalAlignment(capitalSignals, getRegionType(rating.sigunguName));
+    regionCapital[rating.sigunguCode] = alignment;
 
     return {
       name: rating.sigunguName,
@@ -292,6 +306,9 @@ export const computePlatformMapRatings = async (
       totalScore,
       axisScores,
       top3Axes,
+      capitalAlignmentScore: alignment.score,
+      capitalAlignmentBand: alignment.bandLabel,
+      capitalStage: alignment.stage,
     };
   });
 
@@ -376,7 +393,9 @@ export const computePlatformMapRatings = async (
       ? assignGrades(
           newsRegionKeys.map((key) => ({
             key,
-            score: ratings.find((item) => item.sigunguKey === key)?.totalScore ?? 0,
+            score:
+              (ratings.find((item) => item.sigunguKey === key)?.totalScore ?? 0) +
+              ((regionCapital[key]?.score ?? 0) * 0.05),
           })),
           { minRelativeCount: 10, allowRelative: true },
         )
@@ -419,5 +438,6 @@ export const computePlatformMapRatings = async (
     },
     regionAxisCounts,
     regionAxisArticles: regionAxisArticlesPayload,
+    regionCapital,
   };
 };
