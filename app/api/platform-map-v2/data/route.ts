@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
-import { ensureHistorySnapshot } from "../../../../lib/platform-map-v2/history/store";
+import { ensureHistorySnapshot, loadHistoryWindow } from "../../../../lib/platform-map-v2/history/store";
 import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import { buildNotAReasons } from "../../../../lib/platform-map-v2/analysis/notAReason";
 import { buildInstitutionSummary } from "../../../../lib/platform-map-v2/analysis/institutionSummary";
@@ -11,6 +11,8 @@ import { computeCapitalWarnings, type CapitalAlignment } from "../../../../lib/p
 import { getRegionType } from "../../../../lib/platform-map-v2/capital/signals";
 import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
 import { buildCapitalComparison } from "../../../../lib/platform-map-v2/capital/compare";
+import { applyFactLayer } from "../../../../lib/platform-map-v2/fact/apply";
+import { computePisMap, computeScoreDeltaMap } from "../../../../lib/platform-map-v2/pis/compute";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
@@ -25,6 +27,7 @@ const CACHE_TTL_SECONDS = 1800;
 
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
+const FACT_LAYER_PATH = path.join(process.cwd(), "data/platform-map-v2/fact-layer.json");
 const cacheStore = createCacheStore();
 
 type CachePayload = {
@@ -104,7 +107,41 @@ export async function GET(request: NextRequest) {
     cacheHit = true;
   }
 
-  const ratings = cached.ratings;
+  const factLayerRaw = await readFile(FACT_LAYER_PATH, "utf-8").catch(() => "");
+  const factLayerEntries = factLayerRaw ? (JSON.parse(factLayerRaw).entries ?? []) : [];
+  let ratings = applyFactLayer(cached.ratings, factLayerEntries);
+
+  const historyWindow = await loadHistoryWindow(28);
+  const pisMap = computePisMap(historyWindow, ratings);
+  const scoreDeltaMap = computeScoreDeltaMap(historyWindow);
+
+  const mergeTags = (base: string[] | undefined, next: string[] | undefined) => {
+    const set = new Set<string>();
+    (base ?? []).forEach((tag) => set.add(tag));
+    (next ?? []).forEach((tag) => set.add(tag));
+    return Array.from(set);
+  };
+
+  ratings = ratings.map((rating) => {
+    const pis = pisMap[rating.sigunguKey];
+    const scoreDelta = scoreDeltaMap[rating.name] ?? 0;
+    const isSaturated = rating.totalScore >= 85 && Math.abs(scoreDelta) <= 0.2;
+    const gradeLabel =
+      isSaturated && rating.totalScore >= 85
+        ? rating.grade === "A"
+          ? "A(Stable)"
+          : "A-"
+        : rating.grade;
+    const tags = mergeTags(rating.tags, isSaturated ? ["포화 플랫폼 지역"] : undefined);
+    return {
+      ...rating,
+      pisScore: pis?.score ?? 0,
+      pisStatus: pis?.status ?? "정체",
+      pisDelta: pis?.delta ?? 0,
+      gradeLabel,
+      tags,
+    };
+  });
   const meta = { updatedAt: cached.updatedAt, source: "local", relativeGrade: cached.relativeGradeApplied };
 
   if (sigungu || sigunguKey) {

@@ -1,0 +1,11 @@
+{
+  "entities": [
+    { "name": "ESR켄달스퀘어리츠", "type": "reit" },
+    { "name": "신한알파리츠", "type": "reit" },
+    { "name": "롯데리츠", "type": "reit" },
+    { "name": "NH프라임리츠", "type": "reit" },
+    { "name": "케이탑리츠", "type": "reit" },
+    { "name": "코람코에너지리츠", "type": "reit" }
+  ],
+  "reportTypes": ["사업보고서", "반기보고서"]
+}

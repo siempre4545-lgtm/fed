@@ -1,8 +1,12 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
+import { createCacheStore } from "../cache";
 import type { PlatformMapRating, CapitalHoldingEntity, CapitalHoldingMatch } from "../types";
 
 const HOLDINGS_PATH = path.join(process.cwd(), "data/platform-map-v2/capital-holdings.json");
+const store = createCacheStore();
+const FINANCIAL_CACHE_KEY = "pmv2:capital:auto:financial";
+const REIT_CACHE_KEY = "pmv2:capital:auto:reit";
 
 const normalize = (value: string) =>
   value
@@ -13,13 +17,22 @@ const normalize = (value: string) =>
     .toLowerCase();
 
 export const loadCapitalHoldings = async (): Promise<CapitalHoldingEntity[]> => {
+  const list: CapitalHoldingEntity[] = [];
+  const cachedFinancial = await store.get<CapitalHoldingEntity[]>(FINANCIAL_CACHE_KEY);
+  const cachedReits = await store.get<CapitalHoldingEntity[]>(REIT_CACHE_KEY);
+  if (cachedFinancial) list.push(...cachedFinancial);
+  if (cachedReits) list.push(...cachedReits);
+
   try {
     const raw = await readFile(HOLDINGS_PATH, "utf-8");
     const parsed = JSON.parse(raw) as CapitalHoldingEntity[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      list.push(...parsed);
+    }
   } catch (error) {
-    return [];
+    // ignore
   }
+  return list;
 };
 
 export const saveCapitalHoldings = async (items: CapitalHoldingEntity[]) => {
@@ -73,6 +86,8 @@ export const buildHoldingsIndex = (
         confidence: region.confidence,
         source: entity.source,
         note: region.note,
+        status: region.status,
+        asOf: region.asOf,
       });
     });
   });

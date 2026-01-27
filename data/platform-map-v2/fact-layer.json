@@ -1,0 +1,84 @@
+{
+  "updatedAt": "2026-01-27",
+  "entries": [
+    {
+      "sigungu": "서울특별시 강남구",
+      "axisFloors": {
+        "data_infra": 6,
+        "institutional_bid": 6,
+        "financialization": 6.5,
+        "jobs_industry": 6,
+        "governance": 6,
+        "masterplan": 6
+      },
+      "tags": ["기정사실 레이어", "포화 플랫폼 후보"],
+      "sources": [
+        "https://www.seoul.go.kr/",
+        "https://news.seoul.go.kr/citybuild/"
+      ],
+      "note": "도시기본계획 및 금융/업무지구 기반 하한 보정"
+    },
+    {
+      "sigungu": "서울특별시 용산구",
+      "axisFloors": {
+        "data_infra": 6,
+        "institutional_bid": 6,
+        "financialization": 6,
+        "jobs_industry": 5.8,
+        "governance": 6,
+        "masterplan": 6.5
+      },
+      "tags": ["기정사실 레이어", "포화 플랫폼 후보"],
+      "sources": [
+        "https://www.seoul.go.kr/",
+        "https://news.seoul.go.kr/citybuild/"
+      ],
+      "note": "용산 국제업무지구 등 확정 계획 기반 하한 보정"
+    },
+    {
+      "sigungu": "서울특별시 종로구",
+      "axisFloors": {
+        "institutional_bid": 6,
+        "financialization": 6,
+        "governance": 6,
+        "masterplan": 6
+      },
+      "tags": ["기정사실 레이어"],
+      "sources": [
+        "https://www.seoul.go.kr/",
+        "https://news.seoul.go.kr/citybuild/"
+      ],
+      "note": "도심권 핵심 업무지구 하한 보정"
+    },
+    {
+      "sigungu": "서울특별시 중구",
+      "axisFloors": {
+        "institutional_bid": 6,
+        "financialization": 6,
+        "governance": 6,
+        "masterplan": 6
+      },
+      "tags": ["기정사실 레이어"],
+      "sources": [
+        "https://www.seoul.go.kr/",
+        "https://news.seoul.go.kr/citybuild/"
+      ],
+      "note": "도심권 금융·행정 지구 하한 보정"
+    },
+    {
+      "sigungu": "서울특별시 서초구",
+      "axisFloors": {
+        "institutional_bid": 6,
+        "financialization": 6.5,
+        "jobs_industry": 6,
+        "governance": 6
+      },
+      "tags": ["기정사실 레이어"],
+      "sources": [
+        "https://www.seoul.go.kr/",
+        "https://news.seoul.go.kr/citybuild/"
+      ],
+      "note": "업무지구·금융 인프라 하한 보정"
+    }
+  ]
+}

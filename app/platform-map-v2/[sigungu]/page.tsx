@@ -155,12 +155,22 @@ export default function Page({ params }: { params: { sigungu: string } }) {
           <div style={{ fontSize: 14, marginTop: 6 }}>
             {rating ? (
               <>
-                {formatScore(rating.totalScore)} · {rating.grade}
+                {formatScore(rating.totalScore)} · {rating.gradeLabel ?? rating.grade}
               </>
             ) : (
               "데이터 없음"
             )}
           </div>
+          {rating?.pisStatus && (
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+              기관 선행 신호: {rating.pisStatus}
+            </div>
+          )}
+          {rating?.tags && rating.tags.length > 0 && (
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+              태그: {rating.tags.join(", ")}
+            </div>
+          )}
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
             점수는 RSS 뉴스 기반으로 자동 산출됩니다.
           </div>

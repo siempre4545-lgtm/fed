@@ -41,3 +41,20 @@ export const loadHistoryForSigungu = async (sigungu: string, days: number) => {
   }
   return daily.sort((a, b) => a.date.localeCompare(b.date));
 };
+
+export const loadHistoryWindow = async (days: number) => {
+  const dates = getDateList(days);
+  const window: Record<string, HistoryEntry[]> = {};
+  for (const dateKey of dates) {
+    const entries = await loadHistoryByDate(dateKey);
+    if (!entries) continue;
+    entries.forEach((entry) => {
+      if (!window[entry.sigungu]) {
+        window[entry.sigungu] = [];
+      }
+      window[entry.sigungu].push(entry);
+    });
+  }
+  Object.values(window).forEach((entries) => entries.sort((a, b) => a.date.localeCompare(b.date)));
+  return window;
+};

@@ -50,13 +50,20 @@ export type PlatformMapRating = {
   name: string;
   sigunguKey: string;
   grade: PlatformMapGrade;
+  gradeLabel?: string;
   totalScore: number;
   axisScores: AxisScore[];
   top3Axes: AxisScore[];
   capitalAlignmentScore: number;
   capitalAlignmentBand: string;
   capitalStage: number;
+  pisScore?: number;
+  pisStatus?: PisStatus;
+  pisDelta?: number;
+  tags?: string[];
 };
+
+export type PisStatus = "기관 선행 구간" | "관찰 필요" | "정체";
 
 export type CapitalHoldingConfidence = "HIGH" | "MEDIUM" | "LOW";
 
@@ -72,6 +79,8 @@ export type CapitalHoldingRegion = {
   sigungu: string;
   confidence: CapitalHoldingConfidence;
   note?: string;
+  status?: "보유" | "확대" | "정리";
+  asOf?: string;
 };
 
 export type CapitalHoldingEntity = {
@@ -89,6 +98,8 @@ export type CapitalHoldingMatch = {
   confidence: CapitalHoldingConfidence;
   source: string;
   note?: string;
+  status?: "보유" | "확대" | "정리";
+  asOf?: string;
 };
 
 export type CapitalComparisonStatus = "정합" | "선행" | "후행" | "불일치";

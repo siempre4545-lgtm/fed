@@ -2,13 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PlatformMapGrade, PlatformMapRating } from "../../lib/platform-map-v2/types";
+import type { PlatformMapGrade, PlatformMapRating, PisStatus } from "../../lib/platform-map-v2/types";
 
 const GRADE_COLORS: Record<PlatformMapGrade, string> = {
   A: "#22c55e",
   B: "#38bdf8",
   C: "#a3a3a3",
   D: "#475569",
+};
+
+const PIS_STYLES: Record<PisStatus, { stroke: string; dash: string; animate: boolean }> = {
+  "기관 선행 구간": { stroke: "#facc15", dash: "4 4", animate: true },
+  "관찰 필요": { stroke: "#60a5fa", dash: "3 5", animate: false },
+  정체: { stroke: "#94a3b8", dash: "1 6", animate: false },
 };
 
 const walkCoords = (coords: any, onPoint: (lng: number, lat: number) => void) => {
@@ -139,29 +145,51 @@ export default function PlatformMapView({ geojson, ratings, selectedGrades }: Pr
             preserveAspectRatio="xMidYMid meet"
             style={{ width: "100%", height: "100%" }}
           >
-        {paths.map((item) => {
-          const rating = ratingByKey.get(item.key) ?? ratingByKey.get(item.name);
-          const grade = rating?.grade;
+            <style>
+              {`@keyframes pmv2Ring { to { stroke-dashoffset: -20; } }`}
+            </style>
+            {paths.map((item) => {
+              const rating = ratingByKey.get(item.key) ?? ratingByKey.get(item.name);
+              const grade = rating?.grade;
               const isVisible = grade ? selectedGrades.length === 0 || selectedGrades.includes(grade) : true;
-          const fill = grade ? GRADE_COLORS[grade] : "#1f2937";
+              const fill = grade ? GRADE_COLORS[grade] : "#1f2937";
+              const pisStatus = rating?.pisStatus ?? "정체";
+              const pisStyle = PIS_STYLES[pisStatus];
+              const gradeLabel = rating?.gradeLabel ?? grade;
+              const showOverlay = rating?.pisStatus && rating.pisStatus !== "정체";
               return (
-                <path
-                  key={item.key}
-                  d={item.path}
-                  fill={isVisible ? fill : "#111827"}
-                  stroke="#0b1220"
-                  strokeWidth={0.6}
-                  onMouseEnter={() => setHoveredKey(item.key)}
-                  onMouseLeave={() => setHoveredKey((prev) => (prev === item.key ? null : prev))}
-                  onClick={() => {
-                    const targetName = rating?.name || item.name;
-                    router.push(`/platform-map-v2/${encodeURIComponent(targetName)}`);
-                  }}
-                >
-                  <title>
-                    {item.name} {grade ? `(${grade})` : ""} {rating ? `· ${rating.totalScore}` : ""}
-                  </title>
-                </path>
+                <g key={item.key}>
+                  <path
+                    d={item.path}
+                    fill={isVisible ? fill : "#111827"}
+                    stroke="#0b1220"
+                    strokeWidth={0.6}
+                    onMouseEnter={() => setHoveredKey(item.key)}
+                    onMouseLeave={() => setHoveredKey((prev) => (prev === item.key ? null : prev))}
+                    onClick={() => {
+                      const targetName = rating?.name || item.name;
+                      router.push(`/platform-map-v2/${encodeURIComponent(targetName)}`);
+                    }}
+                  >
+                    <title>
+                      {item.name} {gradeLabel ? `(${gradeLabel})` : ""}{" "}
+                      {rating ? `· ${rating.totalScore}` : ""}
+                    </title>
+                  </path>
+                  {showOverlay && (
+                    <path
+                      d={item.path}
+                      fill="none"
+                      stroke={pisStyle.stroke}
+                      strokeWidth={1}
+                      strokeDasharray={pisStyle.dash}
+                      opacity={isVisible ? 0.9 : 0}
+                      style={{
+                        animation: pisStyle.animate ? "pmv2Ring 2s linear infinite" : undefined,
+                      }}
+                    />
+                  )}
+                </g>
               );
             })}
           </svg>

@@ -1,0 +1,9 @@
+{
+  "entities": [
+    { "name": "KB금융지주", "type": "financial_holding" },
+    { "name": "신한금융지주", "type": "financial_holding" },
+    { "name": "하나금융지주", "type": "financial_holding" },
+    { "name": "우리금융지주", "type": "financial_holding" }
+  ],
+  "reportTypes": ["사업보고서", "반기보고서"]
+}
