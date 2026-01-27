@@ -211,6 +211,10 @@ function PageContent() {
             </div>
             <div>uniqueScoreCount: {debugInfo.scoreStats.uniqueScoreCount}</div>
             <div>뉴스 매칭 지역 수: {debugInfo.newsStats.regionsWithNews}</div>
+            <div>
+              점수 범위: {debugInfo.scoreStats.minScore} ~ {debugInfo.scoreStats.maxScore} (평균{" "}
+              {debugInfo.scoreStats.avgScore})
+            </div>
             <div>원인: {debugInfo.scoringStatus.reason.join(", ")}</div>
           </div>
         )}

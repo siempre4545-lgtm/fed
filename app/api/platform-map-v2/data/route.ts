@@ -3,16 +3,19 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
+import { ensureHistorySnapshot } from "../../../../lib/platform-map-v2/history/store";
+import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
+import { buildNotAReasons } from "../../../../lib/platform-map-v2/analysis/notAReason";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
   type RawRating,
 } from "../../../../lib/platform-map-v2/news/compute";
-import type { PlatformMapRating } from "../../../../lib/platform-map-v2/types";
+import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib/platform-map-v2/types";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v3";
+const CACHE_VERSION = "platform-map-v2:v4";
 const CACHE_TTL_SECONDS = 1800;
 
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
@@ -23,15 +26,17 @@ type CachePayload = {
   ratings: PlatformMapRating[];
   debug: PlatformMapDebugInfo;
   relativeGradeApplied: boolean;
+  regionAxisCounts: Record<string, Record<AxisKey, number>>;
+  regionAxisArticles: Record<string, AxisArticleMap>;
   updatedAt: string;
 };
 
 const buildReasons = (debug: PlatformMapDebugInfo, cacheHit: boolean) => {
   const reasons = new Set<PlatformMapDebugInfo["scoringStatus"]["reason"][number]>();
-  if (debug.newsStats.regionsWithNews === 0) {
+  if (debug.newsStats.regionsWithNews <= 5) {
     reasons.add("뉴스_매칭_없음");
   }
-  if (debug.newsStats.regionsWithNews > 0 && debug.scoreStats.uniqueScoreCount <= 1) {
+  if (debug.newsStats.regionsWithNews > 5 && debug.scoreStats.uniqueScoreCount <= 1) {
     reasons.add("점수계산_미실행");
   }
   if (cacheHit && debug.scoreStats.uniqueScoreCount <= 1) {
@@ -69,9 +74,25 @@ export async function GET(request: NextRequest) {
       ratings: computed.ratings,
       debug: computed.debug,
       relativeGradeApplied: computed.relativeGradeApplied,
+      regionAxisCounts: computed.regionAxisCounts,
+      regionAxisArticles: computed.regionAxisArticles,
       updatedAt,
     };
     await cacheStore.set(cacheKey, cached, CACHE_TTL_SECONDS);
+
+    const historyEntries: HistoryEntry[] = computed.ratings.map((rating) => ({
+      sigungu: rating.name,
+      date: dateKey,
+      totalScore: rating.totalScore,
+      axes: rating.axisScores.reduce(
+        (acc, axis) => ({
+          ...acc,
+          [axis.key]: axis.score,
+        }),
+        {} as Record<AxisKey, number>,
+      ),
+    }));
+    await ensureHistorySnapshot(dateKey, historyEntries);
   } else {
     cacheHit = true;
   }
@@ -84,7 +105,19 @@ export async function GET(request: NextRequest) {
       ratings.find((item) => item.sigunguKey === sigunguKey) ??
       ratings.find((item) => item.name === sigungu) ??
       ratings.find((item) => item.name.includes(sigungu || ""));
-    const response = NextResponse.json({ ok: true, rating: target ?? null, meta }, { status: 200 });
+    const analysis =
+      target && cached
+        ? buildNotAReasons({
+            target,
+            ratings,
+            axisArticleCounts: cached.regionAxisCounts,
+          })
+        : null;
+    const articlesByAxis = target ? cached.regionAxisArticles[target.sigunguKey] : undefined;
+    const response = NextResponse.json(
+      { ok: true, rating: target ?? null, meta, analysis, ...(articlesByAxis ? { articlesByAxis } : {}) },
+      { status: 200 },
+    );
     response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
     return response;
   }

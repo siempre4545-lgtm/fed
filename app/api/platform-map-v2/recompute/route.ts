@@ -3,16 +3,18 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
+import { ensureHistorySnapshot } from "../../../../lib/platform-map-v2/history/store";
+import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
   type RawRating,
 } from "../../../../lib/platform-map-v2/news/compute";
-import type { PlatformMapRating } from "../../../../lib/platform-map-v2/types";
+import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib/platform-map-v2/types";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v3";
+const CACHE_VERSION = "platform-map-v2:v4";
 const CACHE_TTL_SECONDS = 1800;
 
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
@@ -22,6 +24,8 @@ type CachePayload = {
   ratings: PlatformMapRating[];
   debug: PlatformMapDebugInfo;
   relativeGradeApplied: boolean;
+  regionAxisCounts: Record<string, Record<AxisKey, number>>;
+  regionAxisArticles: Record<string, AxisArticleMap>;
   updatedAt: string;
 };
 
@@ -50,10 +54,25 @@ export async function POST(request: NextRequest) {
     ratings: computed.ratings,
     debug: computed.debug,
     relativeGradeApplied: computed.relativeGradeApplied,
+    regionAxisCounts: computed.regionAxisCounts,
+    regionAxisArticles: computed.regionAxisArticles,
     updatedAt,
   };
 
   await cacheStore.set(cacheKey, payload, CACHE_TTL_SECONDS);
+  const historyEntries: HistoryEntry[] = computed.ratings.map((rating) => ({
+    sigungu: rating.name,
+    date: dateKey,
+    totalScore: rating.totalScore,
+    axes: rating.axisScores.reduce(
+      (acc, axis) => ({
+        ...acc,
+        [axis.key]: axis.score,
+      }),
+      {} as Record<AxisKey, number>,
+    ),
+  }));
+  await ensureHistorySnapshot(dateKey, historyEntries);
   console.info(LOG_PREFIX, "recompute done", { cacheKey });
 
   return NextResponse.json({ ok: true, recomputedAt: new Date().toISOString() });

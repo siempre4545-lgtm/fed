@@ -55,6 +55,18 @@ export type PlatformMapRating = {
   top3Axes: AxisScore[];
 };
 
+export type AxisArticle = {
+  id: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  source: string;
+  reliability: "A" | "B" | "C";
+  axes: AxisKey[];
+};
+
+export type AxisArticleMap = Record<AxisKey, AxisArticle[]>;
+
 export type PlatformMapScoreStats = {
   minScore: number;
   maxScore: number;
@@ -103,6 +115,24 @@ export type PlatformMapDataResponse = {
   ratings: PlatformMapRating[];
   meta: { updatedAt: string; source: string; relativeGrade?: boolean };
   debug?: PlatformMapDebugInfo;
+};
+
+export type PlatformMapDetailResponse = {
+  ok: true;
+  rating: PlatformMapRating | null;
+  meta: { updatedAt: string; source: string; relativeGrade?: boolean };
+  articlesByAxis?: AxisArticleMap;
+  analysis?: {
+    cutoffScore: number;
+    reasons: Array<{
+      axis: AxisKey;
+      label: string;
+      message: string;
+      articleCount: number;
+      aAvgArticleCount: number;
+      scoreGap: number;
+    }>;
+  } | null;
 };
 
 export type EvidenceItem = {

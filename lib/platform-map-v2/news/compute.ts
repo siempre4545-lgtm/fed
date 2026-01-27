@@ -1,11 +1,20 @@
 import Parser from "rss-parser";
-import type { AxisKey, AxisScore, PlatformMapGrade, PlatformMapRating } from "../types";
+import { createHash } from "crypto";
+import type { AxisKey, AxisScore, PlatformMapGrade, PlatformMapRating, AxisArticle, AxisArticleMap } from "../types";
 import { AXIS_DEFINITIONS } from "../types";
-import { getGrade } from "../scoring";
-import { classifyText, getReliabilityFromUrl } from "../classify";
+import { getReliabilityFromUrl } from "../classify";
 import { RSS_SOURCES } from "../rss/sources";
-import { dedupeByTitleDate } from "./dedupe";
-import { buildRegionContexts, getContextDebugTokens, matchRegionNormalized, normalizeText, type RegionAliasMap } from "./match";
+import { dedupeNewsItems } from "./dedupe";
+import { classifyArticle, mapAxesNumberToKeys } from "./classify";
+import {
+  buildRegionContexts,
+  getContextDebugTokens,
+  matchRegionNormalized,
+  normalizeText,
+  type RegionAliasMap,
+} from "./match";
+import { calcAxisScores, type ArticleScoreInput, type AxisScoreCalc } from "../scoring/calc";
+import { assignGrades } from "../scoring/grade";
 
 export type RawRating = {
   sigunguCode: string;
@@ -62,6 +71,8 @@ export type PlatformMapComputeResult = {
   ratings: PlatformMapRating[];
   debug: PlatformMapDebugInfo;
   relativeGradeApplied: boolean;
+  regionAxisCounts: Record<string, Record<AxisKey, number>>;
+  regionAxisArticles: Record<string, AxisArticleMap>;
 };
 
 type NewsItem = {
@@ -73,18 +84,6 @@ type NewsItem = {
   reliability: "A" | "B" | "C";
 };
 
-type AxisStat = {
-  pos: number;
-  neg: number;
-  items: number;
-};
-
-type RegionStat = {
-  itemCount: number;
-  axes: Record<AxisKey, AxisStat>;
-};
-
-const RELIABILITY_WEIGHT: Record<string, number> = { A: 1, B: 0.7, C: 0.4 };
 const MAX_ITEMS_PER_SOURCE = 80;
 const FETCH_TIMEOUT_MS = 6000;
 const DAYS = 30;
@@ -110,23 +109,14 @@ const normalizeAxisScore = (value: number | undefined) => {
   return Math.round(score * 10) / 10;
 };
 
-const clampAxisScore = (value: number) => Math.max(0, Math.min(10, value));
-
-const clampTotalScore = (value: number) => Math.max(0, Math.min(100, value));
-
-const createAxisStats = () =>
+const createAxisRecord = <T,>(value: () => T) =>
   AXIS_DEFINITIONS.reduce(
     (acc, axis) => ({
       ...acc,
-      [axis.key]: { pos: 0, neg: 0, items: 0 },
+      [axis.key]: value(),
     }),
-    {} as Record<AxisKey, AxisStat>,
+    {} as Record<AxisKey, T>,
   );
-
-const createRegionStat = (): RegionStat => ({
-  itemCount: 0,
-  axes: createAxisStats(),
-});
 
 const toIsoDate = (value: string | undefined | null) => {
   if (!value) return new Date().toISOString();
@@ -152,16 +142,6 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
   }
 };
 
-const computeAxisDelta = (stat: AxisStat) => {
-  if (stat.items === 0) return 0;
-  const balance = stat.pos - stat.neg;
-  if (balance >= 2.5 || (balance >= 1.6 && stat.items >= 6)) return 2;
-  if (balance >= 0.8) return 1;
-  if (balance <= -2.5 || (balance <= -1.6 && stat.items >= 6)) return -2;
-  if (balance <= -0.8) return -1;
-  return 0;
-};
-
 const computeGradeCounts = (ratings: PlatformMapRating[]) =>
   ratings.reduce(
     (acc, item) => {
@@ -176,9 +156,20 @@ export const computePlatformMapRatings = async (
   aliases: RegionAliasMap,
 ): Promise<PlatformMapComputeResult> => {
   const regionContexts = buildRegionContexts(rawRatings, aliases);
-  const regionStats = new Map<string, RegionStat>();
+  const regionArticleIds = new Map<string, Set<string>>();
+  const regionAxisInputs = new Map<string, Record<AxisKey, ArticleScoreInput[]>>();
+  const regionAxisArticles = new Map<string, AxisArticleMap>();
+
   regionContexts.forEach((context) => {
-    regionStats.set(context.sigunguKey, createRegionStat());
+    regionArticleIds.set(context.sigunguKey, new Set<string>());
+    regionAxisInputs.set(
+      context.sigunguKey,
+      createAxisRecord(() => [] as ArticleScoreInput[]),
+    );
+    regionAxisArticles.set(
+      context.sigunguKey,
+      createAxisRecord(() => [] as AxisArticle[]),
+    );
   });
 
   const parser = new Parser();
@@ -221,51 +212,83 @@ export const computePlatformMapRatings = async (
   });
 
   await Promise.all(workers);
-  const deduped = dedupeByTitleDate(collected);
+  const { unique: deduped } = dedupeNewsItems(collected);
 
   let totalItemsUsed = 0;
   deduped.forEach((item) => {
     const text = `${item.title} ${item.snippet}`;
     const normalizedText = normalizeText(text);
-    const { axes, sentiment } = classifyText(text);
+    const classification = classifyArticle(text);
+    const axes = mapAxesNumberToKeys(classification.matched_axes);
     if (axes.length === 0) return;
     const matched = regionContexts.filter((context) => matchRegionNormalized(normalizedText, context));
     if (matched.length === 0) return;
+
+    const articleId = createHash("sha1")
+      .update(`${item.title}-${item.publishedAt}-${item.url}`)
+      .digest("hex")
+      .slice(0, 12);
     totalItemsUsed += 1;
 
-    const weight = RELIABILITY_WEIGHT[item.reliability] ?? 0.4;
     matched.forEach((context) => {
-      const stat = regionStats.get(context.sigunguKey);
-      if (!stat) return;
-      stat.itemCount += 1;
+      const ids = regionArticleIds.get(context.sigunguKey);
+      const axisInputs = regionAxisInputs.get(context.sigunguKey);
+      const axisArticles = regionAxisArticles.get(context.sigunguKey);
+      if (!ids || !axisInputs || !axisArticles) return;
+      ids.add(articleId);
       axes.forEach((axis) => {
-        const axisStat = stat.axes[axis];
-        axisStat.items += 1;
-        if (sentiment === "pos") axisStat.pos += weight;
-        if (sentiment === "neg") axisStat.neg += weight;
+        axisInputs[axis].push({ axis, reliability: item.reliability });
+        if (axisArticles[axis].length < 10) {
+          axisArticles[axis].push({
+            id: articleId,
+            title: item.title,
+            url: item.url,
+            publishedAt: item.publishedAt,
+            source: item.source,
+            reliability: item.reliability,
+            axes,
+          });
+        }
       });
     });
   });
 
+  const regionAxisCounts: Record<string, Record<AxisKey, number>> = {};
+  const regionAxisArticlesPayload: Record<string, AxisArticleMap> = {};
+
+  const regionAxisCalc = new Map<string, Record<AxisKey, AxisScoreCalc>>();
   const ratings: PlatformMapRating[] = rawRatings.map((rating) => {
-    const regionStat = regionStats.get(rating.sigunguCode) ?? createRegionStat();
+    const axisInputs = regionAxisInputs.get(rating.sigunguCode) ?? createAxisRecord(() => []);
+    const axisCalc = calcAxisScores(axisInputs);
+    regionAxisCalc.set(rating.sigunguCode, axisCalc);
     const axisScores: AxisScore[] = AXIS_DEFINITIONS.map((axis) => {
       const legacyKey = AXIS_MAP[axis.key];
       const base = normalizeAxisScore(rating.axes?.[legacyKey]);
-      const delta = computeAxisDelta(regionStat.axes[axis.key]);
+      const calc = axisCalc[axis.key];
+      const score = Math.min(10, Math.round((base + calc.score) * 10) / 10);
       return {
         key: axis.key,
         label: axis.label,
-        score: clampAxisScore(base + delta),
+        score,
       };
     });
-    const totalBeforeClamp = axisScores.reduce((sum, axis) => sum + axis.score, 0);
-    const totalScore = clampTotalScore(totalBeforeClamp);
+    const totalScore = Math.round(axisScores.reduce((sum, axis) => sum + axis.score, 0) * 10) / 10;
     const top3Axes = [...axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
+
+    regionAxisCounts[rating.sigunguCode] = AXIS_DEFINITIONS.reduce(
+      (acc, axis) => ({
+        ...acc,
+        [axis.key]: axisCalc[axis.key]?.articleCount ?? 0,
+      }),
+      {} as Record<AxisKey, number>,
+    );
+    regionAxisArticlesPayload[rating.sigunguCode] =
+      regionAxisArticles.get(rating.sigunguCode) ?? createAxisRecord(() => [] as AxisArticle[]);
+
     return {
       name: rating.sigunguName,
       sigunguKey: rating.sigunguCode,
-      grade: getGrade(totalScore),
+      grade: "C",
       totalScore,
       axisScores,
       top3Axes,
@@ -282,7 +305,9 @@ export const computePlatformMapRatings = async (
   };
 
   const axisStats = AXIS_DEFINITIONS.reduce((acc, axis) => {
-    const values = ratings.map((rating) => Number(rating.axisScores.find((item) => item.key === axis.key)?.score ?? 0));
+    const values = ratings.map(
+      (rating) => Number(rating.axisScores.find((item) => item.key === axis.key)?.score ?? 0),
+    );
     acc[axis.key] = {
       min: Math.min(...values),
       max: Math.max(...values),
@@ -291,9 +316,11 @@ export const computePlatformMapRatings = async (
     return acc;
   }, {} as PlatformMapAxisStats);
 
-  const regionsWithNews = Array.from(regionStats.values()).filter((stat) => stat.itemCount > 0).length;
-  const totalNewsItems = Array.from(regionStats.values()).reduce((sum, stat) => sum + stat.itemCount, 0);
-  const noNewsContexts = regionContexts.filter((context) => (regionStats.get(context.sigunguKey)?.itemCount ?? 0) === 0);
+  const regionsWithNews = Array.from(regionArticleIds.values()).filter((set) => set.size > 0).length;
+  const totalNewsItems = Array.from(regionArticleIds.values()).reduce((sum, set) => sum + set.size, 0);
+  const noNewsContexts = regionContexts.filter(
+    (context) => (regionArticleIds.get(context.sigunguKey)?.size ?? 0) === 0,
+  );
 
   const newsStats: PlatformMapNewsStats = {
     regionsWithNews,
@@ -306,57 +333,73 @@ export const computePlatformMapRatings = async (
     })),
   };
 
-  const samples = Array.from(regionStats.entries())
-    .map(([sigunguKey, stat]) => ({
+  const samples = Array.from(regionArticleIds.entries())
+    .map(([sigunguKey, set]) => ({
       sigunguKey,
       name: rawRatings.find((item) => item.sigunguCode === sigunguKey)?.sigunguName ?? sigunguKey,
-      itemCount: stat.itemCount,
-      axisDelta: AXIS_DEFINITIONS.reduce((acc, axis) => {
-        const delta = computeAxisDelta(stat.axes[axis.key]);
-        if (delta !== 0) acc[axis.key] = delta;
-        return acc;
-      }, {} as Partial<Record<AxisKey, number>>),
+      articleCount: set.size,
     }))
-    .filter((item) => item.itemCount > 0)
-    .sort((a, b) => b.itemCount - a.itemCount)
+    .filter((item) => item.articleCount > 0)
+    .sort((a, b) => b.articleCount - a.articleCount)
     .slice(0, 3)
     .map((item) => {
       const rating = ratings.find((entry) => entry.sigunguKey === item.sigunguKey);
-      const totalBeforeClamp = rating ? rating.axisScores.reduce((sum, axis) => sum + axis.score, 0) : 0;
-      const totalAfterClamp = rating ? rating.totalScore : 0;
+      const axisCalc = regionAxisCalc.get(item.sigunguKey) ?? createAxisRecord(() => ({ score: 0, articleCount: 0, weightedTotal: 0 }));
+      const baseScores = AXIS_DEFINITIONS.reduce((acc, axis) => {
+        const raw = rawRatings.find((rawItem) => rawItem.sigunguCode === item.sigunguKey)?.axes?.[AXIS_MAP[axis.key]];
+        return acc + normalizeAxisScore(raw);
+      }, 0);
+      const addedScores = AXIS_DEFINITIONS.reduce((acc, axis) => acc + (axisCalc[axis.key]?.weightedTotal ?? 0), 0);
       return {
         name: item.name,
         sigunguKey: item.sigunguKey,
-        articles: item.itemCount,
-        axisDelta: item.axisDelta,
-        totalBeforeClamp,
-        totalAfterClamp,
+        articles: item.articleCount,
+        axisDelta: AXIS_DEFINITIONS.reduce((acc, axis) => {
+          const target = rating?.axisScores.find((entry) => entry.key === axis.key)?.score ?? 0;
+          const raw = rawRatings.find((rawItem) => rawItem.sigunguCode === item.sigunguKey)?.axes?.[AXIS_MAP[axis.key]];
+          const base = normalizeAxisScore(raw);
+          const delta = Math.round((target - base) * 10) / 10;
+          if (delta !== 0) acc[axis.key] = delta;
+          return acc;
+        }, {} as Partial<Record<AxisKey, number>>),
+        totalBeforeClamp: Math.round((baseScores + addedScores) * 10) / 10,
+        totalAfterClamp: rating?.totalScore ?? 0,
       };
     });
 
+  const newsRegionKeys = ratings
+    .filter((rating) => (regionArticleIds.get(rating.sigunguKey)?.size ?? 0) > 0)
+    .map((rating) => rating.sigunguKey);
+
+  const gradeMap =
+    newsRegionKeys.length >= 10
+      ? assignGrades(
+          newsRegionKeys.map((key) => ({
+            key,
+            score: ratings.find((item) => item.sigunguKey === key)?.totalScore ?? 0,
+          })),
+          { minRelativeCount: 10, allowRelative: true },
+        )
+      : null;
+
+  ratings.forEach((rating) => {
+    const hasNews = (regionArticleIds.get(rating.sigunguKey)?.size ?? 0) > 0;
+    if (!hasNews) {
+      rating.grade = "C";
+      return;
+    }
+    if (gradeMap) {
+      rating.grade = gradeMap.grades[rating.sigunguKey] ?? "C";
+    } else {
+      rating.grade = "C";
+    }
+  });
+
+  const relativeGradeApplied = Boolean(gradeMap?.relativeApplied);
+  const gradeCounts = computeGradeCounts(ratings);
+
   const scoringApplied = regionsWithNews > 0;
   const fallbackUsed = regionsWithNews === 0;
-
-  let relativeGradeApplied = false;
-  if (regionsWithNews >= 8 && scoreStats.maxScore - scoreStats.minScore <= 4) {
-    const newsRegions = ratings.filter((rating) => (regionStats.get(rating.sigunguKey)?.itemCount ?? 0) > 0);
-    if (newsRegions.length >= 8) {
-      const sorted = [...newsRegions].sort((a, b) => b.totalScore - a.totalScore);
-      const total = sorted.length;
-      const countA = Math.max(1, Math.round(total * 0.1));
-      const countB = Math.max(1, Math.round(total * 0.2));
-      const countD = Math.max(1, Math.round(total * 0.2));
-      sorted.forEach((item, index) => {
-        if (index < countA) item.grade = "A";
-        else if (index < countA + countB) item.grade = "B";
-        else if (index >= total - countD) item.grade = "D";
-        else item.grade = "C";
-      });
-      relativeGradeApplied = true;
-    }
-  }
-
-  const gradeCounts = computeGradeCounts(ratings);
 
   return {
     ratings,
@@ -374,5 +417,7 @@ export const computePlatformMapRatings = async (
       },
       samples,
     },
+    regionAxisCounts,
+    regionAxisArticles: regionAxisArticlesPayload,
   };
 };

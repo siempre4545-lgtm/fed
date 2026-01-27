@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Grade } from "../../lib/platform-map-v2/scoring";
 import type { PlatformMapSample } from "../../lib/platform-map-v2/types";
 
@@ -74,9 +75,24 @@ export default function ListShell({
               }}
             >
               <span style={{ fontSize: 12 }}>{item.name}</span>
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                {item.grade} · {item.total}
-              </span>
+                      <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                          {item.grade} · {item.total}
+                        </span>
+                        <Link
+                          href={`/platform-map-v2/${encodeURIComponent(item.name)}`}
+                          style={{
+                            borderRadius: 999,
+                            border: "1px solid #1f2937",
+                            padding: "2px 8px",
+                            fontSize: 10,
+                            color: "#e5e7eb",
+                            textDecoration: "none",
+                          }}
+                        >
+                          상세
+                        </Link>
+                      </span>
             </button>
           );
         })}
