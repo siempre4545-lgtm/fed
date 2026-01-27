@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import DetailShell from "../../components/platform-map-v2/DetailShell";
 import ListShell from "../../components/platform-map-v2/ListShell";
@@ -16,7 +16,7 @@ import type {
 const GRADE_OPTIONS: PlatformMapGrade[] = ["A", "B", "C", "D"];
 const GRADE_ORDER: Record<PlatformMapGrade, number> = { A: 0, B: 1, C: 2, D: 3 };
 
-export default function Page() {
+function PageContent() {
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
   const [selectedGrades, setSelectedGrades] = useState<PlatformMapGrade[]>([]);
@@ -309,5 +309,19 @@ export default function Page() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "100vh", padding: 24, background: "#0b0f14", color: "#e5e7eb" }}>
+          불러오는 중...
+        </div>
+      }
+    >
+      <PageContent />
+    </Suspense>
   );
 }
