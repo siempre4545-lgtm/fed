@@ -12,6 +12,7 @@ import {
 import type { HistoryResponse } from "../../../lib/platform-map-v2/history/types";
 import WhyNotACard from "../../../components/platform-map-v2/WhyNotACard";
 import InstitutionSummaryCard from "../../../components/platform-map-v2/InstitutionSummaryCard";
+import CapitalComparisonCard from "../../../components/platform-map-v2/CapitalComparisonCard";
 
 const formatDate = (value: string) => {
   const parsed = new Date(value);
@@ -57,6 +58,9 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const [institutionSummary, setInstitutionSummary] = useState<
     PlatformMapDetailResponse["institutionSummary"] | null
   >(null);
+  const [capitalComparison, setCapitalComparison] = useState<
+    PlatformMapDetailResponse["capitalComparison"] | null
+  >(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +77,7 @@ export default function Page({ params }: { params: { sigungu: string } }) {
       setAnalysis(data.analysis ?? null);
       setCapital(data.capital ?? null);
       setInstitutionSummary(data.institutionSummary ?? null);
+      setCapitalComparison(data.capitalComparison ?? null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
     } finally {
@@ -186,6 +191,8 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             )}
           </div>
         )}
+
+        <CapitalComparisonCard comparison={capitalComparison} />
 
         <InstitutionSummaryCard summary={institutionSummary} />
 

@@ -58,6 +58,50 @@ export type PlatformMapRating = {
   capitalStage: number;
 };
 
+export type CapitalHoldingConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export type CapitalHoldingEntityType =
+  | "financial_holding"
+  | "reit"
+  | "public_reit"
+  | "btr_reit"
+  | "pension"
+  | "fund";
+
+export type CapitalHoldingRegion = {
+  sigungu: string;
+  confidence: CapitalHoldingConfidence;
+  note?: string;
+};
+
+export type CapitalHoldingEntity = {
+  entity: string;
+  type: CapitalHoldingEntityType;
+  regions: CapitalHoldingRegion[];
+  source: string;
+  updatedAt?: string;
+};
+
+export type CapitalHoldingMatch = {
+  entity: string;
+  type: CapitalHoldingEntityType;
+  sigungu: string;
+  confidence: CapitalHoldingConfidence;
+  source: string;
+  note?: string;
+};
+
+export type CapitalComparisonStatus = "정합" | "선행" | "후행" | "불일치";
+
+export type CapitalComparison = {
+  status: CapitalComparisonStatus;
+  statusLabel: string;
+  reason: string;
+  summary: string;
+  holdings: CapitalHoldingMatch[];
+  institutionTypes: string[];
+};
+
 export type AxisArticle = {
   id: string;
   title: string;
@@ -148,6 +192,7 @@ export type PlatformMapDetailResponse = {
     trigger: string;
     likelyInstitution: string;
   };
+  capitalComparison?: CapitalComparison;
 };
 
 export type EvidenceItem = {
@@ -168,4 +213,43 @@ export type AxisEvidencePack = {
   items: EvidenceItem[];
   scoreHint: -2 | -1 | 0 | 1 | 2;
   reason: string;
+};
+
+export type PlatformMapReportPeriod = "weekly" | "monthly" | "manual";
+
+export type PlatformMapReportRegion = {
+  sigungu: string;
+  totalScore: number;
+  capitalAlignmentScore: number;
+  status: CapitalComparisonStatus;
+  delta?: number | null;
+};
+
+export type PlatformMapReport = {
+  id: string;
+  title: string;
+  period: PlatformMapReportPeriod;
+  generatedAt: string;
+  summary: string[];
+  scoreChanges: {
+    top: PlatformMapReportRegion[];
+    bottom: PlatformMapReportRegion[];
+  };
+  crossChecks: {
+    aligned: PlatformMapReportRegion[];
+    leading: PlatformMapReportRegion[];
+    lagging: PlatformMapReportRegion[];
+    mismatch: PlatformMapReportRegion[];
+  };
+  institutionView: {
+    reasons: string[];
+    notYet: string[];
+  };
+  watchPoints: {
+    policy: string[];
+    institution: string[];
+    governance: string[];
+  };
+  warnings?: string[];
+  holdingsUpdatedAt?: string | null;
 };

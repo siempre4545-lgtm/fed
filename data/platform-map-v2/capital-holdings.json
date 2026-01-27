@@ -1,0 +1,52 @@
+[
+  {
+    "entity": "KB금융",
+    "type": "financial_holding",
+    "regions": [
+      { "sigungu": "서울특별시 종로구", "confidence": "HIGH", "note": "샘플" },
+      { "sigungu": "서울특별시 강남구", "confidence": "MEDIUM", "note": "샘플" }
+    ],
+    "source": "https://www.kbfg.com/IR"
+  },
+  {
+    "entity": "신한금융",
+    "type": "financial_holding",
+    "regions": [
+      { "sigungu": "서울특별시 중구", "confidence": "MEDIUM", "note": "샘플" },
+      { "sigungu": "경기도 성남시", "confidence": "LOW", "note": "샘플" }
+    ],
+    "source": "https://www.shinhan.com/ir"
+  },
+  {
+    "entity": "하나금융",
+    "type": "financial_holding",
+    "regions": [
+      { "sigungu": "서울특별시 강남구", "confidence": "MEDIUM", "note": "샘플" }
+    ],
+    "source": "https://www.hanafn.com/ir"
+  },
+  {
+    "entity": "우리금융",
+    "type": "financial_holding",
+    "regions": [
+      { "sigungu": "서울특별시 중구", "confidence": "MEDIUM", "note": "샘플" }
+    ],
+    "source": "https://www.woorifg.com/ir"
+  },
+  {
+    "entity": "공공 리츠",
+    "type": "public_reit",
+    "regions": [
+      { "sigungu": "부산광역시 해운대구", "confidence": "LOW", "note": "샘플" }
+    ],
+    "source": "https://www.molit.go.kr"
+  },
+  {
+    "entity": "민간 BTR 리츠",
+    "type": "btr_reit",
+    "regions": [
+      { "sigungu": "인천광역시 연수구", "confidence": "LOW", "note": "샘플" }
+    ],
+    "source": "https://www.reits.or.kr"
+  }
+]

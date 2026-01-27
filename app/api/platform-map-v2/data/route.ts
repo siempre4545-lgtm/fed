@@ -9,6 +9,8 @@ import { buildNotAReasons } from "../../../../lib/platform-map-v2/analysis/notAR
 import { buildInstitutionSummary } from "../../../../lib/platform-map-v2/analysis/institutionSummary";
 import { computeCapitalWarnings, type CapitalAlignment } from "../../../../lib/platform-map-v2/capital/score";
 import { getRegionType } from "../../../../lib/platform-map-v2/capital/signals";
+import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
+import { buildCapitalComparison } from "../../../../lib/platform-map-v2/capital/compare";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
@@ -128,6 +130,16 @@ export async function GET(request: NextRequest) {
             regionType: getRegionType(target.name, target.sigunguKey),
           })
         : undefined;
+    const holdings = await loadCapitalHoldings();
+    const holdingsIndex = buildHoldingsIndex(holdings, ratings);
+    const comparison =
+      target && capital
+        ? buildCapitalComparison({
+            rating: target,
+            alignment: capital,
+            holdings: holdingsIndex.bySigunguKey[target.sigunguKey] ?? [],
+          })
+        : undefined;
     const response = NextResponse.json(
       {
         ok: true,
@@ -146,6 +158,7 @@ export async function GET(request: NextRequest) {
             }
           : {}),
         ...(institutionSummary ? { institutionSummary } : {}),
+        ...(comparison ? { capitalComparison: comparison } : {}),
       },
       { status: 200 },
     );

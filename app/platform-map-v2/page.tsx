@@ -139,6 +139,20 @@ function PageContent() {
           >
             대시보드
           </Link>
+          <Link
+            href="/platform-map-v2/report"
+            style={{
+              borderRadius: 999,
+              border: "1px solid #1f2937",
+              background: "#111827",
+              color: "#e5e7eb",
+              padding: "4px 10px",
+              fontSize: 11,
+              textDecoration: "none",
+            }}
+          >
+            관찰 리포트
+          </Link>
           <button
             type="button"
             onClick={loadData}
