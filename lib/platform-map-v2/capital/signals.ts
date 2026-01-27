@@ -98,7 +98,10 @@ const normalize = (value: string) =>
     .trim()
     .toLowerCase();
 
-export const getRegionType = (sigunguName: string): RegionType => {
+export const getRegionType = (sigunguName: string, sigunguKey?: string | null): RegionType => {
+  if (sigunguKey && /^(11|23|41)/.test(sigunguKey)) {
+    return "metro";
+  }
   const name = sigunguName.trim();
   if (name.startsWith("서울") || name.startsWith("경기") || name.startsWith("인천")) {
     return "metro";

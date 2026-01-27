@@ -296,7 +296,10 @@ export const computePlatformMapRatings = async (
     regionAxisArticlesPayload[rating.sigunguCode] =
       regionAxisArticles.get(rating.sigunguCode) ?? createAxisRecord(() => [] as AxisArticle[]);
     const capitalSignals = regionCapitalSignals.get(rating.sigunguCode) ?? [];
-    const alignment = computeCapitalAlignment(capitalSignals, getRegionType(rating.sigunguName));
+    const alignment = computeCapitalAlignment(
+      capitalSignals,
+      getRegionType(rating.sigunguName, rating.sigunguCode),
+    );
     regionCapital[rating.sigunguCode] = alignment;
 
     return {

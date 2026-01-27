@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       target && capital
         ? buildInstitutionSummary({
             alignment: capital,
-            regionType: getRegionType(target.name),
+            regionType: getRegionType(target.name, target.sigunguKey),
           })
         : undefined;
     const response = NextResponse.json(
