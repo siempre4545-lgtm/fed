@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import DetailShell from "../../components/platform-map-v2/DetailShell";
 import ListShell from "../../components/platform-map-v2/ListShell";
 import Map from "../../components/platform-map-v2/Map";
-import type { PlatformMapDataResponse, PlatformMapGrade, PlatformMapRating } from "../../lib/platform-map-v2/types";
+import type {
+  PlatformMapDataResponse,
+  PlatformMapDebugInfo,
+  PlatformMapGrade,
+  PlatformMapRating,
+} from "../../lib/platform-map-v2/types";
 
 const GRADE_OPTIONS: PlatformMapGrade[] = ["A", "B", "C", "D"];
 const GRADE_ORDER: Record<PlatformMapGrade, number> = { A: 0, B: 1, C: 2, D: 3 };
@@ -20,12 +26,17 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<PlatformMapDebugInfo | null>(null);
+  const [relativeGrade, setRelativeGrade] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
+  const searchParams = useSearchParams();
+  const debugMode = searchParams.get("debug") === "1";
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/platform-map-v2/data?debug=1");
+      const response = await fetch(`/api/platform-map-v2/data${debugMode ? "?debug=1" : ""}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -33,6 +44,8 @@ export default function Page() {
       setGeojson(data.geojson);
       setRatings(data.ratings ?? []);
       setUpdatedAt(data.meta?.updatedAt ?? new Date().toISOString());
+      setDebugInfo(debugMode ? data.debug ?? null : null);
+      setRelativeGrade(Boolean(data.meta?.relativeGrade));
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "unknown");
     } finally {
@@ -42,7 +55,22 @@ export default function Page() {
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [debugMode]);
+
+  const runRecompute = async () => {
+    setRecomputing(true);
+    try {
+      const response = await fetch("/api/platform-map-v2/recompute?force=1", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      await loadData();
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "unknown");
+    } finally {
+      setRecomputing(false);
+    }
+  };
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -126,12 +154,66 @@ export default function Page() {
           >
             새로고침
           </button>
+          {relativeGrade && (
+            <span
+              style={{
+                borderRadius: 999,
+                border: "1px solid #fbbf24",
+                background: "#1f2937",
+                color: "#fcd34d",
+                padding: "2px 8px",
+                fontSize: 10,
+              }}
+            >
+              상대등급(분포기반)
+            </span>
+          )}
           <span style={{ fontSize: 11, color: "#94a3b8" }}>
             마지막 갱신: {updatedAt ? new Date(updatedAt).toLocaleString("ko-KR", { hour12: false }) : "-"}
           </span>
           {error && <span style={{ fontSize: 11, color: "#fca5a5" }}>오류: {error}</span>}
           {loading && <span style={{ fontSize: 11, color: "#94a3b8" }}>불러오는 중...</span>}
+          {debugMode && (
+            <button
+              type="button"
+              onClick={runRecompute}
+              disabled={recomputing}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: recomputing ? "#0b1220" : "#111827",
+                color: "#e5e7eb",
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: recomputing ? "not-allowed" : "pointer",
+              }}
+            >
+              {recomputing ? "재계산 중..." : "강제 재계산"}
+            </button>
+          )}
         </div>
+        {debugMode && debugInfo && (
+          <div
+            style={{
+              borderRadius: 10,
+              border: "1px solid #1f2937",
+              background: "#0f172a",
+              padding: 12,
+              fontSize: 11,
+              color: "#94a3b8",
+              display: "grid",
+              gap: 4,
+            }}
+          >
+            <div>
+              등급 분포: A {debugInfo.gradeCounts.A} · B {debugInfo.gradeCounts.B} · C{" "}
+              {debugInfo.gradeCounts.C} · D {debugInfo.gradeCounts.D}
+            </div>
+            <div>uniqueScoreCount: {debugInfo.scoreStats.uniqueScoreCount}</div>
+            <div>뉴스 매칭 지역 수: {debugInfo.newsStats.regionsWithNews}</div>
+            <div>원인: {debugInfo.scoringStatus.reason.join(", ")}</div>
+          </div>
+        )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "#94a3b8" }}>등급 필터</span>
           {GRADE_OPTIONS.map((grade) => {

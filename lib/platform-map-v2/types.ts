@@ -55,16 +55,54 @@ export type PlatformMapRating = {
   top3Axes: AxisScore[];
 };
 
+export type PlatformMapScoreStats = {
+  minScore: number;
+  maxScore: number;
+  avgScore: number;
+  uniqueScoreCount: number;
+};
+
+export type PlatformMapAxisStats = Record<AxisKey, { min: number; max: number; uniqueCount: number }>;
+
+export type PlatformMapNewsStats = {
+  regionsWithNews: number;
+  totalItems: number;
+  avgItemsPerRegion: number;
+  noNewsRegions: string[];
+  noNewsRegionSamples: Array<{ name: string; tokens: string[] }>;
+};
+
+export type PlatformMapScoringStatus = {
+  scoringApplied: boolean;
+  fallbackUsed: boolean;
+  reason: Array<"뉴스_매칭_없음" | "점수계산_미실행" | "캐시_기본값" | "기타">;
+};
+
+export type PlatformMapSampleDebug = {
+  name: string;
+  sigunguKey: string;
+  articles: number;
+  axisDelta: Partial<Record<AxisKey, number>>;
+  totalBeforeClamp: number;
+  totalAfterClamp: number;
+};
+
+export type PlatformMapDebugInfo = {
+  totalRegions: number;
+  gradeCounts: Record<PlatformMapGrade, number>;
+  scoreStats: PlatformMapScoreStats;
+  axisStats: PlatformMapAxisStats;
+  newsStats: PlatformMapNewsStats;
+  scoringStatus: PlatformMapScoringStatus;
+  samples: PlatformMapSampleDebug[];
+};
+
 export type PlatformMapDataResponse = {
   ok: true;
   geojson: any;
   ratings: PlatformMapRating[];
-  meta: { updatedAt: string; source: string };
-  debug?: {
-    totalFeatures: number;
-    totalRatings: number;
-    gradesCount: Record<PlatformMapGrade, number>;
-  };
+  meta: { updatedAt: string; source: string; relativeGrade?: boolean };
+  debug?: PlatformMapDebugInfo;
 };
 
 export type EvidenceItem = {
