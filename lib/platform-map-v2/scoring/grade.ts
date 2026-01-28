@@ -29,10 +29,30 @@ const assignByCutoffs = (values: GradeAssignmentInput, cutoffs = DEFAULT_CUTOFFS
   return { grades, counts };
 };
 
-const percentileCutoff = (sorted: Array<{ key: string; score: number }>, percentile: number) => {
-  if (sorted.length === 0) return 0;
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.floor(sorted.length * percentile)));
-  return sorted[index]?.score ?? 0;
+const assignByDistribution = (
+  sorted: Array<{ key: string; score: number }>,
+  counts: { A: number; B: number; C: number },
+) => {
+  const grades: Record<string, PlatformMapGrade> = {};
+  const nonDefault = sorted.filter((item) => item.score > 0);
+  const zeros = sorted.filter((item) => item.score <= 0);
+  nonDefault.slice(0, counts.A).forEach((item) => {
+    grades[item.key] = "A";
+  });
+  nonDefault.slice(counts.A, counts.A + counts.B).forEach((item) => {
+    grades[item.key] = "B";
+  });
+  nonDefault.slice(counts.A + counts.B, counts.A + counts.B + counts.C).forEach((item) => {
+    grades[item.key] = "C";
+  });
+  zeros.forEach((item) => {
+    grades[item.key] = "D";
+  });
+  const summary = { A: 0, B: 0, C: 0, D: 0 };
+  Object.values(grades).forEach((grade) => {
+    summary[grade] += 1;
+  });
+  return { grades, counts: summary };
 };
 
 export const assignGrades = (
@@ -48,24 +68,26 @@ export const assignGrades = (
 
   const base = assignByCutoffs(sorted);
   const gradeVariety = Object.values(base.counts).filter((count) => count > 0).length;
-  const scoreRange = sorted[0].score - sorted[sorted.length - 1].score;
   const nonDefaultCount = sorted.filter((item) => item.score > 0).length;
-  const minNonDefault = Math.max(30, Math.round(sorted.length * 0.3));
-  if (
-    !allowRelative ||
-    sorted.length < minRelativeCount ||
-    gradeVariety > 1 ||
-    scoreRange <= 0.1 ||
-    nonDefaultCount < minNonDefault
-  ) {
+  if (!allowRelative || sorted.length < minRelativeCount || nonDefaultCount === 0) {
     return { grades: base.grades, counts: base.counts, relativeApplied: false };
   }
 
-  const cutoffs = {
-    A: percentileCutoff(sorted, 0.1),
-    B: percentileCutoff(sorted, 0.25),
-    C: percentileCutoff(sorted, 0.45),
-  };
-  const adjusted = assignByCutoffs(sorted, cutoffs);
-  return { grades: adjusted.grades, counts: adjusted.counts, relativeApplied: true };
+  const minA = nonDefaultCount >= 30 ? 3 : nonDefaultCount >= 10 ? 2 : 1;
+  const maxA = Math.max(minA, Math.round(nonDefaultCount * 0.15));
+  const targetA = Math.round(nonDefaultCount * 0.1);
+  const countA = Math.max(minA, Math.min(maxA, Math.min(nonDefaultCount, targetA)));
+  const targetB = Math.round(nonDefaultCount * 0.2);
+  const minB = nonDefaultCount >= 20 ? 4 : nonDefaultCount >= 10 ? 2 : 1;
+  const maxB = Math.max(minB, Math.round(nonDefaultCount * 0.35));
+  const countB = Math.max(0, Math.min(nonDefaultCount - countA, Math.max(minB, Math.min(maxB, targetB))));
+  const countC = Math.max(0, nonDefaultCount - countA - countB);
+
+  const needsDistribution = gradeVariety <= 1 || base.counts.A < minA || base.counts.A > maxA;
+  if (!needsDistribution) {
+    return { grades: base.grades, counts: base.counts, relativeApplied: false };
+  }
+
+  const distributed = assignByDistribution(sorted, { A: countA, B: countB, C: countC });
+  return { grades: distributed.grades, counts: distributed.counts, relativeApplied: true };
 };

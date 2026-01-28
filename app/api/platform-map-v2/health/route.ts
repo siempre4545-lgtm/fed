@@ -11,10 +11,14 @@ import {
 } from "../../../../lib/platform-map-v2/news/compute";
 import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib/platform-map-v2/types";
 import type { CapitalAlignment } from "../../../../lib/platform-map-v2/capital/score";
+import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
+import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
+import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
+import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v5";
+const CACHE_VERSION = "platform-map-v2:v6";
 const CACHE_TTL_SECONDS = 1800;
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
@@ -100,16 +104,51 @@ export async function GET() {
     await cacheStore.set(cacheKey, cached, CACHE_TTL_SECONDS);
   }
 
-  const gradeDistribution = cached.ratings.reduce(
-    (acc, rating) => {
-      acc[rating.grade] = (acc[rating.grade] ?? 0) + 1;
+  const factLayer = await loadFactLayer();
+  const factEntries = factLayer.entries ?? [];
+  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
+  factEntries.forEach((entry) => {
+    factEntryMap.set(entry.sigungu, entry);
+    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
+  });
+  const holdings = await loadCapitalHoldings();
+  const holdingsIndex = buildHoldingsIndex(holdings, cached.ratings);
+  const composedRatings = cached.ratings.map((rating) => {
+    if (rating.scoreComponents) return rating;
+    const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const composed = composeRatingScores({
+      rating,
+      factEntry,
+      holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+    });
+    const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
+    return {
+      ...rating,
+      axisScores: composed.axisScores,
+      totalScore: composed.totalScore,
+      top3Axes,
+      scoreComponents: {
+        structural: composed.composition.totals.structural,
+        holdings: composed.composition.totals.holdings,
+        rss: composed.composition.totals.rss,
+      },
+    };
+  });
+
+  const gradeMap = assignGrades(
+    composedRatings.map((rating) => ({ key: rating.sigunguKey, score: rating.totalScore })),
+    { minRelativeCount: 150, allowRelative: true },
+  );
+  const gradeDistribution = Object.values(gradeMap.grades).reduce(
+    (acc, grade) => {
+      acc[grade] = (acc[grade] ?? 0) + 1;
       return acc;
     },
     {} as Record<string, number>,
   );
 
-  const nonDefaultRegionsCount = cached.ratings.filter((rating) => rating.totalScore > 0).length;
-  const seoulScoredCount = cached.ratings.filter(
+  const nonDefaultRegionsCount = composedRatings.filter((rating) => rating.totalScore > 0).length;
+  const seoulScoredCount = composedRatings.filter(
     (rating) => rating.name.startsWith("서울") && rating.totalScore > 0,
   ).length;
   if (geojsonCount > 0 && cached.ratings.length !== geojsonCount) {
@@ -133,7 +172,7 @@ export async function GET() {
     data: {
       sigunguCountGeojson: geojsonCount,
       sigunguCountMaster: rawRatings.length,
-      ratingsCount: cached.ratings.length,
+      ratingsCount: composedRatings.length,
       seoulCount,
       sampleSeoulNames,
       aliases: Object.keys(aliases).length,

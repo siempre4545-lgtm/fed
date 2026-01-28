@@ -4,6 +4,9 @@ import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
 import { ensureHistorySnapshot, ensureWeeklySnapshot } from "../../../../lib/platform-map-v2/history/store";
+import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
+import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
+import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
 import type { HistoryEntry } from "../../../../lib/platform-map-v2/history/types";
 import {
   computePlatformMapRatings,
@@ -15,7 +18,7 @@ import type { CapitalAlignment } from "../../../../lib/platform-map-v2/capital/s
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v5";
+const CACHE_VERSION = "platform-map-v2:v6";
 const CACHE_TTL_SECONDS = 1800;
 
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
@@ -50,10 +53,39 @@ export async function POST(request: NextRequest) {
       .slice(-1)[0] || new Date().toISOString();
 
   const computed = await computePlatformMapRatings(rawRatings, aliases);
+  const factLayer = await loadFactLayer();
+  const factEntries = factLayer.entries ?? [];
+  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
+  factEntries.forEach((entry) => {
+    factEntryMap.set(entry.sigungu, entry);
+    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
+  });
+  const holdings = await loadCapitalHoldings();
+  const holdingsIndex = buildHoldingsIndex(holdings, computed.ratings);
+  const composedRatings = computed.ratings.map((rating) => {
+    const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const composed = composeRatingScores({
+      rating,
+      factEntry,
+      holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+    });
+    const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
+    return {
+      ...rating,
+      axisScores: composed.axisScores,
+      totalScore: composed.totalScore,
+      top3Axes,
+      scoreComponents: {
+        structural: composed.composition.totals.structural,
+        holdings: composed.composition.totals.holdings,
+        rss: composed.composition.totals.rss,
+      },
+    };
+  });
   const dateKey = new Date().toISOString().slice(0, 10);
   const cacheKey = `${CACHE_VERSION}:ratings:${dateKey}`;
   const payload: CachePayload = {
-    ratings: computed.ratings,
+    ratings: composedRatings,
     debug: computed.debug,
     relativeGradeApplied: computed.relativeGradeApplied,
     regionAxisCounts: computed.regionAxisCounts,
@@ -63,7 +95,7 @@ export async function POST(request: NextRequest) {
   };
 
   await cacheStore.set(cacheKey, payload, CACHE_TTL_SECONDS);
-  const historyEntries: HistoryEntry[] = computed.ratings.map((rating) => ({
+  const historyEntries: HistoryEntry[] = composedRatings.map((rating) => ({
     sigungu: rating.name,
     date: dateKey,
     totalScore: rating.totalScore,

@@ -40,6 +40,18 @@ export default function DetailShell({ region }: Props) {
       <div style={{ fontSize: 12, marginBottom: 6 }}>
         총점 {region.totalScore}/{TOTAL_MAX_SCORE} · 등급 {region.scoreStatus ?? region.gradeLabel ?? region.grade}
       </div>
+      {typeof region.scoreDelta === "number" && (
+        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+          최근 점수 변화: {region.scoreDelta > 0 ? "+" : ""}
+          {region.scoreDelta.toFixed(2)}
+        </div>
+      )}
+      {region.scoreComponents && (
+        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+          구성: 구조 {region.scoreComponents.structural.toFixed(1)} · 매집{" "}
+          {region.scoreComponents.holdings.toFixed(1)} · RSS {region.scoreComponents.rss.toFixed(1)}
+        </div>
+      )}
       {region.pisStatus && (
         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
           기관 선행 신호: {region.pisStatus}

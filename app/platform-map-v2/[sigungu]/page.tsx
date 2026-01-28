@@ -278,6 +278,36 @@ export default function Page({ params }: { params: { sigungu: string } }) {
 
         <CapitalComparisonCard comparison={capitalComparison} />
 
+        {rating?.scoreComponents && (
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid #1f2937",
+              background: "#0f172a",
+              padding: 16,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700 }}>점수 구성 상세</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+              구조적 기정사실 + 기관/리츠 매집 + RSS 변화 점수를 합산합니다.
+            </div>
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span>구조적 기정사실</span>
+                <span>{rating.scoreComponents.structural.toFixed(1)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span>기관/리츠 매집</span>
+                <span>{rating.scoreComponents.holdings.toFixed(1)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span>RSS 변화</span>
+                <span>{rating.scoreComponents.rss.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {capital && (
           <div
             style={{

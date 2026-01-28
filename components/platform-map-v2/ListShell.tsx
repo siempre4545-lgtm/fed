@@ -60,6 +60,8 @@ export default function ListShell({
         )}
         {items.map((item) => {
           const active = item.id === selectedId;
+          const scoreDelta = item.scoreDelta ?? 0;
+          const hasSpike = Math.abs(scoreDelta) >= 1.5;
           return (
             <button
               key={item.id}
@@ -107,6 +109,20 @@ export default function ListShell({
                     }}
                   >
                     Pre-Institutional Move
+                  </span>
+                )}
+                {hasSpike && (
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      border: "1px solid #f59e0b",
+                      background: "#1f2937",
+                      color: "#f59e0b",
+                      padding: "2px 6px",
+                      fontSize: 10,
+                    }}
+                  >
+                    급변 {scoreDelta > 0 ? "▲" : "▼"}
                   </span>
                 )}
                 <span style={{ fontSize: 11, color: "#94a3b8" }}>

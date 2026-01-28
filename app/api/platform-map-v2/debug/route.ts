@@ -3,7 +3,9 @@ import { readFile } from "fs/promises";
 import path from "path";
 import aliases from "../../../../data/platform-map-v2/aliases.json";
 import { createCacheStore } from "../../../../lib/platform-map-v2/cache";
-import { applyFactLayer, loadFactLayer } from "../../../../lib/platform-map-v2/facts";
+import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
+import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
+import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
 import {
   computePlatformMapRatings,
   type PlatformMapDebugInfo,
@@ -56,7 +58,34 @@ export async function GET(request: NextRequest) {
   }
 
   const factLayer = await loadFactLayer();
-  const ratings = applyFactLayer(cached.ratings, factLayer.entries ?? []);
+  const factEntries = factLayer.entries ?? [];
+  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
+  factEntries.forEach((entry) => {
+    factEntryMap.set(entry.sigungu, entry);
+    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
+  });
+  const holdings = await loadCapitalHoldings();
+  const holdingsIndex = buildHoldingsIndex(holdings, cached.ratings);
+  const ratings = cached.ratings.map((rating) => {
+    const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const composed = composeRatingScores({
+      rating,
+      factEntry,
+      holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+    });
+    const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
+    return {
+      ...rating,
+      axisScores: composed.axisScores,
+      totalScore: composed.totalScore,
+      top3Axes,
+      scoreComponents: {
+        structural: composed.composition.totals.structural,
+        holdings: composed.composition.totals.holdings,
+        rss: composed.composition.totals.rss,
+      },
+    };
+  });
   const target =
     ratings.find((item) => item.sigunguKey === sigungu) ??
     ratings.find((item) => item.name === sigungu) ??
@@ -112,6 +141,8 @@ export async function GET(request: NextRequest) {
     axisScores: target.axisScores,
     totalScore: target.totalScore,
     grade: target.grade,
+    scoreComponents: target.scoreComponents ?? null,
+    holdingsCount: (holdingsIndex.bySigunguKey[target.sigunguKey] ?? []).length,
     reasons,
   };
 

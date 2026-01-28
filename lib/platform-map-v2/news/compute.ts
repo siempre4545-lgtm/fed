@@ -47,6 +47,7 @@ export type PlatformMapNewsStats = {
   matchedLast24h: number;
   duplicates: number;
   sidoOnlyMatches: number;
+  keywordFiltered: number;
 };
 
 export type PlatformMapScoringStatus = {
@@ -111,6 +112,48 @@ const SOURCE_WEIGHT: Record<NewsItem["category"], number> = {
   media: 0.6,
   industry: 0.6,
 };
+
+const CATEGORY_KEYWORDS = [
+  "플랫폼",
+  "금융",
+  "리츠",
+  "btr",
+  "pf",
+  "부동산",
+  "정책",
+  "특구",
+  "규제",
+  "지구",
+  "지정",
+  "착공",
+  "개발",
+  "산업단지",
+  "업무지구",
+  "도시계획",
+];
+
+const CORE_REGION_KEYWORDS = [
+  "개발",
+  "지구",
+  "특구",
+  "산업단지",
+  "업무지구",
+  "도시계획",
+  "금융",
+  "리츠",
+  "btr",
+  "기업",
+  "거점",
+  "센터",
+];
+
+const buildKeywordMatcher = (keywords: string[]) => {
+  const tokens = keywords.map((keyword) => normalizeText(keyword)).filter(Boolean);
+  return (normalizedText: string) => tokens.some((token) => normalizedText.includes(token));
+};
+
+const hasCategoryKeyword = buildKeywordMatcher(CATEGORY_KEYWORDS);
+const hasCoreRegionKeyword = buildKeywordMatcher(CORE_REGION_KEYWORDS);
 
 const createAxisRecord = <T,>(value: () => T) =>
   AXIS_DEFINITIONS.reduce(
@@ -226,6 +269,7 @@ export const computePlatformMapRatings = async (
   let totalItemsUsed = 0;
   let matchedArticlesLast24h = 0;
   let sidoOnlyMatches = 0;
+  let keywordFiltered = 0;
 
   deduped.forEach((item) => {
     const text = `${item.title} ${item.snippet}`;
@@ -233,6 +277,10 @@ export const computePlatformMapRatings = async (
     const classification = classifyArticle(text);
     const axes = classification.matchedAxes;
     if (axes.length === 0) return;
+    if (!hasCategoryKeyword(normalizedText)) {
+      keywordFiltered += 1;
+      return;
+    }
 
     const matches = regionContexts
       .map((context) => ({
@@ -241,9 +289,11 @@ export const computePlatformMapRatings = async (
       }))
       .filter((entry) => entry.result.matched);
     const sigunguMatches = matches.filter((entry) => entry.result.level === "sigungu");
-    const hasSigunguMatch = sigunguMatches.length > 0;
-    if (!hasSigunguMatch) {
-      if (matches.some((entry) => entry.result.level === "sido")) {
+    const sidoMatches = matches.filter((entry) => entry.result.level === "sido");
+    const coreMatch = hasCoreRegionKeyword(normalizedText);
+    const finalMatches = sigunguMatches.length > 0 ? sigunguMatches : coreMatch ? sidoMatches : [];
+    if (finalMatches.length === 0) {
+      if (sidoMatches.length > 0) {
         sidoOnlyMatches += 1;
       }
       return;
@@ -265,7 +315,7 @@ export const computePlatformMapRatings = async (
         ? "local"
         : "media";
 
-    sigunguMatches.forEach(({ context, result }) => {
+    finalMatches.forEach(({ context, result }) => {
       const ids = regionArticleIds.get(context.sigunguKey);
       const axisInputs = regionAxisInputs.get(context.sigunguKey);
       const axisArticles = regionAxisArticles.get(context.sigunguKey);
@@ -396,6 +446,7 @@ export const computePlatformMapRatings = async (
     matchedLast24h: matchedArticlesLast24h,
     duplicates: duplicates.length,
     sidoOnlyMatches,
+    keywordFiltered,
   };
 
   const samples = Array.from(regionArticleIds.entries())

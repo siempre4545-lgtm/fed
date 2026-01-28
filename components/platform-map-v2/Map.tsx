@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import type { PlatformMapGrade, PlatformMapRating, PisStatus } from "../../lib/platform-map-v2/types";
 
 const GRADE_COLORS: Record<PlatformMapGrade, string> = {
-  A: "#22c55e",
-  B: "#38bdf8",
-  C: "#a3a3a3",
-  D: "#475569",
+  A: "#1f4ed8",
+  B: "#16a34a",
+  C: "#f59e0b",
+  D: "#dc2626",
 };
 
 const PIS_STYLES: Record<PisStatus, { stroke: string; dash: string; animate: boolean }> = {

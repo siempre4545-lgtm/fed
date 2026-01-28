@@ -52,6 +52,8 @@ export type PlatformMapRating = {
   grade: PlatformMapGrade;
   gradeLabel?: string;
   scoreStatus?: "산정중" | "데이터 부족";
+  scoreComponents?: { structural: number; holdings: number; rss: number };
+  scoreDelta?: number;
   totalScore: number;
   axisScores: AxisScore[];
   top3Axes: AxisScore[];
@@ -151,6 +153,7 @@ export type PlatformMapNewsStats = {
   matchedLast24h?: number;
   duplicates?: number;
   sidoOnlyMatches?: number;
+  keywordFiltered?: number;
 };
 
 export type PlatformMapScoringStatus = {

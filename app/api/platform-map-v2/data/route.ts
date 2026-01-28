@@ -15,8 +15,9 @@ import { computeCapitalWarnings, type CapitalAlignment } from "../../../../lib/p
 import { getRegionType } from "../../../../lib/platform-map-v2/capital/signals";
 import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
 import { buildCapitalComparison } from "../../../../lib/platform-map-v2/capital/compare";
-import { applyFactLayer, loadFactLayer } from "../../../../lib/platform-map-v2/facts";
+import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
 import { computePisMap, computeScoreDeltaMap } from "../../../../lib/platform-map-v2/pis/compute";
+import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
 import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 import {
   computePlatformMapRatings,
@@ -32,7 +33,7 @@ import {
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v5";
+const CACHE_VERSION = "platform-map-v2:v6";
 const CACHE_TTL_SECONDS = 1800;
 
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
@@ -67,6 +68,8 @@ const buildPlaceholderRating = (name: string, sigunguKey: string): PlatformMapRa
   grade: "D",
   gradeLabel: "산정중",
   scoreStatus: "산정중",
+  scoreComponents: { structural: 0, holdings: 0, rss: 0 },
+  scoreDelta: 0,
   totalScore: 0,
   axisScores: AXIS_DEFINITIONS.map((axis) => ({ key: axis.key, label: axis.label, score: 0 })),
   top3Axes: AXIS_DEFINITIONS.slice(0, 3).map((axis) => ({ key: axis.key, label: axis.label, score: 0 })),
@@ -112,10 +115,53 @@ export async function GET(request: NextRequest) {
   const cacheKey = `${CACHE_VERSION}:ratings:${dateKey}`;
   let cacheHit = false;
   let cached = await cacheStore.get<CachePayload>(cacheKey);
+  const factLayer = await loadFactLayer();
+  const factEntries = factLayer.entries ?? [];
+  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
+  factEntries.forEach((entry) => {
+    factEntryMap.set(entry.sigungu, entry);
+    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
+  });
+  const holdings = await loadCapitalHoldings();
+
+  const mergeTags = (base: string[] | undefined, next: string[] | undefined) => {
+    const set = new Set<string>();
+    (base ?? []).forEach((tag) => set.add(tag));
+    (next ?? []).forEach((tag) => set.add(tag));
+    return Array.from(set);
+  };
+
+  const composeRatings = (ratingsSource: PlatformMapRating[]) => {
+    const holdingsIndex = buildHoldingsIndex(holdings, ratingsSource);
+    return ratingsSource.map((rating) => {
+      const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+      const composed = composeRatingScores({
+        rating,
+        factEntry,
+        holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+      });
+      const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
+      const tags = mergeTags(rating.tags, factEntry?.tags ?? []);
+      return {
+        ...rating,
+        axisScores: composed.axisScores,
+        totalScore: composed.totalScore,
+        top3Axes,
+        scoreComponents: {
+          structural: composed.composition.totals.structural,
+          holdings: composed.composition.totals.holdings,
+          rss: composed.composition.totals.rss,
+        },
+        tags,
+      };
+    });
+  };
+
   if (!cached) {
     const computed = await computePlatformMapRatings(rawRatings, aliases);
+    const composedRatings = composeRatings(computed.ratings);
     cached = {
-      ratings: computed.ratings,
+      ratings: composedRatings,
       debug: computed.debug,
       relativeGradeApplied: computed.relativeGradeApplied,
       regionAxisCounts: computed.regionAxisCounts,
@@ -125,7 +171,7 @@ export async function GET(request: NextRequest) {
     };
     await cacheStore.set(cacheKey, cached, CACHE_TTL_SECONDS);
 
-    const historyEntries: HistoryEntry[] = computed.ratings.map((rating) => ({
+    const historyEntries: HistoryEntry[] = composedRatings.map((rating) => ({
       sigungu: rating.name,
       date: dateKey,
       totalScore: rating.totalScore,
@@ -143,14 +189,7 @@ export async function GET(request: NextRequest) {
     cacheHit = true;
   }
 
-  const factLayer = await loadFactLayer();
-  const factEntries = factLayer.entries ?? [];
-  const factEntryMap = new Map<string, (typeof factEntries)[number]>();
-  factEntries.forEach((entry) => {
-    factEntryMap.set(entry.sigungu, entry);
-    if (entry.sigunguKey) factEntryMap.set(`key:${entry.sigunguKey}`, entry);
-  });
-  let ratings = applyFactLayer(cached.ratings, factEntries);
+  let ratings = cached.ratings;
   const gradeMap = assignGrades(
     ratings.map((rating) => ({ key: rating.sigunguKey, score: rating.totalScore })),
     { minRelativeCount: 150, allowRelative: true },
@@ -163,15 +202,7 @@ export async function GET(request: NextRequest) {
   const historyWindow = await loadHistoryWindow(28);
   const pisMap = computePisMap(historyWindow, ratings);
   const scoreDeltaMap = computeScoreDeltaMap(historyWindow);
-  const holdings = await loadCapitalHoldings();
   const holdingsIndex = buildHoldingsIndex(holdings, ratings);
-
-  const mergeTags = (base: string[] | undefined, next: string[] | undefined) => {
-    const set = new Set<string>();
-    (base ?? []).forEach((tag) => set.add(tag));
-    (next ?? []).forEach((tag) => set.add(tag));
-    return Array.from(set);
-  };
 
   ratings = ratings.map((rating) => {
     const pis = pisMap[rating.sigunguKey];
@@ -183,9 +214,10 @@ export async function GET(request: NextRequest) {
           ? "A(Stable)"
           : "A-"
         : rating.grade;
-    const hasEvidence = Object.values(cached.regionAxisCounts[rating.sigunguKey] ?? {}).some(
-      (count) => count > 0,
-    );
+    const hasEvidence =
+      (rating.scoreComponents?.structural ?? 0) > 0 ||
+      (rating.scoreComponents?.holdings ?? 0) > 0 ||
+      (rating.scoreComponents?.rss ?? 0) > 0;
     const scoreStatus = hasEvidence ? undefined : "데이터 부족";
     const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
     const reasons: string[] = [];
@@ -204,6 +236,7 @@ export async function GET(request: NextRequest) {
       pisDelta: pis?.delta ?? 0,
       gradeLabel,
       scoreStatus,
+      scoreDelta,
       preInstitutionalMove,
       preInstitutionalReasons: reasons,
       tags,
