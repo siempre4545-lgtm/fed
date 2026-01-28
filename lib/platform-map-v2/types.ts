@@ -53,6 +53,62 @@ export type ScoreComponent = {
   status: ScoreStatus;
 };
 
+export type DiagnoseRssSource = {
+  source: string;
+  ok: boolean;
+  status?: number;
+  elapsedMs: number;
+  itemCount: number;
+  matchedCount: number;
+  errorReason?: string;
+};
+
+export type PlatformMapDiagnoseResponse = {
+  ok: boolean;
+  region: string;
+  structure: { score: number; axes: Record<AxisKey, number> };
+  institution: {
+    enabled: boolean;
+    rawSignalsCount: number;
+    sourcesTried: string[];
+    errors: string[];
+    score: number | null;
+    status: ScoreStatus;
+    reasonSamples: string[];
+  };
+  rss: {
+    feedsTried: number;
+    fetchOk: number;
+    fetchFail: number;
+    matchedArticles: number;
+    deduped: number;
+    classified: number;
+    keywordFiltered: number;
+    sidoOnlyMatches: number;
+    score: number | null;
+    status: ScoreStatus;
+    sources: DiagnoseRssSource[];
+    topMatches: Array<{
+      title: string;
+      publishedAt: string;
+      source: string;
+      matchedAxes: AxisKey[];
+      confidence: number;
+      matchLevel: "sigungu" | "sido";
+      matchedTokens: string[];
+    }>;
+  };
+  persistence: {
+    snapshotStore: "kv" | "memory";
+    hasHistory: boolean;
+    historyCount: number;
+  };
+  debugHints?: {
+    scoringStatus?: PlatformMapScoringStatus;
+    newsStats?: PlatformMapNewsStats;
+  };
+};
+
 export type PlatformMapRating = {
   name: string;
   sigunguKey: string;

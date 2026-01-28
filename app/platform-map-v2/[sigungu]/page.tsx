@@ -6,6 +6,7 @@ import {
   AXIS_DEFINITIONS,
   type AxisKey,
   type AxisArticleMap,
+  type PlatformMapDiagnoseResponse,
   type PlatformMapDetailResponse,
   type PlatformMapRating,
   type ScoreComponent,
@@ -98,6 +99,10 @@ export default function Page({ params }: { params: { sigungu: string } }) {
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [newsStatus, setNewsStatus] = useState<{ ok: boolean; sources: NewsSourceResult[] } | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
+  const [diagnoseOpen, setDiagnoseOpen] = useState(false);
+  const [diagnoseLoading, setDiagnoseLoading] = useState(false);
+  const [diagnoseError, setDiagnoseError] = useState<string | null>(null);
+  const [diagnose, setDiagnose] = useState<PlatformMapDiagnoseResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,11 +153,47 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     }
   };
 
+  const loadDiagnose = async () => {
+    setDiagnoseLoading(true);
+    setDiagnoseError(null);
+    try {
+      const response = await fetch(
+        `/api/platform-map-v2/diagnose?sigungu=${encodeURIComponent(sigungu)}${
+          rating?.sigunguKey ? `&sigunguKey=${encodeURIComponent(rating.sigunguKey)}` : ""
+        }`,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as PlatformMapDiagnoseResponse;
+      setDiagnose(data);
+    } catch (fetchError) {
+      setDiagnose(null);
+      setDiagnoseError(fetchError instanceof Error ? fetchError.message : "unknown");
+    } finally {
+      setDiagnoseLoading(false);
+    }
+  };
+
+  const handleDiagnoseToggle = () => {
+    setDiagnoseOpen((prev) => {
+      const next = !prev;
+      if (next && !diagnoseLoading) {
+        void loadDiagnose();
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (sigungu) {
       void loadDetail();
       void loadHistory();
     }
+  }, [sigungu]);
+
+  useEffect(() => {
+    setDiagnose(null);
+    setDiagnoseOpen(false);
+    setDiagnoseError(null);
   }, [sigungu]);
 
   const axisScoreMap = useMemo(
@@ -265,7 +306,7 @@ export default function Page({ params }: { params: { sigungu: string } }) {
             </div>
           )}
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
-            점수는 RSS 뉴스 기반으로 자동 산출됩니다.
+            점수는 구조 점수 + 기관/리츠 매집 + RSS 변화로 구성됩니다.
           </div>
         </div>
 
@@ -391,6 +432,79 @@ export default function Page({ params }: { params: { sigungu: string } }) {
         <InstitutionSummaryCard summary={institutionSummary} />
 
         <WhyNotACard analysis={analysis ?? null} />
+
+        <div
+          style={{
+            borderRadius: 12,
+            border: "1px solid #1f2937",
+            background: "#0f172a",
+            padding: 16,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>진단 보기(개발용)</div>
+            <button
+              type="button"
+              onClick={handleDiagnoseToggle}
+              style={{
+                borderRadius: 999,
+                border: "1px solid #1f2937",
+                background: "#111827",
+                color: "#e5e7eb",
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              {diagnoseOpen ? "닫기" : "열기"}
+            </button>
+          </div>
+          {diagnoseOpen && (
+            <div style={{ marginTop: 10, fontSize: 11, color: "#cbd5f5", display: "grid", gap: 8 }}>
+              {diagnoseLoading && <div>불러오는 중...</div>}
+              {diagnoseError && <div style={{ color: "#fca5a5" }}>오류: {diagnoseError}</div>}
+              {!diagnoseLoading && !diagnoseError && diagnose && (
+                <>
+                  <div>
+                    구조 점수: {diagnose.structure.score.toFixed(1)} · 기관/리츠:{" "}
+                    {diagnose.institution.score === null
+                      ? "관측 없음"
+                      : `${diagnose.institution.score.toFixed(1)} (${STATUS_LABEL[diagnose.institution.status]})`}
+                    · RSS:{" "}
+                    {diagnose.rss.score === null
+                      ? "관측 없음"
+                      : `${diagnose.rss.score.toFixed(1)} (${STATUS_LABEL[diagnose.rss.status]})`}
+                  </div>
+                  <div>
+                    기관 신호: {diagnose.institution.rawSignalsCount}건 · RSS 매칭:{" "}
+                    {diagnose.rss.matchedArticles}건 · 분류됨 {diagnose.rss.classified}건 · 키워드
+                    제외 {diagnose.rss.keywordFiltered}건
+                  </div>
+                  <div>
+                    소스 성공 {diagnose.rss.fetchOk} / 실패 {diagnose.rss.fetchFail} ·
+                    히스토리 {diagnose.persistence.historyCount}건 · 캐시 {diagnose.persistence.snapshotStore}
+                  </div>
+                  {diagnose.rss.sources.length > 0 && (
+                    <div style={{ display: "grid", gap: 4 }}>
+                      {diagnose.rss.sources.map((item) => (
+                        <div key={item.source}>
+                          {item.source} · {item.ok ? "OK" : "FAIL"} · {item.matchedCount}건 매칭{" "}
+                          {item.errorReason ? `(${item.errorReason})` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <details style={{ fontSize: 11, color: "#94a3b8" }}>
+                    <summary style={{ cursor: "pointer" }}>원본 진단 JSON</summary>
+                    <pre style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>
+                      {JSON.stringify(diagnose, null, 2)}
+                    </pre>
+                  </details>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <div
           style={{
