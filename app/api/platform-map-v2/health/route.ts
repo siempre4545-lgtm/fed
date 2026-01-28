@@ -22,7 +22,7 @@ import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 
 export const runtime = "nodejs";
 const LOG_PREFIX = "[PMV2]";
-const CACHE_VERSION = "platform-map-v2:v6";
+const CACHE_VERSION = "platform-map-v2:v7";
 const CACHE_TTL_SECONDS = 1800;
 const RATINGS_PATH = path.join(process.cwd(), "data/platform-map/ratings.json");
 const GEOJSON_PATH = path.join(process.cwd(), "data/platform-map/korea_sigungu.geojson");
