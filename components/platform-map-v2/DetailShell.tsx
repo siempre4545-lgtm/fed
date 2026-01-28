@@ -1,11 +1,26 @@
 import { AXIS_MAX_SCORE, TOTAL_MAX_SCORE } from "../../lib/platform-map-v2/scoring";
-import type { PlatformMapRating } from "../../lib/platform-map-v2/types";
+import type { PlatformMapRating, ScoreComponent } from "../../lib/platform-map-v2/types";
 
 type Props = {
   region?: PlatformMapRating | null;
 };
 
 const formatScore = (value: number) => (Number.isInteger(value) ? value.toString() : value.toFixed(1));
+const STATUS_LABEL = {
+  confirmed: "확정",
+  estimated: "추정",
+  not_observed: "관측 없음",
+} as const;
+const STRUCTURAL_MAX = 120;
+const HOLDINGS_MAX = 10;
+const RSS_MAX = 42;
+
+const formatComponent = (component: ScoreComponent | undefined, max: number) => {
+  if (!component || component.status === "not_observed" || component.score === null) {
+    return "관측 없음";
+  }
+  return `${component.score.toFixed(1)}/${max} (${STATUS_LABEL[component.status]})`;
+};
 
 export default function DetailShell({ region }: Props) {
   if (!region) {
@@ -48,8 +63,9 @@ export default function DetailShell({ region }: Props) {
       )}
       {region.scoreComponents && (
         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
-          구성: 구조 {region.scoreComponents.structural.toFixed(1)} · 매집{" "}
-          {region.scoreComponents.holdings.toFixed(1)} · RSS {region.scoreComponents.rss.toFixed(1)}
+          구성: 구조 {formatComponent(region.scoreComponents.structural, STRUCTURAL_MAX)} · 매집{" "}
+          {formatComponent(region.scoreComponents.holdings, HOLDINGS_MAX)} · RSS{" "}
+          {formatComponent(region.scoreComponents.rss, RSS_MAX)}
         </div>
       )}
       {region.pisStatus && (

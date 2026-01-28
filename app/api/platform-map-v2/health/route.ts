@@ -13,7 +13,11 @@ import type { AxisArticleMap, AxisKey, PlatformMapRating } from "../../../../lib
 import type { CapitalAlignment } from "../../../../lib/platform-map-v2/capital/score";
 import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platform-map-v2/capital/holdings";
 import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
-import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
+import {
+  buildStructuralAxis,
+  composeRatingScores,
+  sumAxisValues,
+} from "../../../../lib/platform-map-v2/scoring/compose";
 import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 
 export const runtime = "nodejs";
@@ -113,13 +117,42 @@ export async function GET() {
   });
   const holdings = await loadCapitalHoldings();
   const holdingsIndex = buildHoldingsIndex(holdings, cached.ratings);
-  const composedRatings = cached.ratings.map((rating) => {
+  const structuralTotals = cached.ratings.map((rating) => {
+    const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const structuralAxis = buildStructuralAxis(factEntry);
+    return Math.round(sumAxisValues(structuralAxis) * 10) / 10;
+  });
+  const sorted = [...structuralTotals].sort((a, b) => b - a);
+  const thresholdIndex = Math.max(0, Math.floor(sorted.length * 0.15) - 1);
+  const structuralThreshold = sorted[thresholdIndex] ?? 0;
+
+  const composedRatings = cached.ratings.map((rating, index) => {
     if (rating.scoreComponents) return rating;
     const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+    const structuralTotal = structuralTotals[index] ?? 0;
+    const axisFloors = factEntry?.axisFloors ?? {};
+    const meetsAxisFloor =
+      (axisFloors.financialization ?? 0) >= 5 &&
+      (axisFloors.governance ?? 0) >= 5 &&
+      (axisFloors.residency_mobility ?? 0) >= 4;
+    const holdingsList = holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [];
+    const holdingsEstimated =
+      holdingsList.length === 0 &&
+      structuralTotal > 0 &&
+      structuralTotal >= structuralThreshold &&
+      meetsAxisFloor;
+    const rssObserved =
+      Object.values(cached.regionAxisCounts[rating.sigunguKey] ?? {}).reduce(
+        (sum, count) => sum + count,
+        0,
+      ) > 0;
+
     const composed = composeRatingScores({
       rating,
       factEntry,
-      holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+      holdings: holdingsList,
+      rssObserved,
+      holdingsEstimated,
     });
     const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
     return {
@@ -127,11 +160,7 @@ export async function GET() {
       axisScores: composed.axisScores,
       totalScore: composed.totalScore,
       top3Axes,
-      scoreComponents: {
-        structural: composed.composition.totals.structural,
-        holdings: composed.composition.totals.holdings,
-        rss: composed.composition.totals.rss,
-      },
+      scoreComponents: composed.components,
     };
   });
 

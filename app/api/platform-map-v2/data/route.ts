@@ -17,7 +17,11 @@ import { loadCapitalHoldings, buildHoldingsIndex } from "../../../../lib/platfor
 import { buildCapitalComparison } from "../../../../lib/platform-map-v2/capital/compare";
 import { loadFactLayer } from "../../../../lib/platform-map-v2/facts";
 import { computePisMap, computeScoreDeltaMap } from "../../../../lib/platform-map-v2/pis/compute";
-import { composeRatingScores } from "../../../../lib/platform-map-v2/scoring/compose";
+import {
+  buildStructuralAxis,
+  composeRatingScores,
+  sumAxisValues,
+} from "../../../../lib/platform-map-v2/scoring/compose";
 import { assignGrades } from "../../../../lib/platform-map-v2/scoring/grade";
 import {
   computePlatformMapRatings,
@@ -68,7 +72,11 @@ const buildPlaceholderRating = (name: string, sigunguKey: string): PlatformMapRa
   grade: "D",
   gradeLabel: "산정중",
   scoreStatus: "산정중",
-  scoreComponents: { structural: 0, holdings: 0, rss: 0 },
+  scoreComponents: {
+    structural: { score: null, status: "not_observed" },
+    holdings: { score: null, status: "not_observed" },
+    rss: { score: null, status: "not_observed" },
+  },
   scoreDelta: 0,
   totalScore: 0,
   axisScores: AXIS_DEFINITIONS.map((axis) => ({ key: axis.key, label: axis.label, score: 0 })),
@@ -131,14 +139,43 @@ export async function GET(request: NextRequest) {
     return Array.from(set);
   };
 
-  const composeRatings = (ratingsSource: PlatformMapRating[]) => {
+  const composeRatings = (
+    ratingsSource: PlatformMapRating[],
+    axisCounts: Record<string, Record<AxisKey, number>>,
+  ) => {
     const holdingsIndex = buildHoldingsIndex(holdings, ratingsSource);
-    return ratingsSource.map((rating) => {
+    const structuralTotals = ratingsSource.map((rating) => {
       const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+      const structuralAxis = buildStructuralAxis(factEntry);
+      return Math.round(sumAxisValues(structuralAxis) * 10) / 10;
+    });
+    const sorted = [...structuralTotals].sort((a, b) => b - a);
+    const thresholdIndex = Math.max(0, Math.floor(sorted.length * 0.15) - 1);
+    const structuralThreshold = sorted[thresholdIndex] ?? 0;
+
+    return ratingsSource.map((rating, index) => {
+      const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
+      const structuralTotal = structuralTotals[index] ?? 0;
+      const axisFloors = factEntry?.axisFloors ?? {};
+      const meetsAxisFloor =
+        (axisFloors.financialization ?? 0) >= 5 &&
+        (axisFloors.governance ?? 0) >= 5 &&
+        (axisFloors.residency_mobility ?? 0) >= 4;
+      const holdingsList = holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [];
+      const holdingsEstimated =
+        holdingsList.length === 0 &&
+        structuralTotal > 0 &&
+        structuralTotal >= structuralThreshold &&
+        meetsAxisFloor;
+      const rssObserved =
+        Object.values(axisCounts[rating.sigunguKey] ?? {}).reduce((sum, count) => sum + count, 0) > 0;
+
       const composed = composeRatingScores({
         rating,
         factEntry,
-        holdings: holdingsIndex.bySigunguKey[rating.sigunguKey] ?? [],
+        holdings: holdingsList,
+        rssObserved,
+        holdingsEstimated,
       });
       const top3Axes = [...composed.axisScores].sort((a, b) => b.score - a.score).slice(0, 3);
       const tags = mergeTags(rating.tags, factEntry?.tags ?? []);
@@ -147,11 +184,7 @@ export async function GET(request: NextRequest) {
         axisScores: composed.axisScores,
         totalScore: composed.totalScore,
         top3Axes,
-        scoreComponents: {
-          structural: composed.composition.totals.structural,
-          holdings: composed.composition.totals.holdings,
-          rss: composed.composition.totals.rss,
-        },
+        scoreComponents: composed.components,
         tags,
       };
     });
@@ -159,7 +192,7 @@ export async function GET(request: NextRequest) {
 
   if (!cached) {
     const computed = await computePlatformMapRatings(rawRatings, aliases);
-    const composedRatings = composeRatings(computed.ratings);
+    const composedRatings = composeRatings(computed.ratings, computed.regionAxisCounts);
     cached = {
       ratings: composedRatings,
       debug: computed.debug,
@@ -214,10 +247,12 @@ export async function GET(request: NextRequest) {
           ? "A(Stable)"
           : "A-"
         : rating.grade;
-    const hasEvidence =
-      (rating.scoreComponents?.structural ?? 0) > 0 ||
-      (rating.scoreComponents?.holdings ?? 0) > 0 ||
-      (rating.scoreComponents?.rss ?? 0) > 0;
+    const hasEvidence = ["structural", "holdings", "rss"].some((key) => {
+      const component = rating.scoreComponents?.[key as "structural" | "holdings" | "rss"];
+      if (!component) return false;
+      if (component.status === "not_observed") return false;
+      return component.score !== null;
+    });
     const scoreStatus = hasEvidence ? undefined : "데이터 부족";
     const factEntry = factEntryMap.get(`key:${rating.sigunguKey}`) ?? factEntryMap.get(rating.name);
     const reasons: string[] = [];

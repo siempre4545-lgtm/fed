@@ -46,13 +46,20 @@ export type PlatformMapSample = {
 
 export type PlatformMapGrade = "A" | "B" | "C" | "D";
 
+export type ScoreStatus = "confirmed" | "estimated" | "not_observed";
+
+export type ScoreComponent = {
+  score: number | null;
+  status: ScoreStatus;
+};
+
 export type PlatformMapRating = {
   name: string;
   sigunguKey: string;
   grade: PlatformMapGrade;
   gradeLabel?: string;
   scoreStatus?: "산정중" | "데이터 부족";
-  scoreComponents?: { structural: number; holdings: number; rss: number };
+  scoreComponents?: { structural: ScoreComponent; holdings: ScoreComponent; rss: ScoreComponent };
   scoreDelta?: number;
   totalScore: number;
   axisScores: AxisScore[];

@@ -8,6 +8,7 @@ import {
   type AxisArticleMap,
   type PlatformMapDetailResponse,
   type PlatformMapRating,
+  type ScoreComponent,
 } from "../../../lib/platform-map-v2/types";
 import type { HistoryResponse } from "../../../lib/platform-map-v2/history/types";
 import WhyNotACard from "../../../components/platform-map-v2/WhyNotACard";
@@ -21,6 +22,30 @@ const formatDate = (value: string) => {
 };
 
 const formatScore = (value: number) => (Number.isInteger(value) ? value.toString() : value.toFixed(1));
+const STATUS_LABEL = {
+  confirmed: "확정",
+  estimated: "추정",
+  not_observed: "관측 없음",
+} as const;
+const STRUCTURAL_MAX = 120;
+const HOLDINGS_MAX = 10;
+const RSS_MAX = 42;
+
+const formatComponentLine = (
+  label: string,
+  component: ScoreComponent | undefined,
+  max: number,
+  helper?: string,
+) => {
+  if (!component || component.status === "not_observed" || component.score === null) {
+    return { label, value: "관측 없음", helper };
+  }
+  return {
+    label,
+    value: `${component.score.toFixed(1)} / ${max} (${STATUS_LABEL[component.status]})`,
+    helper,
+  };
+};
 
 type NewsSourceResult = {
   source: string;
@@ -142,6 +167,22 @@ export default function Page({ params }: { params: { sigungu: string } }) {
     [rating],
   );
 
+  const summaryText = useMemo(() => {
+    if (!rating?.scoreComponents) return "";
+    const gradeLabel = rating.gradeLabel ?? rating.grade;
+    const holdingsStatus = rating.scoreComponents.holdings.status;
+    const rssStatus = rating.scoreComponents.rss.status;
+    const holdingsText =
+      holdingsStatus === "confirmed"
+        ? "기관/리츠 매집은 공시 데이터로 확인됩니다"
+        : holdingsStatus === "estimated"
+        ? "기관/리츠 매집은 구조 기준상 추정 매집 가능성이 높습니다"
+        : "기관/리츠 매집은 아직 공개 데이터가 없습니다";
+    const rssText =
+      rssStatus === "confirmed" ? "RSS 변화가 반영되었습니다" : "RSS 변화는 관측되지 않았습니다";
+    return `이 지역은 구조적으로 ${gradeLabel} 등급이며, ${holdingsText}. ${rssText}.`;
+  }, [rating]);
+
   const weeklySeries = history?.weeklyAverage.slice(-7) ?? [];
   const monthlySeries = history?.monthlyAverage.slice(-30) ?? [];
 
@@ -205,6 +246,9 @@ export default function Page({ params }: { params: { sigungu: string } }) {
               "데이터 없음"
             )}
           </div>
+          {summaryText && (
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>{summaryText}</div>
+          )}
           {rating?.pisStatus && (
             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
               기관 선행 신호: {rating.pisStatus}
@@ -292,18 +336,28 @@ export default function Page({ params }: { params: { sigungu: string } }) {
               구조적 기정사실 + 기관/리츠 매집 + RSS 변화 점수를 합산합니다.
             </div>
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                <span>구조적 기정사실</span>
-                <span>{rating.scoreComponents.structural.toFixed(1)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                <span>기관/리츠 매집</span>
-                <span>{rating.scoreComponents.holdings.toFixed(1)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                <span>RSS 변화</span>
-                <span>{rating.scoreComponents.rss.toFixed(1)}</span>
-              </div>
+              {[
+                formatComponentLine(
+                  "구조적 기정사실",
+                  rating.scoreComponents.structural,
+                  STRUCTURAL_MAX,
+                ),
+                formatComponentLine(
+                  "기관/리츠 매집",
+                  rating.scoreComponents.holdings,
+                  HOLDINGS_MAX,
+                  rating.scoreComponents.holdings.status === "estimated" ? "추정치(구조 기반)" : undefined,
+                ),
+                formatComponentLine("RSS 변화", rating.scoreComponents.rss, RSS_MAX),
+              ].map((item) => (
+                <div key={item.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span>
+                    {item.label}
+                    {item.helper && <span style={{ fontSize: 10, color: "#94a3b8" }}> · {item.helper}</span>}
+                  </span>
+                  <span>{item.value}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
