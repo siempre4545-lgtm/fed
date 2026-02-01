@@ -809,6 +809,7 @@ function loadHistoryChunk(selectedDate) {
       const prevRows = window.__fedReportHistoryRows || [];
       const skipFirst = cursor && rows[0]?.date === cursor;
       const toAppend = skipFirst ? rows.slice(1) : rows;
+      const isFirstChunk = prevRows.length === 1;
       toAppend.forEach((row) => {
         const securitiesHeld =
           (row.treasury?.value ?? 0) + (row.mbs?.value ?? 0);
@@ -831,6 +832,25 @@ function loadHistoryChunk(selectedDate) {
           repos,
         });
       });
+      if (isFirstChunk && toAppend.length > 0 && historyTableBody) {
+        const firstRow = historyTableBody.querySelector("tr.history-row-current");
+        const firstPrev = toAppend[0];
+        const prevSh = (firstPrev.treasury?.value ?? 0) + (firstPrev.mbs?.value ?? 0);
+        const prevRr = firstPrev.rrp?.value ?? null;
+        const prevTga = firstPrev.tga?.value ?? null;
+        const prevRepos = firstPrev.repo?.value ?? null;
+        const current = prevRows[0];
+        if (firstRow && current) {
+          const dateTd = firstRow.querySelector("td");
+          const dateText = dateTd ? dateTd.textContent || "" : "";
+          firstRow.innerHTML =
+            `<td>${dateText}</td>` +
+            historyCell(current.securitiesHeld, prevSh) +
+            historyCell(current.reverseRepo, prevRr) +
+            historyCell(current.tga, prevTga) +
+            historyCell(current.repos, prevRepos);
+        }
+      }
       window.__fedReportHistoryRows = prevRows;
       window.__fedReportHistoryNextCursor = data.nextCursor || null;
       if (historyMoreWrap) {
