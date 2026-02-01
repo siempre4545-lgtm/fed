@@ -1172,8 +1172,8 @@ app.get("/api/h41.txt", async (_req, res) => {
   }
 });
 
-// UI: 개선된 대시보드
-app.get("/", async (req, res) => {
+// UI: 개선된 대시보드 (루트 및 /dashboard 공통 핸들러)
+async function handleDashboard(req: express.Request, res: express.Response) {
   try {
     // 날짜 파라미터 확인 (YYYY-MM-DD 형식)
     const targetDate = req.query.date as string | undefined;
@@ -1840,7 +1840,9 @@ app.get("/", async (req, res) => {
   } catch (e: any) {
     res.status(500).send(e?.message ?? String(e));
   }
-});
+}
+app.get("/", handleDashboard);
+app.get("/dashboard", handleDashboard);
 
 // 레벨 설명 페이지
 app.get("/levels", async (_req, res) => {
