@@ -1,21 +1,16 @@
-const SAFE_ASSETS = [
-  "GLD",
-  "DXY",
-  "SHY",
-  "IEF",
-  "TLT",
-  "KO",
-  "WMT",
-  "PEP",
-  "KHC",
-  "CL",
-  "AWK",
-  "ECL",
-  "GEV",
-  "XYL",
-];
+const SAFE_ASSETS = ["GLD", "SGOV"];
 
-const HEDGE_ASSETS = ["USO", "SLV", "VIX"];
+const HEDGE_ASSETS = [
+  "USO",
+  "SLV",
+  "VIX",
+  "UNG",
+  "DBA",
+  "CORN",
+  "WEAT",
+  "CPER",
+  "LIT",
+];
 
 const RISK_SECTORS = {
   빅테크: ["AAPL", "AMZN", "GOOG", "META", "MSFT", "TSLA", "NVDA"],
@@ -23,8 +18,11 @@ const RISK_SECTORS = {
   장수과학: ["NTLA", "UNH", "CRSP"],
   합성생물학: ["DNA"],
   양자컴퓨터: ["IONQ", "RGTI"],
-  인프라: ["GLW", "TEL", "VRT"],
-  미래에너지: ["FLNC", "GEV", "NEE", "OKLO", "PWR", "SMR", "APD", "ETN"],
+  인프라: ["FLNC"],
+  "데이터/냉각기술": ["VRT"],
+  "데이터/해저케이블": ["GLW", "TEL"],
+  전력: ["ETN", "GEV", "PWR"],
+  미래에너지: ["NEE", "OKLO", "SMR", "APD"],
   결제시스템: ["HOOD", "V", "PYPL", "AXP"],
   "금융/자산운용": ["BLK", "GS", "JPM", "MS"],
   "명품/사치재": ["LVMH", "HESAY", "PPRUY"],
@@ -65,6 +63,9 @@ const page2 = document.getElementById("page2");
 const safeValueEl = document.getElementById("safeValue");
 const riskValueEl = document.getElementById("riskValue");
 const hedgeValueEl = document.getElementById("hedgeValue");
+const linkSafe = document.getElementById("linkSafe");
+const linkRisk = document.getElementById("linkRisk");
+const linkHedge = document.getElementById("linkHedge");
 
 let lineChart = null;
 let barChart = null;
@@ -164,6 +165,13 @@ const updateQuery = (state) => {
   const qs = params.toString();
   const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
   window.history.replaceState(null, "", nextUrl);
+};
+
+const updateBasketLinks = () => {
+  const d = state.date || dateInput.value || new Date().toISOString().slice(0, 10);
+  if (linkSafe) linkSafe.href = `/macro-trace/basket/safe?date=${d}`;
+  if (linkRisk) linkRisk.href = `/macro-trace/basket/risk?date=${d}`;
+  if (linkHedge) linkHedge.href = `/macro-trace/basket/hedge?date=${d}`;
 };
 
 const renderActions = (state) => {
@@ -470,9 +478,12 @@ const state = {
 };
 
 dateInput.value = state.date;
+updateBasketLinks();
+
 applyButton.addEventListener("click", () => {
   state.date = dateInput.value || today;
   updateQuery(state);
+  updateBasketLinks();
   loadData();
 });
 

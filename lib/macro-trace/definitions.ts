@@ -2,25 +2,19 @@ import type { BucketKey, SectorDefinition, TickerDefinition } from "./types";
 
 export const SAFE_ASSETS: TickerDefinition[] = [
   { key: "GLD", label: "금 (GLD)", bucket: "safe" },
-  { key: "DXY", label: "달러 인덱스 (DXY, 대체:UUP)", bucket: "safe", ticker: "UUP" },
-  { key: "SHY", label: "단기국채 (SHY)", bucket: "safe" },
-  { key: "IEF", label: "중기국채 (IEF)", bucket: "safe" },
-  { key: "TLT", label: "초장기국채 (TLT)", bucket: "safe" },
-  { key: "KO", label: "필수소비재 (KO)", bucket: "safe" },
-  { key: "WMT", label: "필수소비재 (WMT)", bucket: "safe" },
-  { key: "PEP", label: "필수소비재 (PEP)", bucket: "safe" },
-  { key: "KHC", label: "필수소비재 (KHC)", bucket: "safe" },
-  { key: "CL", label: "필수소비재 (CL)", bucket: "safe" },
-  { key: "AWK", label: "물 (AWK)", bucket: "safe" },
-  { key: "ECL", label: "식량 (ECL)", bucket: "safe" },
-  { key: "GEV", label: "수자원/대기물 (GEV)", bucket: "safe" },
-  { key: "XYL", label: "수자원 (XYL)", bucket: "safe" },
+  { key: "SGOV", label: "미국 0~3개월 T-Bill (SGOV)", bucket: "safe" },
 ];
 
 export const HEDGE_ASSETS: TickerDefinition[] = [
   { key: "USO", label: "원유 (USO)", bucket: "hedge" },
   { key: "SLV", label: "은 (SLV)", bucket: "hedge" },
   { key: "VIX", label: "변동성 (VIX, 대체:VIXY)", bucket: "hedge", ticker: "VIXY" },
+  { key: "UNG", label: "천연가스 (UNG)", bucket: "hedge" },
+  { key: "DBA", label: "농산물 종합 (DBA)", bucket: "hedge" },
+  { key: "CORN", label: "옥수수 (CORN)", bucket: "hedge" },
+  { key: "WEAT", label: "밀 (WEAT)", bucket: "hedge" },
+  { key: "CPER", label: "구리 (CPER)", bucket: "hedge" },
+  { key: "LIT", label: "리튬 (LIT)", bucket: "hedge" },
 ];
 
 export const RISK_SECTORS: Record<string, string[]> = {
@@ -29,8 +23,11 @@ export const RISK_SECTORS: Record<string, string[]> = {
   장수과학: ["NTLA", "UNH", "CRSP"],
   합성생물학: ["DNA"],
   양자컴퓨터: ["IONQ", "RGTI"],
-  인프라: ["GLW", "TEL", "VRT"],
-  미래에너지: ["FLNC", "GEV", "NEE", "OKLO", "PWR", "SMR", "APD", "ETN"],
+  인프라: ["FLNC"],
+  "데이터/냉각기술": ["VRT"],
+  "데이터/해저케이블": ["GLW", "TEL"],
+  전력: ["ETN", "GEV", "PWR"],
+  미래에너지: ["NEE", "OKLO", "SMR", "APD"],
   결제시스템: ["HOOD", "V", "PYPL", "AXP"],
   "금융/자산운용": ["BLK", "GS", "JPM", "MS"],
   "명품/사치재": ["LVMH", "HESAY", "PPRUY"],
