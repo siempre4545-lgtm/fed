@@ -777,7 +777,7 @@ function renderHistoryTab() {
       { securitiesHeld: sh, reverseRepo: rr, tga, repos },
     ];
   }
-  window.__fedReportHistoryOffset = 0;
+  window.__fedReportHistoryNextCursor = date;
   loadHistoryChunk(date);
 }
 
@@ -788,34 +788,42 @@ function renderHistoryIfActive() {
   }
 }
 
-function loadHistoryChunk(beforeDate) {
-  const offset = window.__fedReportHistoryOffset ?? 0;
-  const limit = 5;
+function loadHistoryChunk(selectedDate) {
+  const cursor = window.__fedReportHistoryNextCursor ?? selectedDate;
+  const limit = 6;
   if (historyStatusEl) historyStatusEl.textContent = "이전 데이터 불러오는 중...";
-  fetch(
-    `/api/h41/history?before=${encodeURIComponent(beforeDate)}&limit=${limit}&offset=${offset}`
-  )
+  const url =
+    "/api/h41/releases?limit=" +
+    limit +
+    (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+  fetch(url, { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
     .then((res) => res.json())
     .then((data) => {
       if (historyStatusEl) historyStatusEl.textContent = "";
-      if (!data.ok || !Array.isArray(data.rows)) return;
+      if (!data.ok || !Array.isArray(data.rows)) {
+        if (historyStatusEl && !window.__fedReportHistoryRows?.length)
+          historyStatusEl.textContent = "이전 데이터를 불러오지 못했습니다.";
+        return;
+      }
       const rows = data.rows;
       const prevRows = window.__fedReportHistoryRows || [];
-      rows.forEach((row) => {
+      const skipFirst = cursor && rows[0]?.date === cursor;
+      const toAppend = skipFirst ? rows.slice(1) : rows;
+      toAppend.forEach((row) => {
         const securitiesHeld =
-          (row.assets?.treasury ?? 0) + (row.assets?.mbs ?? 0);
-        const reverseRepo = row.liabilities?.rrp ?? null;
-        const tga = row.liabilities?.tga ?? null;
-        const repos = row.assets?.repo ?? null;
+          (row.treasury?.value ?? 0) + (row.mbs?.value ?? 0);
+        const reverseRepo = row.rrp?.value ?? null;
+        const tga = row.tga?.value ?? null;
+        const repos = row.repo?.value ?? null;
         const prev = prevRows[prevRows.length - 1];
         const tr = document.createElement("tr");
         tr.innerHTML =
-          `<td>${row.date}</td>` +
+          `<td>${row.date || ""}</td>` +
           historyCell(securitiesHeld, prev?.securitiesHeld ?? null) +
           historyCell(reverseRepo, prev?.reverseRepo ?? null) +
           historyCell(tga, prev?.tga ?? null) +
           historyCell(repos, prev?.repos ?? null);
-        historyTableBody.appendChild(tr);
+        if (historyTableBody) historyTableBody.appendChild(tr);
         prevRows.push({
           securitiesHeld,
           reverseRepo,
@@ -824,13 +832,17 @@ function loadHistoryChunk(beforeDate) {
         });
       });
       window.__fedReportHistoryRows = prevRows;
-      window.__fedReportHistoryOffset = offset + rows.length;
+      window.__fedReportHistoryNextCursor = data.nextCursor || null;
       if (historyMoreWrap) {
-        historyMoreWrap.classList.toggle("hidden", !data.meta?.hasMore);
+        historyMoreWrap.classList.toggle(
+          "hidden",
+          !window.__fedReportHistoryNextCursor
+        );
       }
     })
     .catch(() => {
-      if (historyStatusEl) historyStatusEl.textContent = "이전 데이터를 불러오지 못했습니다.";
+      if (historyStatusEl)
+        historyStatusEl.textContent = "이전 데이터를 불러오지 못했습니다.";
     });
 }
 
