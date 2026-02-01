@@ -1569,11 +1569,11 @@ async function handleDashboard(req: express.Request, res: express.Response) {
     
     /* 신호등 UI */
     .header-right-buttons{display:flex;gap:12px;align-items:flex-start;flex-shrink:0}
-    .traffic-light-container{position:relative}
-    .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px}
+    .traffic-light-container{position:relative;flex:1;min-width:80px;max-width:95px}
+    .traffic-light-link{display:flex;flex-direction:column;align-items:center;text-decoration:none;padding:12px 16px;border-radius:12px;background:#1f1f1f;border:1px solid #2d2d2d;transition:all 0.2s;min-width:80px;width:100%;box-sizing:border-box}
     .traffic-light-link:hover{background:#252525;border-color:#3d3d3d;transform:translateY(-2px)}
-    .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1)}
-    .traffic-light-label{font-size:12px;font-weight:600;color:#c0c0c0;text-align:center}
+    .traffic-light-circle{width:32px;height:32px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 12px rgba(0,0,0,0.3),inset 0 2px 4px rgba(255,255,255,0.1);flex-shrink:0}
+    .traffic-light-label{font-size:12px;font-weight:600;color:#c0c0c0;text-align:center;word-break:break-word;white-space:normal;line-height:1.3}
     .traffic-light-score{font-size:10px;color:#808080;margin-top:4px}
     
     .warning-header{padding:24px;border-bottom:1px solid #2d2d2d;margin:0;background:#1a1a1a;margin-bottom:24px}
@@ -1680,7 +1680,7 @@ async function handleDashboard(req: express.Request, res: express.Response) {
       .signal-detail{flex-direction:column;gap:8px}
       .page-header{flex-direction:column;align-items:stretch}
       .header-right-buttons{margin-top:16px;justify-content:center;gap:8px}
-      .traffic-light-container{flex:1;max-width:calc(50% - 4px)}
+      .traffic-light-container{flex:1;min-width:80px;max-width:calc(50% - 4px)}
       .traffic-light-link{padding:10px 12px;min-width:auto}
       .traffic-light-circle{width:28px;height:28px;margin-bottom:6px}
       .traffic-light-label{font-size:11px}
@@ -1752,7 +1752,9 @@ async function handleDashboard(req: express.Request, res: express.Response) {
       <div class="traffic-light-container">
         <a href="/fed_report_sh" class="traffic-light-link" title="FED H.4.1 상세 대시보드">
           <div class="traffic-light-circle" style="background:linear-gradient(135deg,#4dabf7 0%,#339af0 100%)"></div>
-          <div class="traffic-light-label">fed_dashboard</div>
+          <div class="traffic-light-label">fed</div>
+          <div class="traffic-light-label" style="color:#4dabf7;font-weight:700">dashboard</div>
+          <div class="traffic-light-score">상세</div>
         </a>
       </div>
     </div>
