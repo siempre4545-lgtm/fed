@@ -922,10 +922,14 @@ app.get("/api/h41", async (req, res) => {
   }
 });
 
-// API: 최근 10회분 히스토리 데이터 (디버깅용)
+// API: 최근 10회분 히스토리 데이터 (디버깅용). before=YYYY-MM-DD 이면 해당 날짜 미만만 반환
 app.get("/api/h41/history", async (req, res) => {
   try {
-    const releaseDates = await getFedReleaseDates();
+    let releaseDates = await getFedReleaseDates();
+    const before = (req.query.before as string) || "";
+    if (before && /^\d{4}-\d{2}-\d{2}$/.test(before)) {
+      releaseDates = releaseDates.filter((d) => d < before);
+    }
     const offset = parseInt(req.query.offset as string) || 0;
     const limit = parseInt(req.query.limit as string) || 10;
     const datesToFetch = releaseDates.slice(offset, Math.min(offset + limit, releaseDates.length));
@@ -1029,6 +1033,7 @@ app.get("/api/h41/history", async (req, res) => {
       errors: Array.isArray(errors) ? errors : [],
       meta: {
         source: 'feed',
+        before: before || undefined,
         offset: Number.isFinite(offset) ? offset : 0,
         limit: Number.isFinite(limit) ? limit : 10,
         hasMore: offset + limit < releaseDates.length,

@@ -55,6 +55,7 @@
         <button class="tab-button" data-tab="maturity">만기 분포</button>
         <button class="tab-button" data-tab="loans">대출/증권</button>
         <button class="tab-button" data-tab="financials">재무제표</button>
+        <button class="tab-button" data-tab="history">히스토리</button>
       </section>
 
       <section class="overview tab-panel active" data-panel="overview">
@@ -126,6 +127,30 @@
             <h3>부채 (Liabilities)</h3>
             <div id="liabilitiesTableContainer" class="card"></div>
           </div>
+        </div>
+      </section>
+
+      <section class="history tab-panel" data-panel="history">
+        <h2>히스토리</h2>
+        <div id="historyContainer" class="card">
+          <div class="table-scroll">
+            <table class="data-table history-table">
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th>보유 증권 (Securities Held)</th>
+                  <th>역레포 (Reverse Repos)</th>
+                  <th>재무부 일반계정 (TGA)</th>
+                  <th>레포 (Repos)</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody"></tbody>
+            </table>
+          </div>
+          <div id="historyMoreWrap" class="history-more-wrap hidden">
+            <button type="button" id="historyMoreBtn" class="button history-more-btn">더보기</button>
+          </div>
+          <div id="historyStatus" class="history-status"></div>
         </div>
       </section>
     </main>

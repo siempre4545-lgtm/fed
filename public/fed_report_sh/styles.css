@@ -255,6 +255,63 @@ section {
   font-weight: 600;
 }
 
+/* 공급요인 탭: 항목명 폰트 색상 */
+.factor-label-reserveBankCredit {
+  color: #3b82f6;
+}
+.factor-label-securitiesHeld,
+.factor-label-repos,
+.factor-label-loans,
+.factor-label-gold {
+  color: #eab308;
+}
+
+/* 히스토리 탭 */
+.history-table td {
+  vertical-align: top;
+}
+.history-delta {
+  display: block;
+  font-size: 0.8em;
+  margin-top: 2px;
+}
+.history-delta-up {
+  color: var(--positive);
+  font-weight: 600;
+}
+.history-delta-down {
+  color: var(--negative);
+  font-weight: 600;
+}
+.history-delta-zero {
+  color: var(--muted);
+}
+.history-more-wrap {
+  margin-top: 12px;
+  text-align: center;
+}
+.history-more-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+}
+.history-more-btn:hover {
+  background: var(--border);
+}
+.history-status {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.history-row-current td {
+  font-weight: 600;
+  background: rgba(157, 179, 166, 0.08);
+}
+
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -362,6 +419,14 @@ section {
   color: var(--muted);
   font-size: 0.95rem;
   font-weight: 400;
+}
+
+.card-subtitle {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-bottom: 6px;
+  opacity: 0.85;
 }
 
 .change {

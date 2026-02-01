@@ -23,6 +23,10 @@ const assetsTableContainer = document.getElementById("assetsTableContainer");
 const liabilitiesTableContainer = document.getElementById(
   "liabilitiesTableContainer"
 );
+const historyTableBody = document.getElementById("historyTableBody");
+const historyMoreWrap = document.getElementById("historyMoreWrap");
+const historyMoreBtn = document.getElementById("historyMoreBtn");
+const historyStatusEl = document.getElementById("historyStatus");
 const settingsButton = document.getElementById("settingsButton");
 const settingsPanel = document.getElementById("settingsPanel");
 const tabButtons = document.querySelectorAll(".tab-button");
@@ -120,6 +124,7 @@ tabButtons.forEach((button) => {
     tabPanels.forEach((panel) =>
       panel.classList.toggle("active", panel.dataset.panel === target)
     );
+    if (target === "history") renderHistoryTab();
   });
 });
 
@@ -144,6 +149,9 @@ function fetchH41(date) {
   securitiesTableContainer.innerHTML = "";
   assetsTableContainer.innerHTML = "";
   liabilitiesTableContainer.innerHTML = "";
+  if (historyTableBody) historyTableBody.innerHTML = "";
+  if (historyMoreWrap) historyMoreWrap.classList.add("hidden");
+  if (historyStatusEl) historyStatusEl.textContent = "";
 
   fetch(`/api/h41?date=${date}`)
     .then(async (response) => {
@@ -155,6 +163,8 @@ function fetchH41(date) {
     })
     .then((data) => {
       setStatus("데이터 수집 완료", "success");
+      window.__fedReportLastFactors = data.factors;
+      window.__fedReportLastDate = date;
       renderOverview(data.overview);
       renderAssets(data.assetRatios);
       renderFactors(data.factors);
@@ -162,6 +172,7 @@ function fetchH41(date) {
       renderMaturity(data.maturityDistribution);
       renderLoansAndSecurities(data.loansAndSecurities);
       renderFinancials(data.financials);
+      renderHistoryIfActive();
       logDebug(data);
     })
     .catch((error) => {
@@ -285,18 +296,26 @@ function renderSummary(summary) {
   );
 }
 
+const totalsSubtitles = {
+  totalSupplying: "*준비금을 늘린 요인",
+  totalAbsorbing: "*준비금을 빼앗은 요인",
+  reserveBalances: "*은행들이 연준계좌에 갖고있는 돈",
+};
+
 function renderFactorGroup(group, labels) {
   const entries = Object.entries(labels);
   return entries
     .map(([key, label]) => {
       const value = group ? group[key] : null;
+      const subtitle = totalsSubtitles[key] || "";
       if (!value) {
-        return createCard(label, "데이터 없음", "");
+        return createCard(label, "데이터 없음", subtitle ? `<div class="card-subtitle">${subtitle}</div>` : "");
       }
       const current = formatNumber(value.current);
       const weekly = renderChangeLabel("주간", value.weeklyChange, value.weeklyChangePct);
       const yearly = renderChangeLabel("연간", value.yearlyChange, value.yearlyChangePct);
-      return createCard(label, current, `${weekly}<br />${yearly}`);
+      const subtitleHtml = subtitle ? `<div class="card-subtitle">${subtitle}</div>` : "";
+      return createCard(label, current, `${subtitleHtml}${weekly}<br />${yearly}`);
     })
     .join("");
 }
@@ -305,10 +324,11 @@ function renderFactorTable(group, labels) {
   const rows = Object.entries(labels)
     .map(([key, label]) => {
       const value = group ? group[key] : null;
+      const thClass = "factor-label factor-label-" + key;
       if (!value) {
         return `
           <tr>
-            <th>${label}</th>
+            <th class="${thClass}">${label}</th>
             <td>—</td>
             <td>—</td>
             <td>—</td>
@@ -317,7 +337,7 @@ function renderFactorTable(group, labels) {
       }
       return `
         <tr>
-          <th>${label}</th>
+          <th class="${thClass}">${label}</th>
           <td>${formatNumber(value.current)}</td>
           <td>${renderChangeLabel("", value.weeklyChange, value.weeklyChangePct)}</td>
           <td>${renderChangeLabel("", value.yearlyChange, value.yearlyChangePct)}</td>
@@ -702,6 +722,123 @@ function logDebug(data) {
     });
   });
   console.groupEnd();
+}
+
+function historyCell(value, prevValue) {
+  const num = value != null ? Number(value) : NaN;
+  const prev = prevValue != null ? Number(prevValue) : NaN;
+  const text = formatNumber(value);
+  if (!Number.isFinite(num) || !Number.isFinite(prev)) {
+    return `<td>${text}</td>`;
+  }
+  const delta = num - prev;
+  if (delta === 0) {
+    return `<td>${text}<span class="history-delta history-delta-zero">0</span></td>`;
+  }
+  const sign = delta > 0 ? "+" : "";
+  const cls = delta > 0 ? "history-delta-up" : "history-delta-down";
+  return `<td>${text}<span class="history-delta ${cls}">${sign}${formatNumber(delta)}</span></td>`;
+}
+
+function renderHistoryTab() {
+  if (!historyTableBody) return;
+  const factors = window.__fedReportLastFactors;
+  const date = window.__fedReportLastDate || dateInput.value;
+  historyTableBody.innerHTML = "";
+  if (historyStatusEl) historyStatusEl.textContent = "";
+  if (historyMoreWrap) historyMoreWrap.classList.add("hidden");
+
+  if (!date) {
+    if (historyStatusEl) historyStatusEl.textContent = "날짜를 선택한 뒤 조회해 주세요.";
+    return;
+  }
+
+  if (!factors || !factors.supplying || !factors.absorbing) {
+    if (historyStatusEl) historyStatusEl.textContent = "먼저 상단에서 날짜를 선택한 뒤 조회해 주세요.";
+    return;
+  }
+
+  {
+    const sh = factors.supplying.securitiesHeld?.current;
+    const rr = factors.absorbing.reverseRepo?.current;
+    const tga = factors.absorbing.tga?.current;
+    const repos = factors.supplying.repos?.current;
+    const tr = document.createElement("tr");
+    tr.className = "history-row-current";
+    tr.innerHTML = `
+      <td>${date}</td>
+      <td>${formatNumber(sh)}</td>
+      <td>${formatNumber(rr)}</td>
+      <td>${formatNumber(tga)}</td>
+      <td>${formatNumber(repos)}</td>
+    `;
+    historyTableBody.appendChild(tr);
+    window.__fedReportHistoryRows = [
+      { securitiesHeld: sh, reverseRepo: rr, tga, repos },
+    ];
+  }
+  window.__fedReportHistoryOffset = 0;
+  loadHistoryChunk(date);
+}
+
+function renderHistoryIfActive() {
+  const activePanel = document.querySelector(".tab-panel.active");
+  if (activePanel && activePanel.dataset.panel === "history") {
+    renderHistoryTab();
+  }
+}
+
+function loadHistoryChunk(beforeDate) {
+  const offset = window.__fedReportHistoryOffset ?? 0;
+  const limit = 5;
+  if (historyStatusEl) historyStatusEl.textContent = "이전 데이터 불러오는 중...";
+  fetch(
+    `/api/h41/history?before=${encodeURIComponent(beforeDate)}&limit=${limit}&offset=${offset}`
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (historyStatusEl) historyStatusEl.textContent = "";
+      if (!data.ok || !Array.isArray(data.rows)) return;
+      const rows = data.rows;
+      const prevRows = window.__fedReportHistoryRows || [];
+      rows.forEach((row) => {
+        const securitiesHeld =
+          (row.assets?.treasury ?? 0) + (row.assets?.mbs ?? 0);
+        const reverseRepo = row.liabilities?.rrp ?? null;
+        const tga = row.liabilities?.tga ?? null;
+        const repos = row.assets?.repo ?? null;
+        const prev = prevRows[prevRows.length - 1];
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${row.date}</td>` +
+          historyCell(securitiesHeld, prev?.securitiesHeld ?? null) +
+          historyCell(reverseRepo, prev?.reverseRepo ?? null) +
+          historyCell(tga, prev?.tga ?? null) +
+          historyCell(repos, prev?.repos ?? null);
+        historyTableBody.appendChild(tr);
+        prevRows.push({
+          securitiesHeld,
+          reverseRepo,
+          tga,
+          repos,
+        });
+      });
+      window.__fedReportHistoryRows = prevRows;
+      window.__fedReportHistoryOffset = offset + rows.length;
+      if (historyMoreWrap) {
+        historyMoreWrap.classList.toggle("hidden", !data.meta?.hasMore);
+      }
+    })
+    .catch(() => {
+      if (historyStatusEl) historyStatusEl.textContent = "이전 데이터를 불러오지 못했습니다.";
+    });
+}
+
+if (historyMoreBtn) {
+  historyMoreBtn.addEventListener("click", () => {
+    const date = window.__fedReportLastDate || dateInput.value;
+    if (date) loadHistoryChunk(date);
+  });
 }
 
 const today = new Date();
