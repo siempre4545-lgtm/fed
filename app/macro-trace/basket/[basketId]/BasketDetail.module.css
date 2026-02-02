@@ -1,0 +1,139 @@
+.page {
+  min-height: 100vh;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 16px;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0f172a;
+  padding: 12px 0;
+  border-bottom: 1px solid #334155;
+}
+
+.backLink {
+  color: #93c5fd;
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.dateRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dateRow label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dateRow input {
+  padding: 6px 10px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  border-radius: 6px;
+}
+
+.btnRefresh {
+  padding: 6px 14px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btnRefresh:hover {
+  background: #1d4ed8;
+}
+
+.content {
+  padding: 24px 0;
+}
+
+.title {
+  font-size: 1.25rem;
+  margin-bottom: 16px;
+}
+
+.warnings {
+  color: #fbbf24;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.errMsg {
+  color: #f87171;
+  margin-bottom: 12px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+}
+
+.table th {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.table td {
+  color: #e2e8f0;
+}
+
+.tooltip {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin-left: 4px;
+}
+
+/* 변동률: 양수(증가) 초록, 음수(하락) 빨강 — .table td보다 우선 적용 */
+.table td.changePositive {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.table td.changeNegative {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.table td.changeNeutral {
+  color: #e2e8f0;
+}
+
+/* 위험자산 섹터 열병합 셀 */
+.sectorCell {
+  vertical-align: middle;
+  font-weight: 600;
+  color: #94a3b8;
+  border-right: 1px solid #334155;
+}
+
+.content a {
+  color: #93c5fd;
+}

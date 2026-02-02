@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
@@ -191,7 +192,7 @@ export const MacroTraceDashboard = () => {
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
-          <div className={styles.title}>월목토 루틴</div>
+          <div className={styles.title}>목금월 루틴</div>
           <div className={styles.subtitle}>
             1Q/2Q/3Q 시간대별 변동률을 기반으로 자산 바스켓을 요약합니다.
           </div>
@@ -256,15 +257,21 @@ export const MacroTraceDashboard = () => {
         <>
           <div className={styles.cards}>
             {[
-              { title: "안전자산 바스켓", value: bucketSeries.safe.Q3 },
-              { title: "위험자산 바스켓", value: bucketSeries.risk.Q3 },
-              { title: "헷징자산 바스켓", value: bucketSeries.hedge.Q3 },
+              { id: "safe", title: "안전자산 바스켓", value: bucketSeries.safe.Q3 },
+              { id: "risk", title: "위험자산 바스켓", value: bucketSeries.risk.Q3 },
+              { id: "hedge", title: "헷징자산 바스켓", value: bucketSeries.hedge.Q3 },
             ].map((card) => (
-              <div key={card.title} className={styles.card}>
-                <div className={styles.cardTitle}>{card.title}</div>
-                <div className={styles.cardValue}>{formatPct(card.value)}</div>
-                <div className={styles.subtitle}>3Q 평균</div>
-              </div>
+              <Link
+                key={card.title}
+                href={`/macro-trace/basket/${card.id}?date=${date}`}
+                className={styles.cardLink}
+              >
+                <div className={styles.card}>
+                  <div className={styles.cardTitle}>{card.title}</div>
+                  <div className={styles.cardValue}>{formatPct(card.value)}</div>
+                  <div className={styles.subtitle}>3Q 평균</div>
+                </div>
+              </Link>
             ))}
           </div>
 

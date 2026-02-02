@@ -56,6 +56,7 @@
         <button class="tab-button" data-tab="loans">대출/증권</button>
         <button class="tab-button" data-tab="financials">재무제표</button>
         <button class="tab-button" data-tab="history">히스토리</button>
+        <button class="tab-button" data-tab="sec13dfg">13D/F/G</button>
       </section>
 
       <section class="overview tab-panel active" data-panel="overview">
@@ -138,6 +139,7 @@
               <thead>
                 <tr>
                   <th>날짜</th>
+                  <th>총자산 (Total Assets)</th>
                   <th>보유 증권 (Securities Held)</th>
                   <th>역레포 (Reverse Repos)</th>
                   <th>재무부 일반계정 (TGA)</th>
@@ -151,6 +153,55 @@
             <button type="button" id="historyMoreBtn" class="button history-more-btn">더보기</button>
           </div>
           <div id="historyStatus" class="history-status"></div>
+        </div>
+      </section>
+
+      <section class="sec13dfg tab-panel" data-panel="sec13dfg">
+        <h2>13D/F/G — SEC 공시 흐름</h2>
+        <div id="sec13dfgContainer" class="card">
+          <div id="sec13dfgIntro" class="sec13dfg-intro">
+            <p>기관을 선택하면 최근 13D·13G·13F 공시 이벤트와 원문 링크를 확인할 수 있습니다.</p>
+            <div class="sec13dfg-org-select">
+              <label for="sec13dfgOrg">기관 선택</label>
+              <select id="sec13dfgOrg">
+                <option value="">선택하세요</option>
+                <option value="BlackRock, Inc.">BlackRock, Inc.</option>
+                <option value="The Vanguard Group">The Vanguard Group</option>
+                <option value="JPMorgan Chase & Co.">JPMorgan Chase & Co.</option>
+                <option value="Morgan Stanley">Morgan Stanley</option>
+                <option value="Fidelity Investments">Fidelity Investments</option>
+                <option value="Charles Schwab Corporation">Charles Schwab Corporation</option>
+              </select>
+              <button type="button" id="sec13dfgLoad" class="button" disabled>불러오기</button>
+            </div>
+            <div id="sec13dfgCikManual" class="sec13dfg-manual hidden">
+              <label for="sec13dfgCikInput">CIK 수동 입력</label>
+              <input type="text" id="sec13dfgCikInput" placeholder="예: 0001364742" />
+              <button type="button" id="sec13dfgLoadByCik" class="button">조회</button>
+            </div>
+          </div>
+          <div id="sec13dfgStatus" class="sec13dfg-status hidden"></div>
+          <div id="sec13dfgSummary" class="sec13dfg-summary hidden"></div>
+          <div id="sec13dfgTableWrap" class="table-scroll sec13dfg-table-wrap hidden">
+            <table class="data-table sec13dfg-table">
+              <thead>
+                <tr>
+                  <th>filingDate</th>
+                  <th>formType</th>
+                  <th>accessionNumber</th>
+                  <th>SEC 원문</th>
+                  <th>note</th>
+                </tr>
+              </thead>
+              <tbody id="sec13dfgTableBody"></tbody>
+            </table>
+          </div>
+          <div id="sec13dfgExplain" class="sec13dfg-explain hidden">
+            <h3>설명</h3>
+            <p><strong>13D / 13G:</strong> 5% 이상 보유 관련 공시 (그룹 제출 가능).</p>
+            <p><strong>13F:</strong> 분기별 기관 포트폴리오 공시.</p>
+            <p>숫자 직접 비교는 하지 않고, 방향성과 타이밍 중심 해석을 권장합니다.</p>
+          </div>
         </div>
       </section>
     </main>

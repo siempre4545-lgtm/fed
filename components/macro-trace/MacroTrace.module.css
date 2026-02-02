@@ -74,6 +74,18 @@
   gap: 12px;
 }
 
+.cardLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  cursor: pointer;
+}
+
+.cardLink:hover .card {
+  border-color: #374151;
+  background: #1a2332;
+}
+
 .card,
 .chartCard,
 .errorList {

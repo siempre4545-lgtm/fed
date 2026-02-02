@@ -128,6 +128,189 @@ tabButtons.forEach((button) => {
   });
 });
 
+const sec13dfgOrg = document.getElementById("sec13dfgOrg");
+const sec13dfgLoad = document.getElementById("sec13dfgLoad");
+const sec13dfgCikManual = document.getElementById("sec13dfgCikManual");
+const sec13dfgCikInput = document.getElementById("sec13dfgCikInput");
+const sec13dfgLoadByCik = document.getElementById("sec13dfgLoadByCik");
+const sec13dfgStatus = document.getElementById("sec13dfgStatus");
+const sec13dfgSummary = document.getElementById("sec13dfgSummary");
+const sec13dfgTableWrap = document.getElementById("sec13dfgTableWrap");
+const sec13dfgTableBody = document.getElementById("sec13dfgTableBody");
+const sec13dfgExplain = document.getElementById("sec13dfgExplain");
+
+if (sec13dfgOrg) {
+  sec13dfgOrg.addEventListener("change", () => {
+    if (sec13dfgLoad) sec13dfgLoad.disabled = !sec13dfgOrg.value;
+  });
+}
+if (sec13dfgLoad) {
+  sec13dfgLoad.addEventListener("click", () => {
+    const name = sec13dfgOrg?.value?.trim();
+    if (!name) return;
+    renderSec13dfgByOrg(name);
+  });
+}
+if (sec13dfgLoadByCik && sec13dfgCikInput) {
+  sec13dfgLoadByCik.addEventListener("click", () => {
+    const cik = sec13dfgCikInput.value.trim();
+    if (!cik) return;
+    renderSec13dfgByCik(cik);
+  });
+}
+
+function setSec13dfgStatus(message, isError) {
+  if (!sec13dfgStatus) return;
+  sec13dfgStatus.textContent = message || "";
+  sec13dfgStatus.className = "sec13dfg-status" + (isError ? " error" : "");
+  sec13dfgStatus.classList.toggle("hidden", !message);
+}
+
+function renderSec13dfgByOrg(name) {
+  setSec13dfgStatus("CIK 검색 중...", false);
+  if (sec13dfgSummary) sec13dfgSummary.classList.add("hidden");
+  if (sec13dfgTableWrap) sec13dfgTableWrap.classList.add("hidden");
+  if (sec13dfgCikManual) sec13dfgCikManual.classList.add("hidden");
+  fetch("/api/sec/cik-search?q=" + encodeURIComponent(name), { cache: "no-store" })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.ok) {
+        setSec13dfgStatus(data.message || "CIK를 찾지 못했습니다. 수동 입력을 이용하세요.", true);
+        if (sec13dfgCikManual) sec13dfgCikManual.classList.remove("hidden");
+        return;
+      }
+      setSec13dfgStatus("", false);
+      renderSec13dfgByCik(data.cik, data.title);
+    })
+    .catch(() => {
+      setSec13dfgStatus("검색 요청에 실패했습니다. 잠시 후 다시 시도하세요.", true);
+    });
+}
+
+function renderSec13dfgByCik(cik, titleLabel) {
+  setSec13dfgStatus("공시 목록 불러오는 중...", false);
+  if (sec13dfgSummary) sec13dfgSummary.classList.add("hidden");
+  if (sec13dfgTableWrap) sec13dfgTableWrap.classList.add("hidden");
+  fetch("/api/sec/filings?cik=" + encodeURIComponent(cik), { cache: "no-store" })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.ok) {
+        setSec13dfgStatus(data.message || "공시 데이터를 불러오지 못했습니다.", true);
+        return;
+      }
+      setSec13dfgStatus("", false);
+      renderSec13dfgContent(data.summary, data.filings, titleLabel || ("CIK " + data.cik), data.cik);
+    })
+    .catch(() => {
+      setSec13dfgStatus("요청 실패(403/429/타임아웃 등). 잠시 후 다시 시도하세요.", true);
+    });
+}
+
+function renderSec13dfgContent(summary, filings, titleLabel, currentCik) {
+  if (sec13dfgSummary) {
+    const count90 = summary?.count90d ?? 0;
+    const latest = summary?.latestFilingDate ?? "—";
+    const fc = summary?.formCounts ?? {};
+    const eventLabel = summary?.latestEventLabel ?? "—";
+    sec13dfgSummary.innerHTML =
+      "<h3>" + (titleLabel || "요약") + "</h3>" +
+      "<div class=\"sec13dfg-cards\">" +
+      "<div class=\"sec13dfg-card\"><span class=\"label\">최근 90일 제출 건수</span><span class=\"value\">" + count90 + "</span></div>" +
+      "<div class=\"sec13dfg-card\"><span class=\"label\">최근 제출일</span><span class=\"value\">" + latest + "</span></div>" +
+      "<div class=\"sec13dfg-card\"><span class=\"label\">Form 비중 (13D/13G/13F)</span><span class=\"value\">" +
+      (fc["13D"] || 0) + " / " + (fc["13G"] || 0) + " / " + (fc["13F"] || 0) + "</span></div>" +
+      "<div class=\"sec13dfg-card\"><span class=\"label\">최근 이벤트</span><span class=\"value\">" + (eventLabel || "—") + "</span></div>" +
+      "</div>";
+    sec13dfgSummary.classList.remove("hidden");
+  }
+  if (sec13dfgTableWrap) {
+    sec13dfgTableWrap.dataset.cik = currentCik || "";
+  }
+  if (sec13dfgTableBody && Array.isArray(filings)) {
+    sec13dfgTableBody.innerHTML = filings
+      .map(function (f) {
+        const acc = (f.accessionNumber || "").replace(/"/g, "&quot;");
+        const doc = (f.primaryDocument || "").replace(/"/g, "&quot;");
+        const form = (f.formType || "").replace(/"/g, "&quot;");
+        const is13DG = /^13[DG](\/A)?$/i.test(f.formType || "");
+        const is13F = /^13F-HR(\/A)?$/i.test(f.formType || "");
+        const showDetail = is13DG || is13F;
+        const cell4 =
+          (f.secLink ? "<a href=\"" + f.secLink + "\" target=\"_blank\" rel=\"noopener\">원문</a>" : "—") +
+          (showDetail
+            ? " <button type=\"button\" class=\"sec13dfg-detail-btn\" data-accession=\"" + acc + "\" data-primary-doc=\"" + doc + "\" data-form-type=\"" + form + "\">상세</button>"
+            : "");
+        return "<tr><td>" + (f.filingDate || "") + "</td><td>" + (f.formType || "") + "</td><td>" +
+          (f.accessionNumberShort || f.accessionNumber || "") + "</td><td>" + cell4 + "</td><td>" + (f.note || "") + "</td></tr>";
+      })
+      .join("");
+  }
+  if (sec13dfgTableWrap) sec13dfgTableWrap.classList.remove("hidden");
+  if (sec13dfgExplain) sec13dfgExplain.classList.remove("hidden");
+  bindSec13dfgDetailButtons();
+}
+
+function bindSec13dfgDetailButtons() {
+  if (!sec13dfgTableBody || !sec13dfgTableWrap) return;
+  sec13dfgTableBody.querySelectorAll(".sec13dfg-detail-btn").forEach(function (btn) {
+    btn.removeEventListener("click", onSec13dfgDetailClick);
+    btn.addEventListener("click", onSec13dfgDetailClick);
+  });
+}
+
+function onSec13dfgDetailClick(ev) {
+  var btn = ev.target;
+  if (!btn || !btn.classList.contains("sec13dfg-detail-btn")) return;
+  var tr = btn.closest("tr");
+  if (!tr) return;
+  var next = tr.nextElementSibling;
+  if (next && next.classList.contains("sec13dfg-detail-row")) {
+    next.remove();
+    return;
+  }
+  var cik = (sec13dfgTableWrap && sec13dfgTableWrap.dataset.cik) || "";
+  var accession = (btn.dataset.accession || "").replace(/&quot;/g, '"');
+  var primaryDoc = (btn.dataset.primaryDoc || "").replace(/&quot;/g, '"');
+  var formType = (btn.dataset.formType || "").replace(/&quot;/g, '"');
+  var is13F = /^13F-HR(\/A)?$/i.test(formType);
+  var detailRow = document.createElement("tr");
+  detailRow.className = "sec13dfg-detail-row";
+  detailRow.innerHTML = "<td colspan=\"5\"><div class=\"sec13dfg-detail-inner\">로딩 중…</div></td>";
+  tr.parentNode.insertBefore(detailRow, tr.nextSibling);
+  var url = is13F
+    ? "/api/sec/13f-summary?cik=" + encodeURIComponent(cik) + "&accession=" + encodeURIComponent(accession) + "&primaryDoc=" + encodeURIComponent(primaryDoc)
+    : "/api/sec/filing-detail?cik=" + encodeURIComponent(cik) + "&accession=" + encodeURIComponent(accession) + "&primaryDoc=" + encodeURIComponent(primaryDoc) + "&formType=" + encodeURIComponent(formType);
+  fetch(url, { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var inner = detailRow.querySelector(".sec13dfg-detail-inner");
+      if (!inner) return;
+      if (is13F) {
+        if (data.ok) {
+          var sectors = (data.topSectors && data.topSectors.length) ? data.topSectors.join(" / ") : "—";
+          var etf = data.etfExposure ? ("있음" + (data.etfLabels && data.etfLabels.length ? " (" + data.etfLabels.slice(0, 2).join(", ") + " 등)" : "")) : "없음";
+          inner.innerHTML = "<span class=\"sec13dfg-detail-label\">(추정)</span> " +
+            "섹터 노출: " + sectors + " · ETF 노출: " + etf + " · 성격 추정: " + (data.mixLabel || "—");
+        } else {
+          inner.textContent = data.message || "13F 제출 확인됨 (상세 비공개)";
+        }
+      } else {
+        if (data.ok) {
+          var p = data.percentOfClass != null ? "지분율: " + data.percentOfClass + "% (문서 기준)" : "";
+          var s = data.sharesOwned != null ? "보유주식: " + (data.sharesOwned).toLocaleString() : "";
+          var parts = [p, s].filter(Boolean);
+          inner.innerHTML = (parts.join(" · ") || "지분 정보 미확인") + " · 출처: " + (data.source || formType) + " 원문";
+        } else {
+          inner.textContent = data.message || "지분 정보 미확인";
+        }
+      }
+    })
+    .catch(function () {
+      var inner = detailRow.querySelector(".sec13dfg-detail-inner");
+      if (inner) inner.textContent = "상세 정보를 불러오지 못했습니다.";
+    });
+}
+
 dateInput.addEventListener("change", () => {
   const date = dateInput.value;
   if (!date) return;
@@ -164,6 +347,7 @@ function fetchH41(date) {
     .then((data) => {
       setStatus("데이터 수집 완료", "success");
       window.__fedReportLastFactors = data.factors;
+      window.__fedReportLastOverview = data.overview;
       window.__fedReportLastDate = date;
       renderOverview(data.overview);
       renderAssets(data.assetRatios);
@@ -759,6 +943,8 @@ function renderHistoryTab() {
   }
 
   {
+    const overview = window.__fedReportLastOverview;
+    const totalAssets = overview?.totalAssets?.current ?? null;
     const sh = factors.supplying.securitiesHeld?.current;
     const rr = factors.absorbing.reverseRepo?.current;
     const tga = factors.absorbing.tga?.current;
@@ -767,6 +953,7 @@ function renderHistoryTab() {
     tr.className = "history-row-current";
     tr.innerHTML = `
       <td>${date}</td>
+      <td>${formatNumber(totalAssets)}</td>
       <td>${formatNumber(sh)}</td>
       <td>${formatNumber(rr)}</td>
       <td>${formatNumber(tga)}</td>
@@ -774,7 +961,7 @@ function renderHistoryTab() {
     `;
     historyTableBody.appendChild(tr);
     window.__fedReportHistoryRows = [
-      { securitiesHeld: sh, reverseRepo: rr, tga, repos },
+      { totalAssets, securitiesHeld: sh, reverseRepo: rr, tga, repos },
     ];
   }
   window.__fedReportHistoryNextCursor = date;
@@ -811,6 +998,7 @@ function loadHistoryChunk(selectedDate) {
       const toAppend = skipFirst ? rows.slice(1) : rows;
       const isFirstChunk = prevRows.length === 1;
       toAppend.forEach((row) => {
+        const totalAssets = row.assetTotal?.value ?? null;
         const securitiesHeld =
           (row.treasury?.value ?? 0) + (row.mbs?.value ?? 0);
         const reverseRepo = row.rrp?.value ?? null;
@@ -820,12 +1008,14 @@ function loadHistoryChunk(selectedDate) {
         const tr = document.createElement("tr");
         tr.innerHTML =
           `<td>${row.date || ""}</td>` +
+          historyCell(totalAssets, prev?.totalAssets ?? null) +
           historyCell(securitiesHeld, prev?.securitiesHeld ?? null) +
           historyCell(reverseRepo, prev?.reverseRepo ?? null) +
           historyCell(tga, prev?.tga ?? null) +
           historyCell(repos, prev?.repos ?? null);
         if (historyTableBody) historyTableBody.appendChild(tr);
         prevRows.push({
+          totalAssets,
           securitiesHeld,
           reverseRepo,
           tga,
@@ -835,6 +1025,7 @@ function loadHistoryChunk(selectedDate) {
       if (isFirstChunk && toAppend.length > 0 && historyTableBody) {
         const firstRow = historyTableBody.querySelector("tr.history-row-current");
         const firstPrev = toAppend[0];
+        const prevTotalAssets = firstPrev.assetTotal?.value ?? null;
         const prevSh = (firstPrev.treasury?.value ?? 0) + (firstPrev.mbs?.value ?? 0);
         const prevRr = firstPrev.rrp?.value ?? null;
         const prevTga = firstPrev.tga?.value ?? null;
@@ -845,6 +1036,7 @@ function loadHistoryChunk(selectedDate) {
           const dateText = dateTd ? dateTd.textContent || "" : "";
           firstRow.innerHTML =
             `<td>${dateText}</td>` +
+            historyCell(current.totalAssets, prevTotalAssets) +
             historyCell(current.securitiesHeld, prevSh) +
             historyCell(current.reverseRepo, prevRr) +
             historyCell(current.tga, prevTga) +
