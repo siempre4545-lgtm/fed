@@ -751,3 +751,102 @@ section {
   font-style: italic;
   color: var(--muted);
 }
+
+.sec13dfg-subtabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sec13dfg-subtab {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.sec13dfg-subtab.active {
+  border-color: var(--accent);
+  background: #3b3b35;
+}
+.sec13dfg-subpanel {
+  display: none;
+}
+.sec13dfg-subpanel.active {
+  display: block;
+}
+.sec13dfg-muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+.sec13dfg-holdings-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.sec13dfg-holdings-controls label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sec13dfg-holdings-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sec13dfg-holdings-summary {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 0.9rem;
+}
+.sec13dfg-holdings-summary h4 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.sec13dfg-holdings-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.sec13dfg-holdings-toolbar #sec13fHoldingsSearch {
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.sec13dfg-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.sec13dfg-compare-block {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.sec13dfg-compare-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+.sec13dfg-compare-block ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sec13dfg-summary-lines {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}

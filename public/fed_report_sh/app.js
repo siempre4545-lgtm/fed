@@ -250,6 +250,219 @@ function renderSec13dfgContent(summary, filings, titleLabel, currentCik) {
   bindSec13dfgDetailButtons();
 }
 
+(function initSec13dfgSubtabs() {
+  var subtabs = document.querySelectorAll(".sec13dfg-subtab");
+  var subpanels = document.querySelectorAll(".sec13dfg-subpanel");
+  subtabs.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var target = btn.dataset.subtab;
+      subtabs.forEach(function (b) { b.classList.toggle("active", b === btn); });
+      subpanels.forEach(function (p) { p.classList.toggle("active", (p.dataset.subpanel || "") === target); });
+    });
+  });
+})();
+
+var sec13fHoldingsOrg = document.getElementById("sec13fHoldingsOrg");
+var sec13fHoldingsListBtn = document.getElementById("sec13fHoldingsListBtn");
+var sec13fHoldingsFiling = document.getElementById("sec13fHoldingsFiling");
+var sec13fHoldingsLoadBtn = document.getElementById("sec13fHoldingsLoadBtn");
+var sec13fHoldingsStatus = document.getElementById("sec13fHoldingsStatus");
+var sec13fHoldingsCards = document.getElementById("sec13fHoldingsCards");
+var sec13fHoldingsSummary = document.getElementById("sec13fHoldingsSummary");
+var sec13fHoldingsToolbar = document.getElementById("sec13fHoldingsToolbar");
+var sec13fHoldingsTableWrap = document.getElementById("sec13fHoldingsTableWrap");
+var sec13fHoldingsTableBody = document.getElementById("sec13fHoldingsTableBody");
+var sec13fHoldingsTopN = document.getElementById("sec13fHoldingsTopN");
+var sec13fHoldingsSearch = document.getElementById("sec13fHoldingsSearch");
+var sec13fHoldingsCsv = document.getElementById("sec13fHoldingsCsv");
+var __sec13fHoldingsCik = "";
+var __sec13fHoldingsList = [];
+var __sec13fHoldingsData = null;
+
+function setHoldingsStatus(el, msg, isError) {
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "sec13dfg-status" + (isError ? " error" : "");
+  el.classList.toggle("hidden", !msg);
+}
+
+if (sec13fHoldingsListBtn) {
+  sec13fHoldingsListBtn.addEventListener("click", function () {
+    var name = (sec13fHoldingsOrg && sec13fHoldingsOrg.value) ? sec13fHoldingsOrg.value.trim() : "";
+    if (!name) return;
+    setHoldingsStatus(sec13fHoldingsStatus, "CIK 검색 및 13F 목록 불러오는 중…", false);
+    fetch("/api/sec/cik-search?q=" + encodeURIComponent(name), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { setHoldingsStatus(sec13fHoldingsStatus, data.message || "CIK를 찾지 못했습니다.", true); return; }
+        __sec13fHoldingsCik = data.cik;
+        return fetch("/api/sec/13f-list?cik=" + encodeURIComponent(data.cik), { cache: "no-store" });
+      })
+      .then(function (r) { return r && r.json ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.ok) { setHoldingsStatus(sec13fHoldingsStatus, "13F 목록을 불러오지 못했습니다.", true); return; }
+        __sec13fHoldingsList = data.filings || [];
+        setHoldingsStatus(sec13fHoldingsStatus, "", false);
+        if (sec13fHoldingsFiling) {
+          sec13fHoldingsFiling.innerHTML = __sec13fHoldingsList.map(function (f, i) {
+            return "<option value=\"" + (f.accessionNumber || "").replace(/"/g, "&quot;") + "\" data-date=\"" + (f.filingDate || "") + "\">" + (f.filingDate || "") + " " + (f.formType || "") + "</option>";
+          }).join("") || "<option value=\"\">—</option>";
+          sec13fHoldingsFiling.disabled = __sec13fHoldingsList.length === 0;
+        }
+        if (sec13fHoldingsLoadBtn) sec13fHoldingsLoadBtn.disabled = __sec13fHoldingsList.length === 0;
+      })
+      .catch(function () { setHoldingsStatus(sec13fHoldingsStatus, "요청에 실패했습니다.", true); });
+  });
+}
+
+if (sec13fHoldingsLoadBtn && sec13fHoldingsFiling) {
+  sec13fHoldingsLoadBtn.addEventListener("click", function () {
+    var cik = __sec13fHoldingsCik;
+    var accession = sec13fHoldingsFiling.value || (__sec13fHoldingsList[0] && __sec13fHoldingsList[0].accessionNumber);
+    var opt = sec13fHoldingsFiling.options[sec13fHoldingsFiling.selectedIndex];
+    var filingDate = opt && opt.dataset.date ? opt.dataset.date : "";
+    if (!cik || !accession) return;
+    setHoldingsStatus(sec13fHoldingsStatus, "Holdings 불러오는 중…", false);
+    var url = "/api/sec/13f-holdings?cik=" + encodeURIComponent(cik) + "&accession=" + encodeURIComponent(accession);
+    if (filingDate) url += "&filingDate=" + encodeURIComponent(filingDate);
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { setHoldingsStatus(sec13fHoldingsStatus, data.message || "정보표를 찾지 못했거나 파싱에 실패했습니다.", true); return; }
+        __sec13fHoldingsData = data;
+        setHoldingsStatus(sec13fHoldingsStatus, "", false);
+        render13fHoldingsCards(data);
+        render13fHoldingsSummary(data.summary);
+        render13fHoldingsTable(data.holdings);
+        if (sec13fHoldingsCards) sec13fHoldingsCards.classList.remove("hidden");
+        if (sec13fHoldingsSummary) sec13fHoldingsSummary.classList.remove("hidden");
+        if (sec13fHoldingsToolbar) sec13fHoldingsToolbar.classList.remove("hidden");
+        if (sec13fHoldingsTableWrap) sec13fHoldingsTableWrap.classList.remove("hidden");
+      })
+      .catch(function () { setHoldingsStatus(sec13fHoldingsStatus, "Holdings 요청에 실패했습니다.", true); });
+  });
+}
+
+function render13fHoldingsCards(data) {
+  if (!sec13fHoldingsCards) return;
+  var totalVal = (data.totalValueThousands || 0) * 1000;
+  sec13fHoldingsCards.innerHTML =
+    "<div class=\"sec13dfg-card\"><span class=\"label\">보고서 분기</span><span class=\"value\">" + (data.filingDate || "—") + "</span></div>" +
+    "<div class=\"sec13dfg-card\"><span class=\"label\">총 보유 종목 수</span><span class=\"value\">" + (data.totalCount || 0) + "</span></div>" +
+    "<div class=\"sec13dfg-card\"><span class=\"label\">총 보유금액 (USD)</span><span class=\"value\">" + totalVal.toLocaleString() + " (13F value×1000)</span></div>" +
+    "<div class=\"sec13dfg-card\"><span class=\"label\">Top10 집중도</span><span class=\"value\">" + (data.top10Pct || 0) + "%</span></div>";
+}
+
+function render13fHoldingsSummary(summary) {
+  if (!sec13fHoldingsSummary || !summary) return;
+  var lines = summary.lines || [];
+  sec13fHoldingsSummary.innerHTML = "<h4>방향성 요약</h4><p>" + (lines.join("</p><p>") || "—") + "</p>";
+}
+
+function render13fHoldingsTable(holdings) {
+  if (!sec13fHoldingsTableBody || !Array.isArray(holdings)) return;
+  var topN = Math.min(parseInt(sec13fHoldingsTopN && sec13fHoldingsTopN.value ? sec13fHoldingsTopN.value : "25", 10), 100);
+  var search = (sec13fHoldingsSearch && sec13fHoldingsSearch.value) ? sec13fHoldingsSearch.value.trim().toLowerCase() : "";
+  var filtered = search ? holdings.filter(function (h) { return (h.nameOfIssuer || "").toLowerCase().indexOf(search) !== -1; }) : holdings;
+  var slice = filtered.slice(0, topN);
+  sec13fHoldingsTableBody.innerHTML = slice.map(function (h, i) {
+    var rank = filtered.indexOf(h) + 1;
+    var valueUsd = (h.value || 0) * 1000;
+    return "<tr><td>" + rank + "</td><td>" + (h.nameOfIssuer || "").replace(/</g, "&lt;") + "</td><td>" + valueUsd.toLocaleString() + "</td><td>" + (h.sshPrnamt || 0).toLocaleString() + "</td><td>" + (h.sshPrnamtType || "") + "</td><td>" + (h.putCall || "—") + "</td><td>" + (h.cusip || "—") + "</td></tr>";
+  }).join("");
+}
+
+if (sec13fHoldingsTopN) sec13fHoldingsTopN.addEventListener("change", function () { if (__sec13fHoldingsData && __sec13fHoldingsData.holdings) render13fHoldingsTable(__sec13fHoldingsData.holdings); });
+if (sec13fHoldingsSearch) sec13fHoldingsSearch.addEventListener("input", function () { if (__sec13fHoldingsData && __sec13fHoldingsData.holdings) render13fHoldingsTable(__sec13fHoldingsData.holdings); });
+
+if (sec13fHoldingsCsv) {
+  sec13fHoldingsCsv.addEventListener("click", function () {
+    if (!__sec13fHoldingsData || !__sec13fHoldingsData.holdings || !__sec13fHoldingsData.holdings.length) return;
+    var rows = ["Rank,Issuer,Value(USD),Shares,Type,Put/Call,CUSIP"];
+    __sec13fHoldingsData.holdings.forEach(function (h, i) {
+      var valueUsd = (h.value || 0) * 1000;
+      rows.push((i + 1) + ",\"" + (h.nameOfIssuer || "").replace(/"/g, "\"\"") + "\"," + valueUsd + "," + (h.sshPrnamt || 0) + ",\"" + (h.sshPrnamtType || "") + "\",\"" + (h.putCall || "") + "\",\"" + (h.cusip || "") + "\"");
+    });
+    var blob = new Blob(["\uFEFF" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "13f-holdings-" + (__sec13fHoldingsData.filingDate || "export") + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+}
+
+var sec13fCompareOrg = document.getElementById("sec13fCompareOrg");
+var sec13fCompareListBtn = document.getElementById("sec13fCompareListBtn");
+var sec13fComparePrev = document.getElementById("sec13fComparePrev");
+var sec13fCompareLatest = document.getElementById("sec13fCompareLatest");
+var sec13fCompareLoadBtn = document.getElementById("sec13fCompareLoadBtn");
+var sec13fCompareStatus = document.getElementById("sec13fCompareStatus");
+var sec13fCompareContent = document.getElementById("sec13fCompareContent");
+var __sec13fCompareCik = "";
+var __sec13fCompareList = [];
+
+function setCompareStatus(msg, isError) {
+  if (!sec13fCompareStatus) return;
+  sec13fCompareStatus.textContent = msg || "";
+  sec13fCompareStatus.className = "sec13dfg-status" + (isError ? " error" : "");
+  sec13fCompareStatus.classList.toggle("hidden", !msg);
+}
+
+if (sec13fCompareListBtn) {
+  sec13fCompareListBtn.addEventListener("click", function () {
+    var name = (sec13fCompareOrg && sec13fCompareOrg.value) ? sec13fCompareOrg.value.trim() : "";
+    if (!name) return;
+    setCompareStatus("CIK 검색 및 13F 목록 불러오는 중…", false);
+    fetch("/api/sec/cik-search?q=" + encodeURIComponent(name), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { setCompareStatus(data.message || "CIK를 찾지 못했습니다.", true); return; }
+        __sec13fCompareCik = data.cik;
+        return fetch("/api/sec/13f-list?cik=" + encodeURIComponent(data.cik), { cache: "no-store" });
+      })
+      .then(function (r) { return r && r.json ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.ok) { setCompareStatus("13F 목록을 불러오지 못했습니다.", true); return; }
+        __sec13fCompareList = data.filings || [];
+        setCompareStatus("", false);
+        var opts = __sec13fCompareList.map(function (f) {
+          return "<option value=\"" + (f.accessionNumber || "").replace(/"/g, "&quot;") + "\">" + (f.filingDate || "") + " " + (f.formType || "") + "</option>";
+        }).join("") || "<option value=\"\">—</option>";
+        if (sec13fComparePrev) { sec13fComparePrev.innerHTML = opts; sec13fComparePrev.disabled = __sec13fCompareList.length === 0; }
+        if (sec13fCompareLatest) { sec13fCompareLatest.innerHTML = opts; sec13fCompareLatest.disabled = __sec13fCompareList.length < 2; sec13fCompareLatest.selectedIndex = 0; sec13fComparePrev.selectedIndex = Math.min(1, __sec13fCompareList.length - 1); }
+        if (sec13fCompareLoadBtn) sec13fCompareLoadBtn.disabled = __sec13fCompareList.length < 2;
+      })
+      .catch(function () { setCompareStatus("요청에 실패했습니다.", true); });
+  });
+}
+
+if (sec13fCompareLoadBtn) {
+  sec13fCompareLoadBtn.addEventListener("click", function () {
+    var acc1 = sec13fComparePrev && sec13fComparePrev.value;
+    var acc2 = sec13fCompareLatest && sec13fCompareLatest.value;
+    if (!__sec13fCompareCik || !acc1 || !acc2) return;
+    setCompareStatus("비교 불러오는 중…", false);
+    fetch("/api/sec/13f-compare?cik=" + encodeURIComponent(__sec13fCompareCik) + "&accession1=" + encodeURIComponent(acc1) + "&accession2=" + encodeURIComponent(acc2), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { setCompareStatus(data.message || "전분기/최신 분기 정보표를 찾지 못해 비교할 수 없습니다.", true); return; }
+        setCompareStatus("", false);
+        var c = data.changes || {};
+        var html = "";
+        if (data.summary && data.summary.lines) html += "<p class=\"sec13dfg-summary-lines\">" + data.summary.lines.join("</p><p>") + "</p>";
+        html += "<div class=\"sec13dfg-compare-grid\">";
+        html += "<div class=\"sec13dfg-compare-block\"><h4>신규편입 (New)</h4><ul>" + (c.newEntries || []).slice(0, 15).map(function (h) { return "<li>" + (h.nameOfIssuer || "").replace(/</g, "&lt;") + " (" + ((h.value || 0) * 1000).toLocaleString() + " USD)</li>"; }).join("") + "</ul></div>";
+        html += "<div class=\"sec13dfg-compare-block\"><h4>청산 (Sold)</h4><ul>" + (c.soldOut || []).slice(0, 15).map(function (h) { return "<li>" + (h.nameOfIssuer || "").replace(/</g, "&lt;") + "</li>"; }).join("") + "</ul></div>";
+        html += "<div class=\"sec13dfg-compare-block\"><h4>증가 상위 (Increased)</h4><ul>" + (c.increased || []).slice(0, 15).map(function (h) { return "<li>" + (h.nameOfIssuer || "").replace(/</g, "&lt;") + " +" + ((h.valueDelta || 0) * 1000).toLocaleString() + " USD</li>"; }).join("") + "</ul></div>";
+        html += "<div class=\"sec13dfg-compare-block\"><h4>감소 상위 (Decreased)</h4><ul>" + (c.decreased || []).slice(0, 15).map(function (h) { return "<li>" + (h.nameOfIssuer || "").replace(/</g, "&lt;") + " " + ((h.valueDelta || 0) * 1000).toLocaleString() + " USD</li>"; }).join("") + "</ul></div>";
+        html += "</div>";
+        if (sec13fCompareContent) { sec13fCompareContent.innerHTML = html; sec13fCompareContent.classList.remove("hidden"); }
+      })
+      .catch(function () { setCompareStatus("비교 요청에 실패했습니다.", true); });
+  });
+}
+
 function bindSec13dfgDetailButtons() {
   if (!sec13dfgTableBody || !sec13dfgTableWrap) return;
   sec13dfgTableBody.querySelectorAll(".sec13dfg-detail-btn").forEach(function (btn) {
