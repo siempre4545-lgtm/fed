@@ -4,7 +4,7 @@ import { parseH41Html } from "../lib/h41-parser-fed-report.js";
 import { fetchH41Report, toKoreanDigest, ITEM_DEFS, getConcept, getFedReleaseDates } from "../src/h41.js";
 import { fetchAllEconomicIndicators, diagnoseEconomicStatus, getIndicatorDetail } from "../src/economic-indicators.js";
 import { fetchEconomicNews } from "../src/news.js";
-import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation, fetchWRESBALChartData, fetchFRED } from "../src/secret-indicators.js";
+import { fetchAllSecretIndicators, fetchSOFRIORBSpread, fetchSOFRIORBSpreadChartData, generateSOFRIORBSpreadDetailedInterpretation, fetchWRESBALChartData, fetchMMMFFAQ027SChartData, fetchFRED } from "../src/secret-indicators.js";
 import { fetchH41CalendarDates, isoToYmd, ymdToIso, yyyymmddFromISO } from "../src/h41-calendar.js";
 import { fetchH41ArchivesBatch, calculateDeltas, ParsedRow } from "../src/h41-archive.js";
 import { discoverReleaseDates } from "../src/h41-reverse-probe.js";
@@ -5093,9 +5093,10 @@ app.get("/secret-indicators", async (req, res) => {
       const changeColor = ind.change && ind.change > 0 ? "positive" : ind.change && ind.change < 0 ? "negative" : "neutral";
       const changeSign = ind.change && ind.change > 0 ? "+" : "";
       const changePercentSign = ind.changePercent && ind.changePercent > 0 ? "+" : "";
-      const hasDetailPage = ind.id === "sofr_iorb_spread" || ind.id === "bank_reserves_velocity";
+      const hasDetailPage = ind.id === "sofr_iorb_spread" || ind.id === "bank_reserves_velocity" || ind.id === "mmf_flows";
       const detailPageUrl = ind.id === "sofr_iorb_spread" ? "/secret-indicators/sofr-iorb-spread" : 
-                           ind.id === "bank_reserves_velocity" ? "/secret-indicators/bank-reserves-velocity" : "";
+                           ind.id === "bank_reserves_velocity" ? "/secret-indicators/bank-reserves-velocity" : 
+                           ind.id === "mmf_flows" ? "/secret-indicators/mmf-flows" : "";
       
       return `
     <div class="indicator-card" ${hasDetailPage ? `style="cursor:pointer" onclick="window.location.href='${detailPageUrl}'"` : ''}>
@@ -6117,6 +6118,297 @@ app.get("/secret-indicators/bank-reserves-velocity", async (req, res) => {
       mobileMediaQuery.addEventListener('change', handleResize);
     }
   </script>` : ''}
+</body>
+</html>`);
+  } catch (e: any) {
+    res.status(500).send(`오류 발생: ${e?.message ?? String(e)}`);
+  }
+});
+
+// MMF 자금이동 경로 상세 페이지
+app.get("/secret-indicators/mmf-flows", async (req, res) => {
+  try {
+    const [currentData, chartData] = await Promise.all([
+      fetchFRED("MMMFFAQ027S", 2),
+      fetchMMMFFAQ027SChartData(365)
+    ]);
+
+    const escapeHtml = (text: string) => {
+      const map: { [key: string]: string } = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      };
+      return text.replace(/[&<>"']/g, (m) => map[m]);
+    };
+
+    // FRED: Billions of Dollars → 억 달러 (1 billion = 10 억)
+    const currentValue = currentData ? currentData.value * 10 : null;
+    const previousValue = currentData ? currentData.previousValue * 10 : null;
+    const change = currentValue != null && previousValue != null ? currentValue - previousValue : null;
+    const changePercent = change != null && previousValue != null && previousValue !== 0 ? (change / previousValue) * 100 : null;
+
+    const chartDataJson = chartData
+      ? JSON.stringify({
+          labels: chartData.dates,
+          datasets: [
+            {
+              label: "MMF 잔액 (억 달러)",
+              data: chartData.values,
+              borderColor: "#4dabf7",
+              backgroundColor: "rgba(77, 171, 247, 0.1)",
+              tension: 0.1,
+              fill: true
+            }
+          ]
+        })
+      : "null";
+
+    res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+    res.send(`<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MMF 자금이동 경로 상세 분석</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    html, body { overflow-x: hidden; overflow-y: auto; margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#e8e8e8}
+    .page-header{background:#1a1a1a;border-bottom:1px solid #2d2d2d;padding:24px;margin-bottom:24px}
+    .page-header h1{font-size:24px;font-weight:700;color:#ffffff;margin:0 0 8px 0}
+    .page-header .sub{font-size:14px;color:#9ca3af}
+    .page-header .sub a{color:#a78bfa;text-decoration:none}
+    .page-header .sub a:hover{text-decoration:underline}
+    .main-content{max-width:1400px;margin:0 auto;padding:24px}
+    .value-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px}
+    .value-item{background:#252525;border-radius:8px;padding:16px}
+    .value-label{font-size:12px;color:#9ca3af;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .value-number{font-size:24px;font-weight:700;color:#ffffff;margin-bottom:4px}
+    .value-unit{font-size:12px;color:#808080}
+    .value-change{font-size:14px;margin-top:8px}
+    .value-change.positive{color:#10b981}
+    .value-change.negative{color:#ef4444}
+    .value-change.neutral{color:#9ca3af}
+    .chart-container{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .chart-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px}
+    .chart-wrapper{position:relative;width:100%;height:400px}
+    #mmfChart{width:100%!important;height:100%!important}
+    .analysis-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .section-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .section-content{font-size:14px;line-height:1.8;color:#c0c0c0;white-space:pre-line}
+    .section-content strong{color:#ffffff;font-weight:700}
+    .memo-section{background:#1f1f1f;border:1px solid #2d2d2d;border-radius:12px;padding:24px;margin-bottom:24px}
+    .memo-title{font-size:18px;font-weight:700;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .memo-form{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+    .memo-input{width:100%;min-height:80px;padding:12px;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;color:#ffffff;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color 0.2s}
+    .memo-input:focus{border-color:#4dabf7}
+    .memo-input::placeholder{color:#808080}
+    .memo-actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .memo-char-count{font-size:12px;color:#808080}
+    .memo-submit-btn{padding:10px 20px;background:#4dabf7;border:none;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s}
+    .memo-submit-btn:hover{background:#339af0}
+    .memo-submit-btn:disabled{background:#3d3d3d;color:#808080;cursor:not-allowed}
+    .memo-history{display:flex;flex-direction:column;gap:12px}
+    .memo-history-title{font-size:16px;font-weight:600;color:#ffffff;margin-bottom:8px}
+    .memo-history-empty{text-align:center;padding:24px;color:#808080;font-size:14px}
+    .memo-item{background:#1a1a1a;border:1px solid #2d2d2d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px}
+    .memo-item-header{display:flex;justify-content:space-between;align-items:center}
+    .memo-item-date{font-size:12px;color:#808080}
+    .memo-item-delete{background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background 0.2s}
+    .memo-item-delete:hover{background:rgba(239,68,68,0.1)}
+    .memo-item-text{font-size:14px;line-height:1.6;color:#c0c0c0;white-space:pre-wrap;word-break:break-word}
+    @media (max-width: 640px) {
+      .chart-container{padding:16px;margin-bottom:16px}
+      .chart-title{font-size:16px;margin-bottom:12px}
+      .chart-wrapper{height:clamp(320px, 60vh, 520px);min-height:320px}
+    }
+    @media (max-width: 768px) {
+      .value-grid{grid-template-columns:1fr}
+      .main-content{padding:16px}
+      .value-section{padding:16px}
+      .analysis-section{padding:16px;margin-bottom:16px}
+      .page-header{padding:16px}
+      .page-header h1{font-size:20px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>📊 MMF 자금이동 경로 상세 분석</h1>
+    <div class="sub"><a href="/secret-indicators">← 비밀지표로 돌아가기</a></div>
+  </div>
+  <div class="main-content">
+    ${currentData ? `<div class="value-section">
+      <div class="value-grid">
+        <div class="value-item">
+          <div class="value-label">현재 값</div>
+          <div class="value-number">${currentValue != null ? currentValue.toLocaleString("ko-KR", { maximumFractionDigits: 0 }) : "N/A"}<span class="value-unit">억 달러</span></div>
+          ${change != null ? `<div class="value-change ${change > 0 ? "positive" : change < 0 ? "negative" : "neutral"}">${change > 0 ? "+" : ""}${change.toFixed(1)}억 달러${changePercent != null ? `(${changePercent > 0 ? "+" : ""}${changePercent.toFixed(2)}%)` : ""}</div>` : ""}
+        </div>
+        ${previousValue != null ? `<div class="value-item">
+          <div class="value-label">이전 값</div>
+          <div class="value-number">${previousValue.toLocaleString("ko-KR", { maximumFractionDigits: 0 })}<span class="value-unit">억 달러</span></div>
+        </div>` : ""}
+        <div class="value-item">
+          <div class="value-label">업데이트</div>
+          <div class="value-number" style="font-size:16px">${currentData.date}</div>
+        </div>
+      </div>
+    </div>` : `<div class="value-section"><div style="text-align:center;padding:40px;color:#9ca3af"><div style="font-size:24px;margin-bottom:16px">⚠️</div><div>데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div></div></div>`}
+    ${chartData ? `<div class="chart-container">
+      <div class="chart-title">MMF 잔액 차트 (최근 1년)</div>
+      <div class="chart-wrapper"><canvas id="mmfChart"></canvas></div>
+    </div>` : ""}
+    <div class="analysis-section">
+      <div class="section-title"><span>📚 개념</span></div>
+      <div class="section-content">MMMFFAQ027S는 FRED에서 제공하는 'Money Market Fund Total Financial Assets'(머니마켓펀드 총 금융자산) 시리즈입니다. 단위는 십억 달러(Billions of Dollars)이며, 여기서는 억 달러로 환산해 표시합니다.
+
+공포는 증가가 아니라 어디서 어디로 이동하는지로 드러난다는 구조 원리에 따라, 이 지표는 자금이 주식·예금에서 MMF로, 또는 MMF에서 다른 자산으로 이동하는 경로를 판단하는 데 사용됩니다. MMF 잔액의 수준과 변화 속도를 보면 시장 참여자들의 위험 회피 성향과 유동성 선호를 읽을 수 있습니다.</div>
+    </div>
+    <div class="memo-section">
+      <div class="memo-title">
+        <span>📝</span>
+        <span>개인 메모</span>
+      </div>
+      <div class="memo-form">
+        <textarea id="memoInput" class="memo-input" placeholder="이 지표에 대한 개인 메모를 작성하세요 (50자 내외 권장)"></textarea>
+        <div class="memo-actions">
+          <span class="memo-char-count"><span id="memoCharCount">0</span>자</span>
+          <button id="memoSubmitBtn" class="memo-submit-btn">추가</button>
+        </div>
+      </div>
+      <div class="memo-history">
+        <div class="memo-history-title">메모 히스토리</div>
+        <div id="memoHistoryList"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const indicatorId = 'mmf-flows';
+      const memoStorageKey = 'secret-indicator-memos';
+      const memoInput = document.getElementById('memoInput');
+      const memoSubmitBtn = document.getElementById('memoSubmitBtn');
+      const memoCharCount = document.getElementById('memoCharCount');
+      const memoHistoryList = document.getElementById('memoHistoryList');
+      function loadMemos() {
+        try {
+          const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+          return allMemos[indicatorId] || [];
+        } catch (e) {
+          return [];
+        }
+      }
+      function saveMemos(memos) {
+        try {
+          const allMemos = JSON.parse(localStorage.getItem(memoStorageKey) || '{}');
+          allMemos[indicatorId] = memos;
+          localStorage.setItem(memoStorageKey, JSON.stringify(allMemos));
+        } catch (e) {}
+      }
+      function renderMemoHistory() {
+        const memos = loadMemos();
+        if (memos.length === 0) {
+          memoHistoryList.innerHTML = '<div class="memo-history-empty">저장된 메모가 없습니다.</div>';
+          return;
+        }
+        const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+        memoHistoryList.innerHTML = sortedMemos.map((memo, index) => {
+          const date = new Date(memo.date);
+          const dateStr = date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+          function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+          }
+          return '<div class="memo-item">' +
+            '<div class="memo-item-header">' +
+            '<span class="memo-item-date">' + dateStr + '</span>' +
+            '<button class="memo-item-delete" onclick="deleteMemo(' + index + ')">삭제</button>' +
+            '</div>' +
+            '<div class="memo-item-text">' + escapeHtml(memo.text) + '</div>' +
+            '</div>';
+        }).join('');
+      }
+      function addMemo() {
+        const text = memoInput.value.trim();
+        if (!text) { alert('메모 내용을 입력해주세요.'); return; }
+        const memos = loadMemos();
+        memos.push({ text: text, date: new Date().toISOString() });
+        saveMemos(memos);
+        memoInput.value = '';
+        updateCharCount();
+        renderMemoHistory();
+      }
+      window.deleteMemo = function(index) {
+        if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+        const memos = loadMemos();
+        const sortedMemos = memos.sort((a, b) => new Date(b.date) - new Date(a.date));
+        sortedMemos.splice(index, 1);
+        saveMemos(sortedMemos);
+        renderMemoHistory();
+      };
+      function updateCharCount() {
+        memoCharCount.textContent = memoInput.value.length;
+      }
+      memoInput.addEventListener('input', updateCharCount);
+      memoSubmitBtn.addEventListener('click', addMemo);
+      memoInput.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') addMemo();
+      });
+      updateCharCount();
+      renderMemoHistory();
+    })();
+  </script>
+  ${chartData ? `<script>
+    const chartData = ${chartDataJson};
+    if (chartData) {
+      const mobileMediaQuery = window.matchMedia('(max-width: 640px)');
+      let isMobile = mobileMediaQuery.matches;
+      let chartInstance = null;
+      let resizeTimer;
+      const handleResize = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const wasMobile = isMobile;
+          isMobile = window.matchMedia('(max-width: 640px)').matches;
+          if (wasMobile !== isMobile && chartInstance) {
+            chartInstance.destroy();
+            chartInstance = initChart();
+          } else if (chartInstance) chartInstance.resize();
+        }, 250);
+      };
+      const initChart = () => {
+        const canvas = document.getElementById('mmfChart');
+        if (!canvas) return null;
+        const ctx = canvas.getContext('2d');
+        const baseOptions = {
+          responsive: true,
+          maintainAspectRatio: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: '#e8e8e8', font: { size: 12 } } },
+            tooltip: { backgroundColor: 'rgba(0, 0, 0, 0.8)', titleColor: '#ffffff', bodyColor: '#e8e8e8', borderColor: '#2d2d2d', borderWidth: 1 }
+          },
+          scales: {
+            x: { ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45, font: { size: 11 } }, grid: { color: '#2d2d2d' } },
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '억 달러', color: '#9ca3af', font: { size: 12 } }, ticks: { color: '#9ca3af' }, grid: { color: '#2d2d2d' } }
+          }
+        };
+        if (isMobile) {
+          baseOptions.maintainAspectRatio = false;
+          baseOptions.plugins.legend.position = 'bottom';
+        }
+        return new Chart(ctx, { type: 'line', data: chartData, options: baseOptions });
+      };
+      chartInstance = initChart();
+      window.addEventListener('resize', handleResize);
+      mobileMediaQuery.addEventListener('change', handleResize);
+    }
+  </script>` : ""}
 </body>
 </html>`);
   } catch (e: any) {

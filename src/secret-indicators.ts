@@ -377,6 +377,58 @@ export async function fetchWRESBALChartData(days: number = 365): Promise<{
 }
 
 /**
+ * MMMFFAQ027S (MMF 금융자산) 차트 데이터 가져오기
+ * 최근 1년간 데이터. FRED 단위: Billions of Dollars → 억 달러 표시를 위해 ×10
+ */
+export async function fetchMMMFFAQ027SChartData(days: number = 365): Promise<{
+  dates: string[];
+  values: number[];
+} | null> {
+  try {
+    const apiKey = process.env.FRED_API_KEY || "demo";
+    const endDate = new Date().toISOString().split("T")[0];
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    const response = await fetch(
+      `https://api.stlouisfed.org/fred/series/observations?series_id=MMMFFAQ027S&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`
+    );
+
+    if (!response.ok) {
+      console.warn("Failed to fetch MMMFFAQ027S chart data from FRED API");
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.error_code) {
+      console.warn("FRED API error:", data.error_message);
+      return null;
+    }
+
+    const observations = (data.observations || []).filter((obs: any) => obs.value !== ".");
+
+    const dates: string[] = [];
+    const values: number[] = [];
+
+    observations.forEach((obs: any) => {
+      const value = parseFloat(obs.value);
+      if (!isNaN(value)) {
+        dates.push(obs.date);
+        values.push(value * 10); // FRED: Billions of Dollars → 억 달러 (1 billion = 10 억)
+      }
+    });
+
+    return {
+      dates,
+      values
+    };
+  } catch (error) {
+    console.error("Failed to fetch MMMFFAQ027S chart data:", error);
+    return null;
+  }
+}
+
+/**
  * SOFR-IORB 스프레드 상세 해석 생성
  * 사용자 제공 개념 기반: 1차/2차 판독, 교차 판독, 포지션 판단
  */
