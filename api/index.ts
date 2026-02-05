@@ -6130,7 +6130,7 @@ app.get("/secret-indicators/mmf-flows", async (req, res) => {
   try {
     const [currentData, chartData] = await Promise.all([
       fetchFRED("MMMFFAQ027S", 2),
-      fetchMMMFFAQ027SChartData(365)
+      fetchMMMFFAQ027SChartData(365 * 5)
     ]);
 
     const escapeHtml = (text: string) => {
@@ -6259,7 +6259,7 @@ app.get("/secret-indicators/mmf-flows", async (req, res) => {
       </div>
     </div>` : `<div class="value-section"><div style="text-align:center;padding:40px;color:#9ca3af"><div style="font-size:24px;margin-bottom:16px">⚠️</div><div>데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div></div></div>`}
     ${chartData ? `<div class="chart-container">
-      <div class="chart-title">MMF 잔액 차트 (최근 1년)</div>
+      <div class="chart-title">MMF 잔액 차트 (최근 5년)</div>
       <div class="chart-wrapper"><canvas id="mmfChart"></canvas></div>
     </div>` : ""}
     <div class="analysis-section">
