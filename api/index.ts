@@ -5412,14 +5412,25 @@ app.get("/secret-indicators/sofr-iorb-spread", async (req, res) => {
         <div id="memoHistoryList"></div>
       </div>
     </div>
-    ` : `
+    ` : (() => {
+      const errCode = (spreadData as { errorCode?: string }).errorCode;
+      const messages: Record<string, string> = {
+        sofr_fail: "SOFR 데이터를 가져오지 못했습니다. (FRED API 또는 네트워크 확인)",
+        iorb_fail: "IORB 데이터를 가져오지 못했습니다. (FRED API 또는 네트워크 확인)",
+        date_mismatch: "SOFR과 IORB의 기준일이 맞지 않아 스프레드를 계산할 수 없습니다.",
+        nan: "스프레드 계산 중 오류가 발생했습니다."
+      };
+      const msg = errCode ? messages[errCode] || "데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요." : "데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.";
+      return `
     <div class="value-section">
       <div style="text-align:center;padding:40px;color:#9ca3af">
         <div style="font-size:24px;margin-bottom:16px">⚠️</div>
-        <div>데이터를 가져오는 중입니다. 잠시 후 다시 확인해주세요.</div>
+        <div style="margin-bottom:16px">${msg}</div>
+        <a href="/secret-indicators/sofr-iorb-spread" style="display:inline-block;padding:10px 20px;background:#4dabf7;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px">다시 시도</a>
       </div>
     </div>
-    `}
+    `;
+    })()}
   </div>
   
   ${chartData ? `

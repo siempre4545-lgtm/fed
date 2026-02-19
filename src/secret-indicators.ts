@@ -189,39 +189,132 @@ async function fetchSovereignRiskGap(): Promise<{ value: number; previousValue: 
   }
 }
 
+/** SOFR-IORB 전용: 타임아웃이 있는 fetch (다른 페이지 영향 없음) */
+const SOFR_IORB_FETCH_MS = 10000;
+
+function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), SOFR_IORB_FETCH_MS);
+  return fetch(url, { ...options, signal: ac.signal }).finally(() => clearTimeout(timeoutId));
+}
+
+/** FRED observations N개 조회 (SOFR-IORB 전용, 타임아웃 적용) */
+async function fetchFREDObservationsForSpread(seriesId: string, limit: number): Promise<{ date: string; value: number }[] | null> {
+  try {
+    const apiKey = process.env.FRED_API_KEY || "demo";
+    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&limit=${limit}&sort_order=desc`;
+    const response = await fetchWithTimeout(url, {
+      headers: { "User-Agent": "h41-dashboard/1.0" },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug(`[secret-indicators] FRED ${seriesId} HTTP ${response.status}`);
+      }
+      return null;
+    }
+    const data = await response.json();
+    if (data.error_code) {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug(`[secret-indicators] FRED ${seriesId} error:`, data.error_message || data.error_code);
+      }
+      return null;
+    }
+    const observations = (data.observations || []).filter((obs: { value?: string }) => obs.value !== ".");
+    const out: { date: string; value: number }[] = [];
+    for (const obs of observations) {
+      const v = parseFloat(obs.value);
+      if (!Number.isNaN(v)) out.push({ date: obs.date, value: v });
+    }
+    if (process.env.NODE_ENV !== "production" && out.length > 0) {
+      console.debug(`[secret-indicators] FRED ${seriesId} observations: ${out.length}, latest date: ${out[0]?.date}`);
+    }
+    return out.length ? out : null;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug(`[secret-indicators] FRED ${seriesId} fetch failed:`, err);
+    }
+    return null;
+  }
+}
+
+export type SOFRIORBSpreadErrorCode = "sofr_fail" | "iorb_fail" | "date_mismatch" | "nan" | undefined;
+
 /**
  * SOFR-IORB 스프레드 데이터 가져오기
- * SOFR과 IORB를 각각 가져와서 스프레드 계산
+ * SOFR과 IORB를 공통 최신일 기준으로 스프레드 계산 (날짜 불일치 방지)
  */
 export async function fetchSOFRIORBSpread(): Promise<{
   sofr: { value: number; previousValue: number; date: string } | null;
   iorb: { value: number; previousValue: number; date: string } | null;
   spread: { value: number; previousValue: number; date: string } | null;
+  errorCode?: SOFRIORBSpreadErrorCode;
 }> {
   try {
-    // SOFR과 IORB를 병렬로 가져오기
-    const [sofrData, iorbData] = await Promise.all([
-      fetchFRED("SOFR", 2),
-      fetchFRED("DFEDTARU", 2) // Interest Rate on Reserve Balances
+    const limit = 60;
+    const [sofrObs, iorbObs] = await Promise.all([
+      fetchFREDObservationsForSpread("SOFR", limit),
+      fetchFREDObservationsForSpread("IORB", limit) // Interest Rate on Reserve Balances (올바른 시리즈 ID)
     ]);
-    
-    let spread: { value: number; previousValue: number; date: string } | null = null;
-    
-    if (sofrData && iorbData) {
-      // 스프레드 계산 (bp 단위로 변환: 1% = 100bp)
-      const spreadValue = (sofrData.value - iorbData.value) * 100;
-      const spreadPreviousValue = (sofrData.previousValue - iorbData.previousValue) * 100;
-      
-      spread = {
-        value: spreadValue,
-        previousValue: spreadPreviousValue,
-        date: sofrData.date // 최신 날짜 사용
+
+    if (!sofrObs || sofrObs.length === 0) {
+      return { sofr: null, iorb: iorbObs?.length ? { value: iorbObs[0].value, previousValue: iorbObs[1]?.value ?? iorbObs[0].value, date: iorbObs[0].date } : null, spread: null, errorCode: "sofr_fail" };
+    }
+    if (!iorbObs || iorbObs.length === 0) {
+      return { sofr: { value: sofrObs[0].value, previousValue: sofrObs[1]?.value ?? sofrObs[0].value, date: sofrObs[0].date }, iorb: null, spread: null, errorCode: "iorb_fail" };
+    }
+
+    const sofrByDate = new Map<string, number>();
+    sofrObs.forEach((o) => sofrByDate.set(o.date, o.value));
+    const iorbByDate = new Map<string, number>();
+    iorbObs.forEach((o) => iorbByDate.set(o.date, o.value));
+
+    const commonDates = sofrObs.map((o) => o.date).filter((d) => iorbByDate.has(d));
+    if (commonDates.length === 0) {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[secret-indicators] SOFR-IORB no common date; SOFR latest:", sofrObs[0]?.date, "IORB latest:", iorbObs[0]?.date);
+      }
+      return {
+        sofr: { value: sofrObs[0].value, previousValue: sofrObs[1]?.value ?? sofrObs[0].value, date: sofrObs[0].date },
+        iorb: { value: iorbObs[0].value, previousValue: iorbObs[1]?.value ?? iorbObs[0].value, date: iorbObs[0].date },
+        spread: null,
+        errorCode: "date_mismatch"
       };
     }
-    
+
+    commonDates.sort((a, b) => b.localeCompare(a));
+    const latestDate = commonDates[0];
+    const prevDate = commonDates[1];
+    const sofrVal = sofrByDate.get(latestDate)!;
+    const iorbVal = iorbByDate.get(latestDate)!;
+    const sofrPrev = prevDate != null ? sofrByDate.get(prevDate) ?? sofrVal : sofrVal;
+    const iorbPrev = prevDate != null ? iorbByDate.get(prevDate) ?? iorbVal : iorbVal;
+
+    const spreadValue = (sofrVal - iorbVal) * 100;
+    const spreadPrevValue = (sofrPrev - iorbPrev) * 100;
+    if (Number.isNaN(spreadValue) || Number.isNaN(spreadPrevValue)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[secret-indicators] SOFR-IORB NaN; sofrVal:", sofrVal, "iorbVal:", iorbVal);
+      }
+      return {
+        sofr: { value: sofrVal, previousValue: sofrPrev ?? sofrVal, date: latestDate },
+        iorb: { value: iorbVal, previousValue: iorbPrev ?? iorbVal, date: latestDate },
+        spread: null,
+        errorCode: "nan"
+      };
+    }
+
+    const spread = {
+      value: spreadValue,
+      previousValue: spreadPrevValue,
+      date: latestDate
+    };
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[secret-indicators] SOFR-IORB spread ok; date:", latestDate, "spread bp:", spreadValue);
+    }
     return {
-      sofr: sofrData,
-      iorb: iorbData,
+      sofr: { value: sofrVal, previousValue: sofrPrev ?? sofrVal, date: latestDate },
+      iorb: { value: iorbVal, previousValue: iorbPrev ?? iorbVal, date: latestDate },
       spread
     };
   } catch (error) {
@@ -229,13 +322,14 @@ export async function fetchSOFRIORBSpread(): Promise<{
     return {
       sofr: null,
       iorb: null,
-      spread: null
+      spread: null,
+      errorCode: "sofr_fail"
     };
   }
 }
 
 /**
- * SOFR-IORB 스프레드 차트 데이터 가져오기 (최근 1년)
+ * SOFR-IORB 스프레드 차트 데이터 가져오기 (최근 1년, 타임아웃 적용)
  */
 export async function fetchSOFRIORBSpreadChartData(days: number = 365): Promise<{
   dates: string[];
@@ -247,28 +341,33 @@ export async function fetchSOFRIORBSpreadChartData(days: number = 365): Promise<
     const apiKey = process.env.FRED_API_KEY || "demo";
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    // SOFR과 IORB 데이터를 병렬로 가져오기
+    const sofrUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=SOFR&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`;
+    const iorbUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=IORB&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`;
+
     const [sofrResponse, iorbResponse] = await Promise.all([
-      fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=SOFR&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`),
-      fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=DFEDTARU&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&sort_order=asc`)
+      fetchWithTimeout(sofrUrl, { headers: { "User-Agent": "h41-dashboard/1.0" }, cache: "no-store" }),
+      fetchWithTimeout(iorbUrl, { headers: { "User-Agent": "h41-dashboard/1.0" }, cache: "no-store" })
     ]);
-    
+
     if (!sofrResponse.ok || !iorbResponse.ok) {
-      console.warn("Failed to fetch chart data from FRED API");
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[secret-indicators] chart FRED HTTP", sofrResponse.status, iorbResponse.status);
+      }
       return null;
     }
-    
+
     const sofrData = await sofrResponse.json();
     const iorbData = await iorbResponse.json();
-    
+
     if (sofrData.error_code || iorbData.error_code) {
-      console.warn("FRED API error:", sofrData.error_message || iorbData.error_message);
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[secret-indicators] chart FRED error:", sofrData.error_message || iorbData.error_message);
+      }
       return null;
     }
-    
-    const sofrObservations = (sofrData.observations || []).filter((obs: any) => obs.value !== ".");
-    const iorbObservations = (iorbData.observations || []).filter((obs: any) => obs.value !== ".");
+
+    const sofrObservations = (sofrData.observations || []).filter((obs: { value?: string }) => obs.value !== ".");
+    const iorbObservations = (iorbData.observations || []).filter((obs: { value?: string }) => obs.value !== ".");
     
     // 날짜 기준으로 매칭
     const dateMap = new Map<string, { sofr?: number; iorb?: number }>();
